@@ -1,10 +1,19 @@
-import { createError } from "../../common/createDiagnostic";
-import { TABS } from "../../../../services/schemas/common/constants";
+import { createError } from "../../common/createDiagnostic.js";
+import { TABS } from "../../../../services/schemas/common/constants.js";
+import { validateKvVertices }
+    from "../../../../services/solver/geometryKv.js";
+
+const GEO_SHAPE = Object.freeze({
+    property: "geo",
+    storagePath: "geo",
+    rows: 8,
+    columns: 3,
+});
 
 const FIXED_ARRAY_SHAPES = Object.freeze([
     { property: "symVi", storagePath: "sym.vi", rows: 3, columns: 1 },
     { property: "symR0", storagePath: "sym.r0", rows: 3, columns: 1 },
-    { property: "geo", storagePath: "geo", rows: 8, columns: 3 },
+    GEO_SHAPE,
     { property: "dr", storagePath: "dr", rows: 3, columns: 1 },
     { property: "dp", storagePath: "dp", rows: 3, columns: 1 },
     { property: "vkan", storagePath: "vkan", rows: 3, columns: 1 },
@@ -22,6 +31,7 @@ export function elementsValidator(
     if (!Array.isArray(elements)) return;
 
     validateArrayShapes(elements, diagnostics);
+    validateGeometry(elements, diagnostics);
     validateRecordOrder(elements, diagnostics);
 }
 
@@ -44,6 +54,31 @@ function validateArrayShapes(elements, diagnostics) {
                 })
             );
         }
+    });
+}
+
+function validateGeometry(elements, diagnostics) {
+    elements.forEach((record, index) => {
+        if (
+            record?.geoType !== 0
+            || !hasCompleteShape(record?.geo, GEO_SHAPE)
+            || validateKvVertices(record.geo)
+        ) {
+            return;
+        }
+
+        diagnostics.push(
+            createError({
+                tab: TABS.ELEMENTS,
+                row: index + 1,
+                property: "geo",
+                message:
+                    "Вершины должны задавать корректный объёмный шестигранник: "
+                    + "рёбра 13, 57, 15, 37 и 26 не вырождены; "
+                    + "13 ∥ 24, 15 ∥ 26 ∥ 37 ∥ 48 и 57 ∥ 68; "
+                    + "нумерация вершин задаёт положительную ориентацию объёма",
+            })
+        );
     });
 }
 
@@ -98,10 +133,10 @@ function validateRecordOrder(elements, diagnostics) {
 function hasCompleteShape(value, { rows, columns }) {
     return Array.isArray(value) &&
         value.length === rows &&
-        value.every(row =>
+        Array.from(value).every(row =>
             Array.isArray(row) &&
             row.length === columns &&
-            row.every(cell =>
+            Array.from(row).every(cell =>
                 cell !== null &&
                 cell !== undefined
             )

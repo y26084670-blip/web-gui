@@ -1,4 +1,4 @@
-import { VALIDATION_LEVELS } from "../../../services/schemas/common/constants";
+import { VALIDATION_LEVELS } from "../../../services/schemas/common/constants.js";
 
 export function createDiagnostic({
     level,

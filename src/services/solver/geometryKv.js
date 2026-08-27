@@ -1,8 +1,44 @@
 // services/solver/geometryKv.js
 // Источник: julia, src/core/03_kv.jl, функция unpack(me::Kv). Снимок 2026-08.
-import { KV_GEO_TYPE } from "../schemas/common/enums";
 
 const GRAD2RADIAN = Math.PI / 180;
+const KV_VALIDATION_EPS = 0.001;
+
+function difference(left, right) {
+    return [
+        left[0] - right[0],
+        left[1] - right[1],
+        left[2] - right[2],
+    ];
+}
+
+function cross(left, right) {
+    return [
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    ];
+}
+
+function dot(left, right) {
+    return left[0] * right[0]
+        + left[1] * right[1]
+        + left[2] * right[2];
+}
+
+function norm(vector) {
+    return Math.hypot(vector[0], vector[1], vector[2]);
+}
+
+function isVertex(vertex) {
+    return Array.isArray(vertex)
+        && vertex.length === 3
+        && Array.from(vertex).every(Number.isFinite);
+}
+
+function areParallel(left, right, tolerance) {
+    return norm(cross(left, right)) < tolerance;
+}
 
 export const KV_GEO_FIELDS = {
     0: ["v1x","v1y","v1z","v2x","v2y","v2z","v3x","v3y","v3z","v4x","v4y","v4z",
@@ -14,6 +50,74 @@ export const KV_GEO_FIELDS = {
 };
 
 export const KV_GEO_LENGTH = 24;   // zeros(REAL, 3 * 8)
+
+// Источник: solver/src/core/03_kv.jl::validator(me::Kv),
+// commit 691f6043c9baab2ce4e6970075edd3bee02c93ca.
+//
+// Нумерация вершин повторяет solver: нечётные вершины относятся к нижней
+// грани, чётные — к верхней; рёбра 12, 34, 56 и 78 соединяют грани.
+// Функция вызывается только для geoType = 0: для остальных типов вершины
+// строятся решателем по параметрам геометрии.
+export function validateKvVertices(
+    vertices,
+    eps = KV_VALIDATION_EPS,
+) {
+    if (
+        !Array.isArray(vertices)
+        || vertices.length !== 8
+        || !Array.from(vertices).every(isVertex)
+        || !Number.isFinite(eps)
+        || eps <= 0
+    ) {
+        return false;
+    }
+
+    const edge13 = difference(vertices[2], vertices[0]);
+    const edge24 = difference(vertices[3], vertices[1]);
+    const edge57 = difference(vertices[6], vertices[4]);
+    const edge68 = difference(vertices[7], vertices[5]);
+    const edge15 = difference(vertices[4], vertices[0]);
+    const edge26 = difference(vertices[5], vertices[1]);
+    const edge37 = difference(vertices[6], vertices[2]);
+    const edge48 = difference(vertices[7], vertices[3]);
+    const parallelTolerance = eps ** 2;
+
+    const parallel13And24 = areParallel(
+        edge13,
+        edge24,
+        parallelTolerance,
+    );
+    const parallel57And68 = areParallel(
+        edge57,
+        edge68,
+        parallelTolerance,
+    );
+    const parallelConnectingEdges =
+        areParallel(edge15, edge26, parallelTolerance)
+        && areParallel(edge37, edge26, parallelTolerance)
+        && areParallel(edge48, edge26, parallelTolerance);
+
+    const requiredEdgesAreNondegenerate =
+        norm(edge13) > eps
+        && norm(edge57) > eps
+        && norm(edge15) > eps
+        && norm(edge37) > eps
+        && norm(edge26) > eps;
+
+    const positiveVolume = dot(
+        difference(vertices[1], vertices[0]),
+        cross(
+            difference(vertices[3], vertices[0]),
+            edge15,
+        ),
+    ) > eps ** 3;
+
+    return parallelConnectingEdges
+        && parallel13And24
+        && parallel57And68
+        && requiredEdgesAreNondegenerate
+        && positiveVolume;
+}
 
 // geo -> вершины [8][3] (kv38, локальная СК). Возврат { vertices, err }.
 export function unpackKvVertices(geo, geoType) {

@@ -19,7 +19,7 @@ import {
     SYM_KIND,
 } from "./common/enums";
 import { createSchema } from "../schemaFactory";
-import { KV_GEO_LENGTH } from "../solver/geometryKv";
+import { KV_GEO_LENGTH } from "../solver/geometryKv.js";
 import {
     eoCount,
     eoCountAll,
@@ -274,7 +274,12 @@ export default createSchema({
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
             label: "Геометрия",
-            description: "Фиксированный буфер геометрии объёмного элемента",
+            description:
+                "Фиксированный буфер геометрии объёмного элемента. "
+                + "Для типа 0 вершины задаются в мм: нечётные вершины "
+                + "расположены снизу, чётные — сверху; рёбра 1–2, 3–4, "
+                + "5–6 и 7–8 соединяют грани; обходы 1–5–7–3 и "
+                + "2–4–8–6 задают внешние нормали нижней и верхней граней",
             default: new Array(KV_GEO_LENGTH).fill(0),
             nColumns: 3,
             order: "row",
