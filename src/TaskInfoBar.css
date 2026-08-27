@@ -1,0 +1,97 @@
+.task-info-bar {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    gap: 10px;
+    padding: 3px 8px;
+    border-bottom: 1px solid #ccc;
+    font-size: 13px;
+}
+
+.task-info-title {
+    width: 70px;
+    font-size: 8px;
+    line-height: 9px;
+    text-align: left;
+    flex-shrink: 0;
+}
+
+.task-info-path {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: monospace;
+}
+
+.validate-button {
+    flex-shrink: 0;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+
+.validation-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Модальное окно панели задания. */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, .35);
+    z-index: 2000;
+}
+
+/* Модальное окно панели задания (нативный <dialog>). */
+.modal-window {
+    min-width: 320px;
+    padding: 16px;
+    border: 1px solid #888;
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .3);
+    background: white;
+}
+
+.modal-window[open] {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+
+.modal-window::backdrop {
+    background: rgba(0, 0, 0, .35);
+}
+
+.modal-text {
+    font-size: 14px;
+    color: #000;
+    text-align: center;
+}
+
+.menu-button {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid #888;
+    border-radius: 3px;
+    background: #d7d7d7;
+    color: #111;
+    font-size: 18px;
+    line-height: 22px;
+    cursor: pointer;
+}
+
+.menu-button:hover,
+.menu-button[aria-expanded="true"] {
+    background: #bfcfbc;
+}

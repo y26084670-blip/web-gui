@@ -1,0 +1,21 @@
+# Все распознанные текстовые файлы хранятся и извлекаются с LF
+* text=auto eol=lf
+
+# Командные файлы Windows
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Командные файлы Unix
+*.sh text eol=lf
+
+# Двоичные файлы — не преобразовывать
+*.png binary
+*.jpg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.7z binary
+*.exe binary
+*.dll binary
+*.bin binary

@@ -1,0 +1,836 @@
+//
+// динамическая вкладка согласно схеме
+//
+
+/*
+===============================================================================
+Контракт использования schema
+До создания экземпляра Tabulator объект schema является единственным
+контекстом описания таблицы и передается в функции построения интерфейса:
+    buildColumns(schema)
+    modelToRows(schema, ...)
+    rowsToModel(schema, ...)
+    ...
+Сразу после создания Tabulator ссылка на schema дополнительно сохраняется в
+    table._gui.schema
+Начиная с этого момента любой код, работающий с существующим экземпляром
+Tabulator, должен использовать table._gui.schema, а не внешний параметр schema.
+Таким образом существуют две стадии жизненного цикла:
+    до new Tabulator()   → schema
+    после new Tabulator() → table._gui.schema
+Данное соглашение позволяет использовать экземпляр Tabulator как полный
+контекст GUI без изменения существующих функций построения таблицы.
+===============================================================================
+*/
+import {
+  FIELD_TYPES,
+  STORAGE_TYPES,
+  VIEW_TYPES,
+} from "../../services/schemas/common/constants";
+import { createEffect, onMount } from "solid-js";
+import { TabulatorFull as Tabulator } from "tabulator-tables";
+import { TableBuilder } from "../../tabulator/builders/TableBuilder";
+import { resolveProperty } from "../../tabulator/schema/propertyResolver";
+import {
+  modelToRows,
+  rowsToModel,
+} from "../../tabulator/converters/modelConverter";
+import { recordRowLabel } from "../../tabulator/converters/rowLabel";
+import { DetailRegion } from "../../tabulator/views/DetailRegion";
+import { dataService } from "../../services/dataService";
+import { selectionService } from "../../services/selectionService";
+import { modelService } from "../../services/modelService";
+import { applyVariantChange } from "../../services/model/variantChange";
+import {
+  isComputedProperty,
+  isPropertyReadonly,
+} from "../../services/model/modelCompute";
+import { selectionContextService } from "../../services/selectionContextService";
+import { recordsActions } from "../../tabulator/actions/recordsActions";
+import { viewRegistry } from "../../tabulator/views/viewRegistry";
+import { COMMON_TABLE_OPTIONS } from "../../tabulator/tableOptions";
+import { diagnosticService } from "../../services/diagnosticService";
+import { viewSettingsService } from "../../services/viewSettingsService";
+
+import "tabulator-tables/dist/css/tabulator.min.css";
+import "../../tabs/Tasks.css";
+
+export function DataEditor(props) {
+  const schema = props.schema;
+
+  let tableDiv;
+  let table;
+  let loadRevision = 0;
+  let hasActiveTask = false;
+  let applyingModel = false;
+  let changingStructure = false;
+  let latestModelRevision = 0;
+  let observedModelRevision = 0;
+  let modelApplyQueue = Promise.resolve();
+  let pendingCellChange = null;
+  let selectionRevision = 0;
+  let observedViewDependencyKey = null;
+  let mainView = null;
+  let mainViewModel = null;
+
+  const viewDependencies = [
+    ...new Set(
+      Object.values(schema.properties).flatMap(
+        (property) => property.computedView?.dependencies ?? [],
+      ),
+    ),
+  ];
+
+  const mainViewPropertyName =
+    schema.views?.main?.property ?? null;
+  const mainViewProperty = mainViewPropertyName
+    ? schema.properties[mainViewPropertyName]
+    : null;
+  const hasMainView = Boolean(mainViewProperty);
+  const mainViewStructureMutable =
+    hasMainView &&
+    !isPropertyReadonly(mainViewProperty) &&
+    mainViewProperty.rowsMutable !== false;
+  const hasDetailRegion =
+    !hasMainView && hasNestedArrays(schema);
+  const hasMainToolbar =
+    schema.config.storage === STORAGE_TYPES.RECORDS &&
+    (!hasMainView || mainViewStructureMutable);
+
+  // Transient source ID существует только в памяти и не входит в BaseModel.
+  const modelSource = Symbol(`DataEditor:${schema.id}`);
+
+  let detailTitleDiv;
+  let detailToolbarDiv;
+  let detailHostDiv;
+
+  const detailRegion = new DetailRegion();
+
+  // Создание таблицы
+  function createMainTable() {
+    if (hasMainView) {
+      createPrimaryMainView();
+      return;
+    }
+
+    const options = {
+      ...COMMON_TABLE_OPTIONS,
+      layout: schema.config.stretchLastColumn
+        ? "fitDataStretch"
+        : "fitDataFill",
+      height: "100%",
+      data: [],
+      columns: TableBuilder.buildColumns(schema),
+      selectableRows: true,
+      selectableRowsRangeMode: "click",
+    };
+
+    table = new Tabulator(tableDiv, options);
+
+    // Контекст GUI данного экземпляра Tabulator.
+    // См. архитектурный контракт использования schema в начале файла.
+    table._gui = {
+      schema,
+      required: !!schema.config.required,
+      detailRegion,
+      model: {
+        getSnapshot() {
+          return modelService.getModel();
+        },
+        getRecord(rowData) {
+          if (schema.config.storage === STORAGE_TYPES.RECORDS) {
+            return rowsToModel(schema, [rowData])[0] ?? null;
+          }
+          return rowsToModel(schema, table.getData());
+        },
+        setRecordValue(rowData, field, value) {
+          return setNestedRecordValue(rowData, field, value);
+        },
+      },
+      structure: {
+        mutable: true,
+        createDefaultRow: () => dataService.createDefaultRecord(schema),
+        beginChange() {
+          pendingCellChange = null;
+          changingStructure = true;
+        },
+        endChange() {
+          changingStructure = false;
+          return publishTableChanged(true);
+        },
+        cancelChange() {
+          changingStructure = false;
+        },
+        updateRowLabel(row, index) {
+          const label = recordRowLabel(index);
+          if (row.getData().rowLabel === label) return undefined;
+          return row.update({ rowLabel: label });
+        },
+      },
+    };
+
+    table.on("rowSelectionChanged", handleRowSelectionChanged);
+
+    table.on("cellClick", handleMainCellClick);
+
+    // cellEdited предшествует dataChanged и хранит точный контекст реакции
+    // свойства; сама публикация модели остаётся единственной в dataChanged.
+    table.on("cellEdited", captureCellChange);
+    table.on("dataChanged", handleTableChanged);
+  }
+
+  // ARRAY-представление в основной области создаётся тем же adapter,
+  // что и связанная таблица, но через model-backed binding без CellComponent.
+  function createPrimaryMainView() {
+    const adapter = viewRegistry.get(
+      mainViewProperty.view ?? VIEW_TYPES.TABLE,
+    );
+
+    if (typeof adapter?.createPrimary !== "function") {
+      throw new Error(
+        `View '${mainViewProperty.view}' does not support views.main.`,
+      );
+    }
+
+    mainView = adapter.createPrimary({
+      schema,
+      property: mainViewProperty,
+      propertyName: mainViewPropertyName,
+      getRecords: () => mainViewModel,
+      setRecords(records) {
+        const update = modelService.setModelPart(
+          schema,
+          records,
+          {
+            source: modelSource,
+            recordHistory: true,
+          },
+        );
+        mainViewModel = update.data;
+      },
+      getModelSnapshot: () => modelService.getModel(),
+      createDefaultRecord: () =>
+        dataService.createDefaultRecord(schema),
+    });
+
+    mainView.attach(tableDiv);
+    mainView.render();
+    table = mainView.getTable();
+  }
+
+  // Вложенное представление явно завершает обновление строки-владельца,
+  // затем публикует единственную ревизию BaseModel. Событие dataChanged,
+  // возникающее внутри row.update, подавляется applyingModel.
+  async function setNestedRecordValue(rowData, field, value) {
+    const row = table
+      ?.getRows()
+      .find(item => item.getData() === rowData);
+
+    if (!row) return undefined;
+
+    applyingModel = true;
+
+    try {
+      await row.update({
+        [field]: structuredClone(value),
+      });
+    } finally {
+      applyingModel = false;
+    }
+
+    // Вложенное редактирование не является сменой варианта основной ячейки.
+    pendingCellChange = null;
+    publishTableChanged(true);
+
+    return row.getData()[field];
+  }
+
+  async function replaceEditorData(data) {
+    if (hasMainView) {
+      mainViewModel = data;
+      await mainView?.render();
+      return;
+    }
+
+    const rows =
+      data === null || data === undefined
+        ? []
+        : modelToRows(schema, data);
+    await table.setData(rows);
+  }
+
+  function handleRowSelectionChanged(_data, rows) {
+    const tableSchema = table?._gui?.schema;
+
+    if (tableSchema?.config.storage === STORAGE_TYPES.RECORDS) {
+      queueDetailForSelection();
+      return;
+    }
+
+    showDetailForSelection(rows);
+  }
+
+  // Объединение синхронной цепочки selection-событий RECORDS не создаёт
+  // временные View до завершения cellClick и не закрывает детали при
+  // промежуточном deselect внутри структурной операции.
+  function queueDetailForSelection() {
+    const revision = ++selectionRevision;
+
+    queueMicrotask(() => {
+      if (!table || revision !== selectionRevision) return;
+      showDetailForSelection(table.getSelectedRows());
+    });
+  }
+
+  // Перенос области деталей на последнюю выделенную запись без смены активного свойства.
+  function showDetailForSelection(rows) {
+    if (!rows || rows.length === 0) return;
+
+    const field = detailRegion.getField();
+    if (!field) return;
+
+    const cell = rows[rows.length - 1].getCell(field);
+    if (!cell) return;
+
+    const tableSchema = cell.getTable()._gui?.schema;
+    const property = resolveProperty(cell, tableSchema);
+    if (!property) return;
+
+    const adapter = viewRegistry.get(property.view ?? VIEW_TYPES.TABLE);
+    adapter?.activate?.(cell, { property });
+  }
+
+  // Обычная ячейка RECORDS прекращает действие активной пары. Для ARRAY
+  // активацию или перенос представления выполняет его ViewAdapter.
+  function handleMainCellClick(_event, cell) {
+    const tableSchema = cell.getTable()._gui?.schema;
+    if (tableSchema?.config.storage !== STORAGE_TYPES.RECORDS) return;
+
+    const property = resolveProperty(cell, tableSchema);
+    const adapter = property
+      ? viewRegistry.get(property.view ?? VIEW_TYPES.TABLE)
+      : null;
+
+    if (
+      property?.type === FIELD_TYPES.ARRAY &&
+      typeof adapter?.activate === "function"
+    ) {
+      return;
+    }
+
+    detailRegion.showHint();
+  }
+
+  // проверка наличия вложенных массивов
+  function hasNestedArrays(schema) {
+    return Object.values(schema.properties).some(
+      (property) => property.type === FIELD_TYPES.ARRAY,
+    );
+  }
+
+  function captureCellChange(cell) {
+    const rowData = cell.getRow().getData();
+    const propertyName =
+      schema.config.storage === STORAGE_TYPES.CLUSTER
+        ? rowData.property
+        : cell.getField();
+
+    if (!schema.properties[propertyName]) {
+      pendingCellChange = null;
+      return;
+    }
+
+    pendingCellChange = {
+      propertyName,
+      recordIndex:
+        schema.config.storage === STORAGE_TYPES.RECORDS
+          ? table.getData().indexOf(rowData)
+          : null,
+      oldValue: structuredClone(cell.getOldValue()),
+      newValue: structuredClone(cell.getValue()),
+    };
+  }
+
+  // Событие cellEdited отличает пользовательскую правку от setData
+  // при загрузке. Структурные и вложенные операции публикуются явно.
+  function handleTableChanged() {
+    return publishTableChanged(pendingCellChange !== null);
+  }
+
+  // Единственная публикация направления Tabulator -> BaseModel.
+  function publishTableChanged(recordHistory = false) {
+    if (applyingModel || changingStructure || !table) {
+      return undefined;
+    }
+
+    detailRegion.clearIfSourceMissing(table);
+
+    const rows = table.getData();
+    const baseModel = rowsToModel(schema, rows);
+    const result = applyVariantChange(
+      schema,
+      baseModel,
+      pendingCellChange,
+    );
+
+    pendingCellChange = null;
+
+    // Изменение варианта требует полной внешней синхронизации. Обычная
+    // правка остаётся собственной: вычисленные поля применяются точечно.
+    const source = result.refresh ? null : modelSource;
+    const update = modelService.setModelPart(
+      schema,
+      result.model,
+      {
+        source,
+        recordHistory,
+      },
+    );
+
+    if (
+      source === modelSource &&
+      update.computedPatches.length > 0 &&
+      !applyComputedPatches(update.computedPatches)
+    ) {
+      // Защитный fallback при рассогласовании состава строк.
+      queueModelUpdate(update);
+    }
+
+    return update;
+  }
+
+  // Точечное применение вычисленных полей той же revision. Row.update
+  // синхронно публикует dataChanged, поэтому applyingModel подавляет
+  // обратную запись без полного replaceData и закрытия DetailRegion.
+  function applyComputedPatches(patches) {
+    if (!table || patches.length === 0) return true;
+
+    const targets = [];
+    const activeField = detailRegion.getField();
+    let refreshDetail = false;
+
+    if (schema.config.storage === STORAGE_TYPES.RECORDS) {
+      const rows = table.getRows();
+      const grouped = new Map();
+
+      for (const patch of patches) {
+        if (
+          !Number.isInteger(patch.recordIndex) ||
+          !rows[patch.recordIndex]
+        ) {
+          return false;
+        }
+
+        if (!grouped.has(patch.recordIndex)) {
+          grouped.set(patch.recordIndex, {});
+        }
+
+        grouped.get(patch.recordIndex)[patch.propertyName] =
+          structuredClone(patch.value);
+        refreshDetail ||= patch.propertyName === activeField;
+      }
+
+      for (const [recordIndex, values] of grouped) {
+        targets.push([rows[recordIndex], values]);
+      }
+    } else {
+      const rows = table.getRows();
+
+      for (const patch of patches) {
+        const property = schema.properties[patch.propertyName];
+
+        // ARRAY без nColumns развёрнут в несколько строк CLUSTER.
+        // Изменение длины и всех arrayIndex безопасно выполняет полный update.
+        if (
+          property?.type === FIELD_TYPES.ARRAY &&
+          !property.nColumns
+        ) {
+          return false;
+        }
+
+        const row = rows.find(item =>
+          item.getData().property === patch.propertyName &&
+          item.getData().arrayIndex === undefined
+        );
+        if (!row) return false;
+
+        targets.push([
+          row,
+          { value: structuredClone(patch.value) },
+        ]);
+        refreshDetail ||= patch.propertyName === activeField;
+      }
+    }
+
+    const updates = [];
+    applyingModel = true;
+
+    try {
+      for (const [row, values] of targets) {
+        updates.push(row.update(values));
+      }
+    } finally {
+      applyingModel = false;
+    }
+
+    Promise.all(updates).catch((error) => {
+      console.error(
+        `${schema.id} computed patch error:`,
+        error,
+      );
+    });
+
+    if (refreshDetail) {
+      detailRegion.refresh();
+    }
+
+    return true;
+  }
+
+  // Последовательное применение внешних ревизий BaseModel к Tabulator.
+  function queueModelUpdate(update) {
+    latestModelRevision = Math.max(
+      latestModelRevision,
+      update.revision,
+    );
+
+    modelApplyQueue = modelApplyQueue
+      .then(async () => {
+        if (
+          !table ||
+          update.revision < latestModelRevision
+        ) {
+          return;
+        }
+
+        if (hasMainView) {
+          mainViewModel = update.data;
+          await mainView?.render();
+          return;
+        }
+
+        const rows =
+          update.data === null || update.data === undefined
+            ? []
+            : modelToRows(schema, update.data);
+
+        applyingModel = true;
+        detailRegion.showHint();
+
+        try {
+          await table.replaceData(rows);
+        } finally {
+          applyingModel = false;
+        }
+      })
+      .catch((error) => {
+        console.error(
+          `${schema.id} model update error:`,
+          error,
+        );
+      });
+  }
+
+  // Операции панели основной таблицы выполняются над своей таблицей.
+  function mainAction(action) {
+    return () => {
+      selectionContextService.setActiveTable(table);
+      action();
+    };
+  }
+
+  function applyComputedColumnsVisibility(mode) {
+    if (!table) return;
+
+    if (hasMainView) {
+      mainView?.setComputedColumnsVisibility?.(mode);
+      return;
+    }
+
+    if (schema.config.storage === STORAGE_TYPES.RECORDS) {
+      for (const [name, property] of Object.entries(schema.properties)) {
+        if (!isComputedProperty(property)) continue;
+
+        const column = table.getColumn(name);
+        if (!column) continue;
+
+        const visible =
+          viewSettingsService.isComputedColumnVisible(
+            property.hidden,
+            mode,
+          );
+
+        if (column.isVisible?.() === visible) continue;
+
+        if (visible) {
+          column.show();
+        } else {
+          column.hide();
+        }
+      }
+    }
+
+    detailRegion.setComputedColumnsVisibility?.(mode);
+  }
+
+  //==========================================================================
+  onMount(() => {
+    createMainTable();
+
+    if (hasDetailRegion) {
+      detailRegion.attach({
+        title: detailTitleDiv,
+        toolbar: detailToolbarDiv,
+        host: detailHostDiv,
+      });
+    }
+  });
+
+  // Активация вкладки является явным событием жизненного цикла.
+  // requestAnimationFrame выполняется после применения display:block.
+  createEffect(() => {
+    if (!props.active) return;
+
+    requestAnimationFrame(() => {
+      if (!props.active || !table) return;
+
+      if (hasMainView) {
+        Promise.resolve(mainView?.render())
+          .then(() => {
+            if (props.active) {
+              mainView?.onVisible?.();
+            }
+          })
+          .catch((error) => {
+            console.error(
+              `${schema.id} visibility refresh error:`,
+              error,
+            );
+          });
+        return;
+      }
+
+      table.redraw(true);
+
+      Promise.resolve(detailRegion.onVisible())
+        .catch((error) => {
+          console.error(
+            `${schema.id} detail visibility error:`,
+            error,
+          );
+        });
+    });
+  });
+
+  // Режим общий для вкладок, но применяется только к активному редактору.
+  createEffect(() => {
+    const mode = props.computedColumnsMode;
+
+    if (!props.active || !table) return;
+
+    applyComputedColumnsVisibility(mode);
+  });
+
+  // Загрузка данных модели
+  createEffect(async () => {
+    const revision = ++loadRevision;
+    const dirHandle = selectionService.loadedTaskHandle();
+    selectionService.taskDataVersion();
+
+    if (hasDetailRegion) {
+      detailRegion.showHint();
+    }
+
+    if (!dirHandle) {
+      if (!hasActiveTask) return;
+
+      hasActiveTask = false;
+      if (table) {
+        await replaceEditorData(null);
+      }
+      return;
+    }
+
+    hasActiveTask = true;
+
+    try {
+      const diagnostics = [];
+      const baseModel = await dataService.load(dirHandle, schema, diagnostics);
+      if (revision !== loadRevision) return;
+
+      diagnosticService.setLoadResult(schema.id, diagnostics);
+
+      if (baseModel === null) {
+        modelService.setModelPart(
+          schema,
+          null,
+          { source: modelSource },
+        );
+        await replaceEditorData(null);
+        return;
+      }
+
+      const update = modelService.setModelPart(
+        schema,
+        baseModel,
+        { source: modelSource },
+      );
+      await replaceEditorData(update.data);
+    } catch (err) {
+      if (revision !== loadRevision) return;
+
+      console.error(schema.config.file + " loading error:", err);
+      modelService.setModelPart(
+        schema,
+        null,
+        { source: modelSource },
+      );
+      await replaceEditorData(null);
+    }
+  });
+
+  // Направление BaseModel -> Tabulator. Собственные публикации редактора
+  // игнорируются: их значения уже находятся в таблице.
+  createEffect(() => {
+    const update = modelService.getModelPartUpdate(schema.id);
+
+    if (
+      !table ||
+      !update ||
+      update.revision <= observedModelRevision
+    ) {
+      return;
+    }
+
+    observedModelRevision = update.revision;
+    latestModelRevision = Math.max(
+      latestModelRevision,
+      update.revision,
+    );
+
+    if (update.source === modelSource) return;
+
+    queueModelUpdate(update);
+  });
+
+  // Вычисляемое представление наблюдает только объявленные внешние части
+  // BaseModel. TableView получает снимок через binding адаптера и сам на
+  // modelService не подписывается.
+  createEffect(() => {
+    if (viewDependencies.length === 0) return;
+
+    const revisionKey = viewDependencies
+      .map(
+        (id) =>
+          modelService.getModelPartUpdate(id)?.revision ?? 0,
+      )
+      .join(":");
+
+    if (revisionKey === observedViewDependencyKey) return;
+    observedViewDependencyKey = revisionKey;
+
+    if (!table) return;
+
+    if (hasMainView) {
+      Promise.resolve(mainView?.render()).catch((error) => {
+        console.error(
+          `${schema.id} computed view refresh error:`,
+          error,
+        );
+      });
+    } else {
+      detailRegion.refresh();
+    }
+  });
+
+  //==========================================================================
+  return (
+    <div
+      style={{
+        display: "flex",
+        "flex-direction": "column",
+        width: "100%",
+        position: "fixed",
+        top: "90px",
+        bottom: "10px",
+        left: "0",
+        right: "0",
+      }}
+    >
+      {hasMainToolbar && (
+        <div
+          style={{
+            display: "flex",
+            gap: "6px",
+            padding: "4px",
+          }}
+        >
+          <button
+            title={hasMainView ? "Добавить строку" : "Добавить запись"}
+            onClick={mainAction(() => recordsActions.addRecord())}
+          >
+            +
+          </button>
+          {!hasMainView && (
+            <>
+              <button
+                title="Копировать выделенные"
+                onClick={mainAction(() => recordsActions.copyRecords())}
+              >
+                {" "}
+                C
+              </button>
+              <button
+                title="Вставить скопированные"
+                onClick={mainAction(() => recordsActions.pasteRecords())}
+              >
+                P
+              </button>
+            </>
+          )}
+          <button
+            title={hasMainView ? "Удалить строки" : "Удалить выделенные"}
+            onClick={mainAction(() => recordsActions.removeRecord())}
+          >
+            −
+          </button>
+          <button
+            title={hasMainView ? "Переместить строки вверх" : "Переместить выделенные вверх"}
+            onClick={mainAction(() => recordsActions.moveRecordUp())}
+          >
+            ↑
+          </button>
+          <button
+            title={hasMainView ? "Переместить строки вниз" : "Переместить выделенные вниз"}
+            onClick={mainAction(() => recordsActions.moveRecordDown())}
+          >
+            ↓
+          </button>
+        </div>
+      )}
+
+      <div
+        ref={(el) => (tableDiv = el)}
+        style={{
+          flex: 1,
+          "min-height": 0,
+        }}
+      />
+      {hasDetailRegion && (
+        <div class="detail-region">
+          <div class="detail-region-header">
+            <div
+              class="detail-region-title"
+              ref={(el) => (detailTitleDiv = el)}
+            />
+            <div
+              class="detail-region-toolbar"
+              ref={(el) => (detailToolbarDiv = el)}
+            />
+          </div>
+          <div class="detail-region-host" ref={(el) => (detailHostDiv = el)} />
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,210 @@
+.box {
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  max-width: 600px;
+  margin-bottom: 20px;
+}
+
+.box h4 {
+  margin-top: 5px;
+  /* отступ снизу от заголовка */
+  margin-bottom: 5px;
+}
+
+.box select {
+  margin-top: 5px;
+  /* отступ сверху от select */
+  width: 100%;
+  /* чтобы select занимал всю ширину */
+}
+
+
+.listTask {
+  top: 270px;
+  border-radius: 10px;
+  left: 20px;
+  right: 120px;
+  bottom: 5px;
+  max-width: 600px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 8px;
+  background: #fafafa;
+}
+
+.listTask-item {
+  padding: 8 px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.listTask-item.selected {
+  background: #c0d8ff;
+  font-weight: bold;
+}
+
+.listTask-item:hover {
+  background: #e0e0e0;
+}
+
+select {
+  width: 100%;
+  padding: 6px;
+  max-width: 600px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+button {
+  padding: 10px 16px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+
+.tabulator {
+  font-size: 14px;
+}
+
+.tabulator-row {
+  color: #000;
+}
+
+.tabulator-cell {
+  color: #000;
+  font-weight: 600;
+}
+
+/* Исходная ячейка активного связанного представления RECORDS.
+   Внутренняя рамка не изменяет размеры и не заменяет border валидации. */
+.tabulator .tabulator-row .tabulator-cell.detail-source-active {
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.tabulator-col {
+  background: #d0d0d0;
+  color: #000;
+  font-weight: 700;
+}
+
+/* Переключаемые вычисляемые колонки: спокойный визуальный акцент
+   одинаково применяется к заголовку и значениям. */
+.tabulator .computed-column {
+  color: #3f6175;
+}
+
+.nested-table-view {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.detail-region {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  max-height: 300px;
+  margin-top: 6px;
+  border: 1px solid #666;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+
+.detail-region-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 6px;
+  background: #d0d0d0;
+  border-bottom: 1px solid #666;
+}
+
+.detail-region-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #000;
+}
+
+.detail-region-toolbar {
+  display: flex;
+  gap: 4px;
+}
+
+/* Панель операций области деталей: тот же состав кнопок,
+   уменьшенная высота под строку вложенной таблицы. */
+.detail-region-toolbar button {
+  padding: 0 6px;
+  height: 20px;
+  min-width: 22px;
+  font-size: 12px;
+  line-height: 18px;
+  border-radius: 3px;
+}
+
+.detail-region-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+}
+
+.task-load-error-dialog {
+  max-width: 440px;
+  padding: 18px;
+  border: 1px solid #888;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .3);
+  background: white;
+}
+
+.task-load-error-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.task-load-error-dialog p {
+  margin: 0;
+  color: #000;
+  text-align: center;
+}
+
+.task-load-error-dialog::backdrop {
+  background: rgba(0, 0, 0, .35);
+}
+
+
+/* Увеличенный горизонтальный и компактный вертикальный скроллы Tabulator. */
+.tabulator .tabulator-tableholder {
+  scrollbar-color: #7b858f #d7dbe0;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar {
+  width: 10px;
+  height: 18px;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-track {
+  background: #d7dbe0;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-thumb {
+  border: 2px solid #d7dbe0;
+  border-radius: 8px;
+  background: #7b858f;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-thumb:hover {
+  background: #5f6973;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-corner {
+  background: #d7dbe0;
+}

@@ -1,0 +1,12 @@
+{
+    admin 127.0.0.1:2021
+    auto_https disable_redirects
+}
+
+https://{$CLARK_GUI_HOST} {
+    tls internal
+    root * "{$CLARK_GUI_ROOT}/dist"
+    encode zstd gzip
+    try_files {path} /index.html
+    file_server
+}

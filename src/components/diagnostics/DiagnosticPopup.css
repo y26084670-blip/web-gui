@@ -1,0 +1,99 @@
+.diagnostic-popup {
+    position: absolute;
+    top: 22px;
+    right: 0;
+    min-width: 260px;
+    padding: 10px;
+    background: white;
+    border: 1px solid #808080;
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .25);
+    z-index: 1000;
+}
+
+.diagnostic-popup {
+    min-width: 300px;
+    max-width: 500px;
+
+    padding: 10px;
+
+    background: white;
+
+    border: 1px solid #888;
+    border-radius: 4px;
+
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
+}
+
+.diagnostic-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.diagnostic-item1 {
+    padding: 6px 0;
+    border-top: 1px solid #ddd;
+}
+
+.diagnostic-item {
+    margin-bottom: 8px;
+    padding: 8px;
+    border: 1px solid #c0c0c0;
+    border-radius: 4px;
+    cursor: default;
+}
+
+.diagnostic-item-selectable {
+    cursor: pointer;
+}
+
+.diagnostic-item-selectable:hover {
+    background: #f8f8f8;
+}
+
+.level-error {
+    color: red;
+}
+
+.level-warning {
+    color: rgb(211, 143, 17);
+}
+
+.level-success {
+    color: green;
+}
+
+.level-unknown {
+    color: gray;
+}
+
+.diagnostic-level {
+    margin: 0 0 6px 0;
+    padding: 2px 6px;
+    font-size: 0.85em;
+    font-weight: bold;
+    background-color: #d4f6d7;
+}
+
+.diagnostic-message {
+    margin-bottom: 4px;
+}
+
+.diagnostic-source {
+    font-size: 0.85em;
+    color: #666;
+}
+
+.diagnostic-message1 {
+    margin-top: 3px;
+}
+
+.diagnostic-source1 {
+    margin-top: 4px;
+    font-size: 0.8em;
+    color: #666;
+}
+
+.diagnostic-source span {
+    margin-right: 10px;
+}
