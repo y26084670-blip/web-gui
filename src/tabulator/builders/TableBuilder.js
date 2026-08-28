@@ -23,6 +23,10 @@ import {
     isPropertyReadonly,
 } from "../../services/model/modelCompute";
 import { viewSettingsService } from "../../services/viewSettingsService";
+import {
+    hasRecordColumnsView,
+    recordColumnField,
+} from "../converters/recordColumns";
 
 import "../../tabs/Tasks.css";
 
@@ -102,7 +106,10 @@ export const TableBuilder = {
             },
             formatter: universalFormatter,
             tooltip(e, cell) {
-                if (schema.config.storage === STORAGE_TYPES.RECORDS) {
+                if (
+                    schema.config.storage === STORAGE_TYPES.RECORDS &&
+                    !hasRecordColumnsView(schema)
+                ) {
                     return overflowCellTooltip(cell);
                 }
                 return resolveProperty(cell, schema,)?.description ?? "";
@@ -131,6 +138,9 @@ export const TableBuilder = {
     },
 
     buildColumns(schema) {
+        if (hasRecordColumnsView(schema)) {
+            return this.buildRecordColumns(schema);
+        }
         if (schema.config.storage === STORAGE_TYPES.CLUSTER) {
             return this.buildClusterColumns(schema);
         }
@@ -140,6 +150,27 @@ export const TableBuilder = {
         throw new Error(
             `Unknown storage: ${schema.config.storage}`
         );
+    },
+
+    buildRecordColumns(schema) {
+        const columns = [
+            {
+                title: schema.config.rowLabelTitle ?? "Параметр",
+                field: "rowLabel",
+                width: schema.config.rowLabelWidth ?? 250,
+                headerTooltip: schema.config.rowLabelDescription ?? "",
+            },
+        ];
+
+        schema.views.recordsAsColumns.labels.forEach((label, recordIndex) => {
+            columns.push({
+                title: label,
+                field: recordColumnField(recordIndex),
+                ...this.buildValueColumnConfig(schema),
+            });
+        });
+
+        return columns;
     },
 
     buildRecordsColumns(schema) {

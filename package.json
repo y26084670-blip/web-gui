@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "dev": "vite",
-    "build": "vite build",
-    "build:release": "vite build --mode production",
-    "build:pages": "vite build --mode production --base=/web-gui/",
+    "assets:prepare": "node scripts/default-library-assets.mjs prepare",
+    "assets:verify": "node scripts/default-library-assets.mjs verify",
+    "dev": "npm run assets:prepare && vite",
+    "build": "npm run assets:prepare && vite build && npm run assets:verify",
+    "build:release": "npm run assets:prepare && vite build --mode production && npm run assets:verify",
+    "build:pages": "npm run assets:prepare && vite build --mode production --base=/web-gui/ && npm run assets:verify",
     "preview": "vite preview"
   },
   "dependencies": {

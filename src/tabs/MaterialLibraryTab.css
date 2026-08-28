@@ -1,0 +1,124 @@
+.material-library-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  position: fixed;
+  top: 90px;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+}
+
+.material-library-table {
+  flex: 1 1 auto;
+  min-height: 180px;
+}
+
+.material-library-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 2px 4px;
+}
+
+.material-library-actions button {
+  padding: 5px 10px;
+}
+
+.material-library-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.material-library-action-progress {
+  color: #222;
+  font-size: 13px;
+}
+
+.material-library-action-hint,
+.material-library-action-status {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid #8a8a8a;
+  background: #e4e4e4;
+  color: #111;
+  font-size: 13px;
+}
+
+.material-library-action-hint {
+  color: #444;
+}
+
+.material-library-message {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid #8a8a8a;
+  background: #e4e4e4;
+  color: #111;
+  font-size: 13px;
+}
+
+.material-library-error {
+  border-color: #a33;
+  background: #f6dede;
+  color: #741515;
+}
+
+.material-library-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  flex: 0 0 300px;
+  min-height: 0;
+}
+
+.material-library-lower.with-graph {
+  grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr);
+}
+
+.material-library-detail.detail-region {
+  margin-top: 0;
+  max-height: none;
+  min-height: 0;
+}
+
+.fmm-graph-region {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid #666;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+
+.fmm-graph-region-title {
+  padding: 4px 8px;
+  border-bottom: 1px solid #666;
+  background: #d0d0d0;
+  color: #000;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fmm-graph-region-host {
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px;
+  color: #555;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .material-library-lower.with-graph {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(200px, 1fr) minmax(160px, 1fr);
+    flex-basis: 430px;
+    overflow: auto;
+  }
+}

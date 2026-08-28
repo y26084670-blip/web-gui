@@ -51,6 +51,10 @@ import { viewRegistry } from "../../tabulator/views/viewRegistry";
 import { COMMON_TABLE_OPTIONS } from "../../tabulator/tableOptions";
 import { diagnosticService } from "../../services/diagnosticService";
 import { viewSettingsService } from "../../services/viewSettingsService";
+import {
+  hasRecordColumnsView,
+  recordIndexFromColumn,
+} from "../../tabulator/converters/recordColumns";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
 import "../../tabs/Tasks.css";
@@ -87,6 +91,7 @@ export function DataEditor(props) {
     ? schema.properties[mainViewPropertyName]
     : null;
   const hasMainView = Boolean(mainViewProperty);
+  const hasRecordColumns = hasRecordColumnsView(schema);
   const mainViewStructureMutable =
     hasMainView &&
     !isPropertyReadonly(mainViewProperty) &&
@@ -95,6 +100,7 @@ export function DataEditor(props) {
     !hasMainView && hasNestedArrays(schema);
   const hasMainToolbar =
     schema.config.storage === STORAGE_TYPES.RECORDS &&
+    !hasRecordColumns &&
     (!hasMainView || mainViewStructureMutable);
 
   // Transient source ID существует только в памяти и не входит в BaseModel.
@@ -148,7 +154,7 @@ export function DataEditor(props) {
         },
       },
       structure: {
-        mutable: true,
+        mutable: !hasRecordColumns,
         createDefaultRow: () => dataService.createDefaultRecord(schema),
         beginChange() {
           pendingCellChange = null;
@@ -330,22 +336,31 @@ export function DataEditor(props) {
 
   function captureCellChange(cell) {
     const rowData = cell.getRow().getData();
-    const propertyName =
-      schema.config.storage === STORAGE_TYPES.CLUSTER
-        ? rowData.property
-        : cell.getField();
+    let propertyName;
+    let recordIndex = null;
 
-    if (!schema.properties[propertyName]) {
+    if (schema.config.storage === STORAGE_TYPES.CLUSTER) {
+      propertyName = rowData.property;
+    } else if (hasRecordColumns) {
+      propertyName = rowData._property;
+      recordIndex = recordIndexFromColumn(cell.getField());
+    } else {
+      propertyName = cell.getField();
+      recordIndex = table.getData().indexOf(rowData);
+    }
+
+    if (
+      !schema.properties[propertyName] ||
+      (schema.config.storage === STORAGE_TYPES.RECORDS &&
+        !Number.isInteger(recordIndex))
+    ) {
       pendingCellChange = null;
       return;
     }
 
     pendingCellChange = {
       propertyName,
-      recordIndex:
-        schema.config.storage === STORAGE_TYPES.RECORDS
-          ? table.getData().indexOf(rowData)
-          : null,
+      recordIndex,
       oldValue: structuredClone(cell.getOldValue()),
       newValue: structuredClone(cell.getValue()),
     };

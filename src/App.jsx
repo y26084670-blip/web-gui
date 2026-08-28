@@ -2,7 +2,9 @@ import { createEffect, createSignal, For } from "solid-js";
 
 import { Tasks } from "./tabs/Tasks.jsx";
 import { DataEditor } from "./components/editors/DataEditor.jsx";
+import { MaterialLibraryTab } from "./tabs/MaterialLibraryTab.jsx";
 import { tabRegistry } from "./services/tabRegistry";
+import { materialTabRegistry } from "./services/materialTabRegistry";
 import { TaskInfoBar } from "./TaskInfoBar";
 import { SidePanel } from "./components/SidePanel";
 import { TABS } from "./services/schemas/common/constants";
@@ -38,6 +40,7 @@ export default function App() {
       id: TABS.TASKS.id,
       label: "Задачи и результаты",
       component: Tasks,
+      historyEnabled: false,
     },
 
     ...tabRegistry.map((schema) => ({
@@ -51,9 +54,23 @@ export default function App() {
         />
       ),
     })),
+
+    ...materialTabRegistry.map((definition) => ({
+      id: definition.id,
+      label: definition.label,
+      historyEnabled: false,
+      component: (props) => (
+        <MaterialLibraryTab
+          definition={definition}
+          active={props.active}
+        />
+      ),
+    })),
   ];
+  const activeTabDefinition = () =>
+    tabs.find((tab) => tab.id === activeTab());
   const historyTabId = () =>
-    activeTab() === TABS.TASKS.id
+    activeTabDefinition()?.historyEnabled === false
       ? null
       : activeTab();
   const historyTabLabel = () =>

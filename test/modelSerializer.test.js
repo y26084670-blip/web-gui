@@ -115,7 +115,7 @@ test("legacy htcFlatten field is dropped during CLUSTER round-trip", () => {
     );
 });
 
-test("legacy Conrab fields are dropped during CLUSTER round-trip", () => {
+test("legacy Conrab fields are dropped from both RECORDS profiles", () => {
     const legacyFields = {
         EPS_J: 0.001,
         EPS_M: 0.002,
@@ -126,21 +126,31 @@ test("legacy Conrab fields are dropped during CLUSTER round-trip", () => {
         SCALE_0: 1,
         HIP_MIN: 0.0001,
     };
-    const storage = {
-        sym: { kya: -1 },
-        matrix: [],
-        meta: { count: 0 },
-        missing: "value",
-        ...legacyFields,
+    const schema = {
+        id: "conrab-fixture",
+        config: { storage: "records" },
+        properties: {
+            EPS: { type: "float", default: 0.005 },
+        },
     };
+    const storage = [
+        { EPS: 0.001, ...legacyFields },
+        { EPS: 0.0005, ...legacyFields },
+    ];
 
-    const model = deserialize(storage, clusterSchema());
-    const serialized = serialize(model, clusterSchema());
+    const model = deserialize(storage, schema);
+    const serialized = serialize(model, schema);
 
-    for (const key of Object.keys(legacyFields)) {
-        assert.equal(Object.hasOwn(model, key), false);
-        assert.equal(Object.hasOwn(serialized, key), false);
+    for (const record of [...model, ...serialized]) {
+        for (const key of Object.keys(legacyFields)) {
+            assert.equal(Object.hasOwn(record, key), false);
+        }
     }
+
+    assert.deepEqual(serialized, [
+        { EPS: 0.001 },
+        { EPS: 0.0005 },
+    ]);
 });
 
 test("RECORDS serialization applies the same contract to each record", () => {

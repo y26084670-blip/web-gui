@@ -91,7 +91,9 @@ export function Tasks() {
     }
 
     try {
-      const handle = await window.showDirectoryPicker();
+      const handle = await window.showDirectoryPicker({
+        mode: "readwrite",
+      });
       const requestId = invalidateTaskSelection();
       setRootHandle(handle);
       setRootName("Корневой каталог: " + handle.name);

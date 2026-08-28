@@ -139,3 +139,6 @@ dist
 deploy/caddy/settings.local.json
 deploy/caddy/root.crt
 deploy/caddy/caddy.local.pid
+
+# Generated static assets assembled from the canonical data/ tree
+.generated/

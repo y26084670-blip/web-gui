@@ -20,6 +20,10 @@ import {
     isStoredProperty,
     recomputeModel,
 } from "./model/modelCompute";
+import {
+    assertFixedRecordCount,
+    parseFixedRecordLines,
+} from "../tabulator/converters/recordColumns";
 
 // используется след принцип (а)синхронности:
 // всё, что связано с файловой системой (File System Access API) — async;
@@ -89,7 +93,14 @@ export const dataService = {
                     storageModel = this.readCluster(text);
                     break;
                 case STORAGE_TYPES.RECORDS:
-                    storageModel = this.readRecords(text);
+                    storageModel = this.readRecords(
+                        text,
+                        schema.config.recordCount,
+                    );
+                    assertFixedRecordCount(
+                        storageModel,
+                        schema.config.recordCount,
+                    );
                     break;
                 default:
                     throw new Error(
@@ -229,6 +240,13 @@ export const dataService = {
         const normalized = recomputeModel(schema, baseModel).model;
         const storageModel = serialize(normalized, schema);
 
+        if (schema.config.storage === STORAGE_TYPES.RECORDS) {
+            assertFixedRecordCount(
+                storageModel,
+                schema.config.recordCount,
+            );
+        }
+
         const inputHandle = await dirHandle.getDirectoryHandle(
             schema.config.directory,
             { create: true }
@@ -269,7 +287,11 @@ export const dataService = {
     },
 
     // JSON Lines (по одному объекту в строке)
-    readRecords(text) {
+    readRecords(text, recordCount = undefined) {
+        if (recordCount !== undefined) {
+            return parseFixedRecordLines(text);
+        }
+
         return text
             .split(/\r?\n/)
             .map(line => line.trim())
@@ -286,7 +308,8 @@ export const dataService = {
     // Формирует данные по умолчанию на основании схемы.
     // Рабочий UI эту функцию сейчас не вызывает.
     // Для storage = "cluster" возвращает объект.
-    // Для storage = "records" возвращает массив с одной записью по умолчанию.
+    // Для storage = "records" возвращает recordCount записей, если число
+    // зафиксировано схемой, иначе одну запись по умолчанию.
     createDefaultData(schema) {
         switch (schema.config.storage) {
             case STORAGE_TYPES.CLUSTER: {
@@ -296,10 +319,13 @@ export const dataService = {
                 }
                 return recomputeModel(schema, cluster).model;
             }
-            case STORAGE_TYPES.RECORDS:
-                return [
-                    this.createDefaultRecord(schema),
-                ];
+            case STORAGE_TYPES.RECORDS: {
+                const count = schema.config.recordCount ?? 1;
+                return Array.from(
+                    { length: count },
+                    () => this.createDefaultRecord(schema),
+                );
+            }
             default:
                 throw new Error(
                     `Unknown storage type "${schema.config.storage}".`

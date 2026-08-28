@@ -65,6 +65,16 @@ export const TABS = {
         id: "mhj",
         label: "Заданные источники",
     },
+
+    FMM_LIBRARY: {
+        id: "fmmLibrary",
+        label: "Характеристики ФММ",
+    },
+
+    HTC_LIBRARY: {
+        id: "htcLibrary",
+        label: "Характеристики ВТСП",
+    },
 };
 
 export const VALIDATION_LEVELS = {

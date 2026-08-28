@@ -1,6 +1,7 @@
 /*
 Источник: solver/src/core/types.jl, Conrab. Снимок 2026-08.
-Актуальная структура содержит 17 сериализуемых полей.
+Файл содержит две RECORDS-записи: Float32, затем Float64.
+Каждая запись содержит 17 сериализуемых полей.
 */
 import {
     TABS,
@@ -14,9 +15,16 @@ export default createSchema({
     id: TABS.CONRAB.id,
     title: TABS.CONRAB.label,
     file: FILES.CONRAB,
-    storage: STORAGE_TYPES.CLUSTER,
+    storage: STORAGE_TYPES.RECORDS,
     required: true,
+    recordCount: 2,
     rowLabelDescription: "Параметры математической модели",
+
+    views: {
+        recordsAsColumns: {
+            labels: ["Float32", "Float64"],
+        },
+    },
 
     properties: {
         EPS: {

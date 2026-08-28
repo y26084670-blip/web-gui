@@ -8,6 +8,11 @@ import {
     propertyRowLabel,
     recordRowLabel,
 } from "./rowLabel";
+import {
+    hasRecordColumnsView,
+    propertyRowsToRecords,
+    recordsToPropertyRows,
+} from "./recordColumns";
 
 // Модель -> строки Tabulator
 export const modelToRows = (schema, data) => {
@@ -43,6 +48,9 @@ export const modelToRows = (schema, data) => {
         }
 
         case STORAGE_TYPES.RECORDS:
+            if (hasRecordColumnsView(schema)) {
+                return recordsToPropertyRows(schema, data);
+            }
             return data.map((record, index) => ({
                 rowLabel: recordRowLabel(index),
                 ...record,
@@ -78,6 +86,9 @@ export function rowsToModel(schema, rows) {
         }
 
         case STORAGE_TYPES.RECORDS: {
+            if (hasRecordColumnsView(schema)) {
+                return propertyRowsToRecords(schema, rows);
+            }
             return rows.map(({ rowLabel, ...record }) => record);
         }
 

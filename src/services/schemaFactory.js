@@ -42,6 +42,8 @@ export function createSchema({
     storage = STORAGE_TYPES.CLUSTER,
     // данный элемент - требуемый
     required = true,
+    // RECORDS: строгое число записей в файле и BaseModel.
+    recordCount = undefined,
     // Оформление
     rowLabelTitle = "Параметр",
     rowLabelDescription = "parameter Description",
@@ -75,6 +77,7 @@ export function createSchema({
             storage,
 
             required,
+            recordCount,
 
             rowLabelTitle,
             rowLabelDescription,
@@ -183,7 +186,9 @@ export function createSchema({
 
 function validateSchema(schema) {
     validateComputationSchema(schema);
+    validateRecordCount(schema);
     validateMainView(schema);
+    validateRecordColumnsView(schema);
 
     const storagePaths = [];
 
@@ -255,6 +260,65 @@ function validateSchema(schema) {
                 path: storagePath,
             });
         }
+    }
+}
+
+function validateRecordCount(schema) {
+    const recordCount = schema.config.recordCount;
+    if (recordCount === undefined) return;
+
+    if (
+        schema.config.storage !== STORAGE_TYPES.RECORDS ||
+        !Number.isInteger(recordCount) ||
+        recordCount <= 0
+    ) {
+        throw new Error(
+            `Schema '${schema.id}': recordCount requires a positive integer `
+            + "for RECORDS."
+        );
+    }
+}
+
+function validateRecordColumnsView(schema) {
+    const descriptor = schema.views.recordsAsColumns;
+    if (descriptor === undefined) return;
+
+    const labels = descriptor?.labels;
+    const unsupportedProperties = Object.entries(schema.properties)
+        .filter(([, property]) =>
+            property.type === FIELD_TYPES.ARRAY ||
+            property.type === FIELD_TYPES.OBJECT ||
+            isComputedProperty(property)
+        )
+        .map(([name]) => name);
+
+    if (
+        schema.config.storage !== STORAGE_TYPES.RECORDS ||
+        schema.config.recordCount === undefined ||
+        schema.views.main !== undefined ||
+        !descriptor ||
+        typeof descriptor !== "object" ||
+        Array.isArray(descriptor) ||
+        !Array.isArray(labels) ||
+        labels.length !== schema.config.recordCount ||
+        labels.some(label =>
+            typeof label !== "string" || label.trim().length === 0
+        )
+    ) {
+        throw new Error(
+            `Schema '${schema.id}': views.recordsAsColumns requires `
+            + "fixed RECORDS with one non-empty label per record and cannot "
+            + "be combined with views.main."
+        );
+    }
+
+    if (unsupportedProperties.length > 0) {
+        throw new Error(
+            `Schema '${schema.id}': views.recordsAsColumns supports only `
+            + "stored scalar properties; unsupported: "
+            + unsupportedProperties.join(", ")
+            + "."
+        );
     }
 }
 
