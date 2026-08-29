@@ -65,7 +65,7 @@ export default createSchema({
                 description: "Значение точки характеристики",
                 default: 0,
                 digits: 12,
-                floatExp: true,
+                floatFormat: "fixed",
                 readonly: true,
             },
         },

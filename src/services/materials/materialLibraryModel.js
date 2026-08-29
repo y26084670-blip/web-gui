@@ -31,6 +31,10 @@ function cloneRecordPayload(record) {
 }
 
 function transientLibrarySource(record) {
+    if (record?.source === "task") {
+        return { _taskLibraryRecord: structuredClone(record) };
+    }
+
     const isDefaultRecord =
         isObject(record?.data) &&
         typeof record?.relativePath === "string" &&

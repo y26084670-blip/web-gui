@@ -16,6 +16,12 @@ test("material tabs expose copy and both legacy import actions", async () => {
     assert.match(source, /createMaterialImportService/u);
     assert.match(source, /taskMaterialLibraryService\.copyMaterials/u);
     assert.match(source, /taskMaterialLibraryService\.writeImportedBatch/u);
+    assert.match(source, /Источник характеристик/u);
+    assert.match(source, /Базовая библиотека/u);
+    assert.match(source, /Локальная библиотека задания/u);
+    assert.match(source, />\s*Редактировать\s*</u);
+    assert.match(source, />\s*Удалить\s*</u);
+    assert.match(source, /destination\.getFileHandle\("XAP\.lib"\)/u);
 });
 
 test("material actions keep task save notifications outside their contract", async () => {

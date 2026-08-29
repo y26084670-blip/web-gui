@@ -33,6 +33,19 @@
   opacity: .55;
 }
 
+.material-library-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  color: #222;
+  font-size: 13px;
+}
+
+.material-library-source select {
+  padding: 4px 6px;
+}
+
 .material-library-action-progress {
   color: #222;
   font-size: 13px;
@@ -91,7 +104,7 @@
   min-width: 0;
   min-height: 0;
   border: 1px solid #666;
-  background: #fafafa;
+  background: #20262d;
   box-sizing: border-box;
 }
 
@@ -110,8 +123,22 @@
   flex: 1 1 auto;
   min-height: 0;
   padding: 12px;
-  color: #555;
+  position: relative;
+  color: #b8c3cd;
   text-align: center;
+}
+
+.fmm-graph-region-host canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fmm-graph-region-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
 }
 
 @media (max-width: 900px) {

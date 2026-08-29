@@ -7,6 +7,7 @@ import { tabRegistry } from "./services/tabRegistry";
 import { materialTabRegistry } from "./services/materialTabRegistry";
 import { TaskInfoBar } from "./TaskInfoBar";
 import { SidePanel } from "./components/SidePanel";
+import { MaterialSelectionDialog } from "./components/materials/MaterialSelectionDialog.jsx";
 import { TABS } from "./services/schemas/common/constants";
 import { selectionService } from "./services/selectionService";
 import { modelService } from "./services/modelService";
@@ -14,6 +15,11 @@ import { modelValidator } from "./tabulator/validators/types/modelValidator";
 import { diagnosticService } from "./services/diagnosticService";
 import { dataService } from "./services/dataService";
 import { viewSettingsService } from "./services/viewSettingsService";
+import { selectionContextService } from "./services/selectionContextService.js";
+import {
+  assignSelectedElementMaterial,
+  selectedElementMaterialRequest,
+} from "./tabulator/actions/elementMaterialActions.js";
 
 import "./App.css";
 
@@ -21,6 +27,7 @@ export default function App() {
   const [activeTab, setActiveTab] = createSignal(TABS.TASKS.id);
   const [selectedDiagnostic, setSelectedDiagnostic] = createSignal(null);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
+  const [materialRequest, setMaterialRequest] = createSignal(null);
 
   function handleModelValidation() {
     const diagnostics = modelValidator(modelService);
@@ -75,6 +82,39 @@ export default function App() {
       : activeTab();
   const historyTabLabel = () =>
     tabs.find((tab) => tab.id === activeTab())?.label ?? "";
+  const materialActionVisible = () => activeTab() === TABS.ELEMENTS.id;
+  const materialActionEnabled = () =>
+    materialActionVisible()
+    && Boolean(selectionService.loadedTaskHandle())
+    && selectionContextService.selectedRows().length > 0;
+
+  function handleMaterialSelectionOpen() {
+    try {
+      setMaterialRequest(
+        selectedElementMaterialRequest(
+          selectionContextService.getActiveTable(),
+        ),
+      );
+    } catch (error) {
+      setMaterialRequest({
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    setSidePanelOpen(false);
+  }
+
+  async function handleMaterialSelectionApply(name) {
+    const request = materialRequest();
+    try {
+      await assignSelectedElementMaterial(request, name);
+      setMaterialRequest(null);
+    } catch (error) {
+      setMaterialRequest({
+        ...request,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   async function handleSave() {
     const dirHandle = selectionService.loadedTaskHandle();
@@ -113,6 +153,9 @@ export default function App() {
         canRedo={modelService.canRedo(historyTabId())}
         onUndo={() => modelService.undo(historyTabId())}
         onRedo={() => modelService.redo(historyTabId())}
+        materialActionVisible={materialActionVisible()}
+        materialActionEnabled={materialActionEnabled()}
+        onChooseMaterial={handleMaterialSelectionOpen}
       />
       <div class="tabs-header">
         <For each={tabs}>
@@ -152,6 +195,12 @@ export default function App() {
           );
         }}
       </For>
+      <MaterialSelectionDialog
+        request={materialRequest()}
+        taskHandle={selectionService.loadedTaskHandle()}
+        onCancel={() => setMaterialRequest(null)}
+        onApply={handleMaterialSelectionApply}
+      />
     </div>
   );
 }

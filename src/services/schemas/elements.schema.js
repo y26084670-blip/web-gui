@@ -162,6 +162,7 @@ export default createSchema({
             label: "Образы локальной симметрии",
             description: "Число образов локальной симметрии",
             default: 1,
+            minimum: 1,
         },
 
         symAs: {
@@ -170,6 +171,7 @@ export default createSchema({
             label: "Образы азимутальной симметрии",
             description: "Число образов азимутальной симметрии",
             default: 1,
+            minimum: 1,
         },
 
         symPs: {
@@ -178,6 +180,7 @@ export default createSchema({
             label: "Образы периодической симметрии",
             description: "Число образов периодической симметрии",
             default: 1,
+            minimum: 1,
         },
 
         symKya: {
@@ -523,6 +526,7 @@ export default createSchema({
             label: "Характеристика материала",
             description: "Имя характеристики без .txt; поиск выполняется в локальной и базовой библиотеке",
             default: "",
+            readonly: true,
         },
 
         xapType: {

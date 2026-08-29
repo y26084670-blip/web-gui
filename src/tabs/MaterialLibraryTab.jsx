@@ -8,6 +8,7 @@ import {
 import { TabulatorFull as Tabulator } from "tabulator-tables";
 
 import { FmmGraphRegion } from "../components/materials/FmmGraphRegion.jsx";
+import { FmmMaterialEditorDialog } from "../components/materials/FmmMaterialEditorDialog.jsx";
 import { modelToRows } from "../tabulator/converters/modelConverter";
 import { TableBuilder } from "../tabulator/builders/TableBuilder";
 import { DetailRegion } from "../tabulator/views/DetailRegion";
@@ -18,13 +19,16 @@ import {
   VIEW_TYPES,
 } from "../services/schemas/common/constants";
 import { htcParameterEntries } from "../services/materials/materialLibraryModel";
+import { loadTaskMaterialLibrary } from "../services/materials/materialLibraryService.js";
 import { selectionService } from "../services/selectionService";
+import { materialLibraryRevisionService } from "../services/materialLibraryRevisionService.js";
 import {
   MaterialBatchConflictError,
   MaterialBatchWriteError,
   taskMaterialLibraryService,
 } from "../services/taskMaterialLibraryService";
 import { createMaterialImportService } from "../services/materialImportService";
+import { createFmmMaterialFile } from "../services/materialImport/xapLibImporter.js";
 import {
   getFilePickerErrorMessage,
   getFileSystemAccessSupport,
@@ -120,6 +124,9 @@ export function MaterialLibraryTab(props) {
   const [actionBusy, setActionBusy] = createSignal(false);
   const [actionMessage, setActionMessage] = createSignal("");
   const [actionError, setActionError] = createSignal("");
+  const [librarySource, setLibrarySource] = createSignal("default");
+  const [editorRecord, setEditorRecord] = createSignal(null);
+  const [editorError, setEditorError] = createSignal("");
 
   let tableHost;
   let detailTitleHost;
@@ -127,11 +134,15 @@ export function MaterialLibraryTab(props) {
   let detailViewHost;
   let table;
   let disposed = false;
+  let recordLoadRevision = 0;
 
   const detailRegion = new DetailRegion();
   const recordDetailViews = new Map();
 
   const taskHandle = selectionService.loadedTaskHandle;
+  const supportsTaskSource = definition.kind === "FMM";
+  const isTaskSource = () =>
+    supportsTaskSource && librarySource() === "task";
   const importActionLabel = definition.kind === "FMM"
     ? "Импортировать XAP.lib"
     : "Импортировать legacy-библиотеку ВТСП";
@@ -148,6 +159,15 @@ export function MaterialLibraryTab(props) {
 
   function selectedBaseRecords(rows) {
     return rows.map(row => withoutRowLabel(row.getData()));
+  }
+
+  function clearRenderedRecords() {
+    detailRegion.showHint("Выберите характеристику в таблице");
+    for (const entry of recordDetailViews.values()) {
+      entry.view.destroy();
+    }
+    recordDetailViews.clear();
+    setSelectedRecords([]);
   }
 
   function createHtcDetail(row) {
@@ -302,17 +322,26 @@ export function MaterialLibraryTab(props) {
     table.on("rowSelectionChanged", handleSelectionChanged);
   }
 
-  async function loadRecords() {
+  async function loadRecords({
+    source = librarySource(),
+    destination = taskHandle(),
+  } = {}) {
+    const revision = ++recordLoadRevision;
     setLoading(true);
     setError("");
+    clearRenderedRecords();
 
     try {
-      const records = await definition.loadRecords();
-      if (disposed) return;
+      const records = source === "task"
+        ? destination
+          ? await loadTaskMaterialLibrary(definition.kind, destination)
+          : []
+        : await definition.loadRecords();
+      if (disposed || revision !== recordLoadRevision) return;
       await table.setData(modelToRows(schema, records));
     } catch (loadError) {
-      if (disposed) return;
-      console.error(`${definition.id} loading error:`, loadError);
+      if (disposed || revision !== recordLoadRevision) return;
+      console.error(`${definition.id} ${source} loading error:`, loadError);
       setError(
         loadError instanceof Error
           ? loadError.message
@@ -320,7 +349,7 @@ export function MaterialLibraryTab(props) {
       );
       await table.setData([]);
     } finally {
-      if (!disposed) setLoading(false);
+      if (!disposed && revision === recordLoadRevision) setLoading(false);
     }
   }
 
@@ -368,6 +397,7 @@ export function MaterialLibraryTab(props) {
       setActionMessage(
         writeSummary("Копирование завершено", outcome.result.results),
       );
+      materialLibraryRevisionService.notifyChanged();
     } catch (copyError) {
       console.error(`${definition.id} copy error:`, copyError);
       if (copyError instanceof MaterialBatchWriteError) {
@@ -446,7 +476,7 @@ export function MaterialLibraryTab(props) {
 
     const isFmm = definition.kind === "FMM";
     const support = getFileSystemAccessSupport(window, {
-      requireOpenFilePicker: isFmm,
+      requireOpenFilePicker: isFmm && !isTaskSource(),
     });
     if (!support.supported) {
       setActionError(support.message);
@@ -456,17 +486,32 @@ export function MaterialLibraryTab(props) {
     beginAction();
 
     const importer = createMaterialImportService({
-      pickFmmFile: () => window.showOpenFilePicker({
-        id: "clark-import-xaplib-fmm",
-        multiple: false,
-        excludeAcceptAllOption: false,
-        types: [{
-          description: "Legacy-библиотека ФММ XAP.lib",
-          accept: {
-            "application/octet-stream": [".lib"],
-          },
-        }],
-      }),
+      pickFmmFile: async () => {
+        if (isTaskSource()) {
+          try {
+            return [await destination.getFileHandle("XAP.lib")];
+          } catch (error) {
+            if (error?.name === "NotFoundError") {
+              throw new Error(
+                "В каталоге выбранного задания отсутствует XAP.lib.",
+                { cause: error },
+              );
+            }
+            throw error;
+          }
+        }
+        return window.showOpenFilePicker({
+          id: "clark-import-xaplib-fmm",
+          multiple: false,
+          excludeAcceptAllOption: false,
+          types: [{
+            description: "Legacy-библиотека ФММ XAP.lib",
+            accept: {
+              "application/octet-stream": [".lib"],
+            },
+          }],
+        });
+      },
       pickHtcDirectory: () => window.showDirectoryPicker({
         id: "clark-import-xaplib-htc",
         mode: "read",
@@ -487,6 +532,8 @@ export function MaterialLibraryTab(props) {
       setActionMessage(
         writeSummary("Импорт завершён", result.writeResult?.results),
       );
+      materialLibraryRevisionService.notifyChanged();
+      if (isTaskSource()) await loadRecords();
     } catch (importError) {
       if (importError instanceof ImportConflictCancelled) {
         setActionMessage(
@@ -509,6 +556,69 @@ export function MaterialLibraryTab(props) {
       );
     } finally {
       endAction();
+    }
+  }
+
+  async function deleteSelectedMaterials() {
+    const destination = taskHandle();
+    const localRecords = selectedRecords()
+      .map(record => record._taskLibraryRecord)
+      .filter(Boolean);
+    if (!destination || localRecords.length === 0) return;
+
+    const names = localRecords.map(record => record.name).join(", ");
+    if (!window.confirm(`Удалить локальные характеристики: ${names}?`)) {
+      return;
+    }
+
+    beginAction();
+    try {
+      const results = await taskMaterialLibraryService.deleteMaterials({
+        taskHandle: destination,
+        records: localRecords,
+      });
+      setActionMessage(`Удалено характеристик: ${results.length}.`);
+      materialLibraryRevisionService.notifyChanged();
+      await loadRecords();
+    } catch (deleteError) {
+      setActionError(
+        `Удаление не завершено: ${actionErrorMessage(deleteError, "удалить характеристики")}`,
+      );
+    } finally {
+      endAction();
+    }
+  }
+
+  function editSelectedMaterial() {
+    const selected = selectedRecords();
+    if (selected.length !== 1 || !selected[0]._taskLibraryRecord) return;
+    setEditorError("");
+    setEditorRecord(selected[0]);
+  }
+
+  async function saveEditedMaterial(record) {
+    const destination = taskHandle();
+    const source = editorRecord()?._taskLibraryRecord;
+    if (!destination || !source) return;
+
+    setActionBusy(true);
+    setEditorError("");
+    try {
+      await taskMaterialLibraryService.saveMaterial({
+        taskHandle: destination,
+        material: createFmmMaterialFile(record),
+        expectedSha256: source.sha256,
+      });
+      setEditorRecord(null);
+      setActionMessage(`Характеристика «${record.name}» сохранена.`);
+      materialLibraryRevisionService.notifyChanged();
+      await loadRecords();
+    } catch (saveError) {
+      setEditorError(
+        saveError instanceof Error ? saveError.message : String(saveError),
+      );
+    } finally {
+      setActionBusy(false);
     }
   }
 
@@ -540,6 +650,19 @@ export function MaterialLibraryTab(props) {
     });
   });
 
+  createEffect(() => {
+    const source = librarySource();
+    const destination = taskHandle();
+    if (!table || !supportsTaskSource) return;
+    void loadRecords({ source, destination });
+  });
+
+  createEffect(() => {
+    materialLibraryRevisionService.revision();
+    if (!table || !isTaskSource()) return;
+    void loadRecords();
+  });
+
   onCleanup(() => {
     disposed = true;
     detailRegion.destroy();
@@ -554,32 +677,68 @@ export function MaterialLibraryTab(props) {
   return (
     <div class="material-library-tab">
       <div class="material-library-actions">
-        <button
-          disabled={
-            actionBusy()
-            || !taskHandle()
-            || selectedRecords().length === 0
-          }
-          title={
-            !taskHandle()
-              ? "Сначала выберите задание"
-              : "Скопировать выделенные базовые характеристики в задание"
-          }
-          onClick={copySelectedMaterials}
-        >
-          Копировать в задание
-        </button>
-        <button
-          disabled={actionBusy() || !taskHandle()}
-          title={
-            !taskHandle()
-              ? "Сначала выберите задание"
-              : importActionLabel
-          }
-          onClick={importLegacyMaterials}
-        >
-          {importActionLabel}
-        </button>
+        <Show when={supportsTaskSource}>
+          <label class="material-library-source">
+            <span>Источник характеристик</span>
+            <select
+              value={librarySource()}
+              disabled={actionBusy()}
+              onChange={(event) => setLibrarySource(event.currentTarget.value)}
+            >
+              <option value="default">Базовая библиотека</option>
+              <option value="task">Локальная библиотека задания</option>
+            </select>
+          </label>
+        </Show>
+        <Show when={!isTaskSource()}>
+          <button
+            disabled={
+              actionBusy()
+              || !taskHandle()
+              || selectedRecords().length === 0
+            }
+            title={
+              !taskHandle()
+                ? "Сначала выберите задание"
+                : "Скопировать выделенные базовые характеристики в задание"
+            }
+            onClick={copySelectedMaterials}
+          >
+            Копировать в задание
+          </button>
+          <Show when={!supportsTaskSource}>
+            <button
+              disabled={actionBusy() || !taskHandle()}
+              title={!taskHandle() ? "Сначала выберите задание" : importActionLabel}
+              onClick={importLegacyMaterials}
+            >
+              {importActionLabel}
+            </button>
+          </Show>
+        </Show>
+        <Show when={isTaskSource()}>
+          <button
+            disabled={actionBusy() || !taskHandle()}
+            title="Импортировать XAP.lib из каталога выбранного задания"
+            onClick={importLegacyMaterials}
+          >
+            Импортировать XAP.lib
+          </button>
+          <button
+            disabled={actionBusy() || selectedRecords().length !== 1}
+            title="Редактировать одну выбранную локальную характеристику"
+            onClick={editSelectedMaterial}
+          >
+            Редактировать
+          </button>
+          <button
+            disabled={actionBusy() || selectedRecords().length === 0}
+            title="Удалить выбранные локальные характеристики"
+            onClick={deleteSelectedMaterials}
+          >
+            Удалить
+          </button>
+        </Show>
         <Show when={actionBusy()}>
           <span class="material-library-action-progress">
             Выполняется операция…
@@ -589,7 +748,7 @@ export function MaterialLibraryTab(props) {
 
       <Show when={!taskHandle()}>
         <div class="material-library-action-hint">
-          Для копирования или импорта характеристик сначала выберите задание.
+          Для работы с локальной библиотекой сначала выберите задание.
         </div>
       </Show>
       <Show when={actionMessage()}>
@@ -608,12 +767,12 @@ export function MaterialLibraryTab(props) {
 
       <Show when={loading()}>
         <div class="material-library-message">
-          Загрузка базовой библиотеки…
+          Загрузка {isTaskSource() ? "локальной" : "базовой"} библиотеки…
         </div>
       </Show>
       <Show when={error()}>
         <div class="material-library-message material-library-error">
-          Базовая библиотека недоступна: {error()}
+          Библиотека недоступна: {error()}
         </div>
       </Show>
 
@@ -649,6 +808,13 @@ export function MaterialLibraryTab(props) {
           <FmmGraphRegion records={selectedRecords()} />
         </Show>
       </div>
+      <FmmMaterialEditorDialog
+        record={editorRecord()}
+        error={editorError()}
+        busy={actionBusy()}
+        onCancel={() => setEditorRecord(null)}
+        onSave={saveEditedMaterial}
+      />
     </div>
   );
 }

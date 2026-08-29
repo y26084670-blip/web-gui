@@ -7,12 +7,12 @@ import {
     validateUniqueLegacyMaterialNames,
 } from "./materialImport/legacyMaterialName.js";
 
-const INPUT_DIRECTORY = "input3XX";
 const TASK_LIBRARY_DIRECTORIES = Object.freeze({
     [MATERIAL_LIBRARY_KINDS.FMM]: "xapLibFMM",
     [MATERIAL_LIBRARY_KINDS.HTC]: "xapLibHTC",
 });
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const JSON_FILE_PATTERN = /\.txt$/i;
 
 function assertSafeFileName(fileName) {
     if (
@@ -91,6 +91,35 @@ async function writeBytes(fileHandle, bytes) {
         }
         throw error;
     }
+}
+
+function decodeJsonMaterial(bytes, path) {
+    let text;
+    try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch (error) {
+        throw new Error(`Характеристика '${path}' не является UTF-8.`, {
+            cause: error,
+        });
+    }
+
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (error) {
+        throw new Error(`Характеристика '${path}' не содержит JSON-объект.`, {
+            cause: error,
+        });
+    }
+
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        throw new Error(`Характеристика '${path}' должна содержать JSON-объект.`);
+    }
+    return data;
+}
+
+function materialNameFromFile(fileName) {
+    return fileName.replace(JSON_FILE_PATTERN, "");
 }
 
 export class MaterialFileConflictError extends Error {
@@ -289,6 +318,38 @@ export function createTaskMaterialLibraryService({
         throw new Error("Не задан сервис базовой библиотеки характеристик.");
     }
 
+    async function loadMaterials({ taskHandle, kind } = {}) {
+        requireTaskHandle(taskHandle);
+        const libraryDirectory = libraryDirectoryFor(kind);
+        const lookup = await findDirectoryHandle(taskHandle, libraryDirectory);
+        if (!lookup.exists) return [];
+
+        const records = [];
+        for await (const [fileName, handle] of lookup.directoryHandle.entries()) {
+            if (handle?.kind !== "file" || !JSON_FILE_PATTERN.test(fileName)) {
+                continue;
+            }
+
+            assertSafeFileName(fileName);
+            const relativePath = `${libraryDirectory}/${fileName}`;
+            const bytes = await readHandleBytes(handle);
+            records.push({
+                source: "task",
+                kind,
+                name: materialNameFromFile(fileName),
+                fileName,
+                relativePath,
+                byteSize: bytes.byteLength,
+                sha256: await digestBytes(bytes, cryptoImpl),
+                data: decodeJsonMaterial(bytes, relativePath),
+            });
+        }
+
+        records.sort((left, right) =>
+            left.name.localeCompare(right.name, "ru-RU"));
+        return records;
+    }
+
     async function copyMaterial({
         taskHandle,
         record,
@@ -305,12 +366,11 @@ export function createTaskMaterialLibraryService({
             throw new Error("Характеристика не содержит корректный SHA-256.");
         }
 
-        const inputHandle = await taskHandle.getDirectoryHandle(INPUT_DIRECTORY);
-        const targetDirectory = await inputHandle.getDirectoryHandle(
+        const targetDirectory = await taskHandle.getDirectoryHandle(
             libraryDirectory,
             { create: true },
         );
-        const targetPath = `${INPUT_DIRECTORY}/${libraryDirectory}/${record.fileName}`;
+        const targetPath = `${libraryDirectory}/${record.fileName}`;
         const existing = await findFileHandle(targetDirectory, record.fileName);
 
         if (existing.exists) {
@@ -387,12 +447,11 @@ export function createTaskMaterialLibraryService({
             }
         }
 
-        const inputHandle = await taskHandle.getDirectoryHandle(INPUT_DIRECTORY);
         const targetLookup = await findDirectoryHandle(
-            inputHandle,
+            taskHandle,
             libraryDirectory,
         );
-        const targetPathPrefix = `${INPUT_DIRECTORY}/${libraryDirectory}`;
+        const targetPathPrefix = libraryDirectory;
         const preflight = [];
         const conflicts = [];
 
@@ -456,7 +515,7 @@ export function createTaskMaterialLibraryService({
         const needsWrite = preflight.some(item => !item.unchanged);
         const targetDirectory = needsWrite
             ? targetLookup.directoryHandle
-                ?? await inputHandle.getDirectoryHandle(
+                ?? await taskHandle.getDirectoryHandle(
                     libraryDirectory,
                     { create: true },
                 )
@@ -521,12 +580,11 @@ export function createTaskMaterialLibraryService({
             materials,
             cryptoImpl,
         });
-        const inputHandle = await taskHandle.getDirectoryHandle(INPUT_DIRECTORY);
         const targetLookup = await findDirectoryHandle(
-            inputHandle,
+            taskHandle,
             libraryDirectory,
         );
-        const targetPathPrefix = `${INPUT_DIRECTORY}/${libraryDirectory}`;
+        const targetPathPrefix = libraryDirectory;
         const preflight = [];
         const conflicts = [];
 
@@ -580,7 +638,7 @@ export function createTaskMaterialLibraryService({
         const needsWrite = preflight.some(item => !item.unchanged);
         const targetDirectory = needsWrite
             ? targetLookup.directoryHandle
-                ?? await inputHandle.getDirectoryHandle(
+                ?? await taskHandle.getDirectoryHandle(
                     libraryDirectory,
                     { create: true },
                 )
@@ -627,10 +685,118 @@ export function createTaskMaterialLibraryService({
         return batchResult(kind, sourceName, results);
     }
 
+    async function saveMaterial({
+        taskHandle,
+        material,
+        expectedSha256,
+    } = {}) {
+        requireTaskHandle(taskHandle);
+        const [prepared] = await prepareImportedMaterials({
+            kind: material?.kind,
+            materials: [material],
+            cryptoImpl,
+        });
+        const libraryDirectory = libraryDirectoryFor(material.kind);
+        const targetDirectory = await taskHandle.getDirectoryHandle(
+            libraryDirectory,
+            { create: true },
+        );
+        const existing = await findFileHandle(
+            targetDirectory,
+            prepared.fileName,
+        );
+        let existingSha256 = null;
+
+        if (existing.exists) {
+            existingSha256 = await digestBytes(
+                await readHandleBytes(existing.fileHandle),
+                cryptoImpl,
+            );
+        }
+
+        if (
+            typeof expectedSha256 === "string"
+            && existingSha256 !== expectedSha256
+        ) {
+            throw new MaterialFileConflictError({
+                path: `${libraryDirectory}/${prepared.fileName}`,
+                existingSha256,
+                expectedSha256,
+            });
+        }
+
+        const fileHandle = existing.fileHandle
+            ?? await targetDirectory.getFileHandle(
+                prepared.fileName,
+                { create: true },
+            );
+        await writeBytes(fileHandle, prepared.bytes);
+
+        return {
+            status: existing.exists ? "replaced" : "created",
+            path: `${libraryDirectory}/${prepared.fileName}`,
+            byteSize: prepared.bytes.byteLength,
+            sha256: prepared.sha256,
+        };
+    }
+
+    async function deleteMaterials({ taskHandle, records } = {}) {
+        requireTaskHandle(taskHandle);
+        if (!Array.isArray(records) || records.length === 0) {
+            throw new Error("Не выбраны локальные характеристики для удаления.");
+        }
+
+        const kind = records[0]?.kind;
+        const libraryDirectory = libraryDirectoryFor(kind);
+        const targetLookup = await findDirectoryHandle(
+            taskHandle,
+            libraryDirectory,
+        );
+        if (!targetLookup.exists) return [];
+
+        const prepared = [];
+        for (const record of records) {
+            if (record?.kind !== kind) {
+                throw new Error(
+                    "Один пакет удаления не может содержать характеристики разных видов.",
+                );
+            }
+            assertSafeFileName(record.fileName);
+            const existing = await findFileHandle(
+                targetLookup.directoryHandle,
+                record.fileName,
+            );
+            if (!existing.exists) continue;
+            const existingSha256 = await digestBytes(
+                await readHandleBytes(existing.fileHandle),
+                cryptoImpl,
+            );
+            if (existingSha256 !== record.sha256) {
+                throw new MaterialFileConflictError({
+                    path: `${libraryDirectory}/${record.fileName}`,
+                    existingSha256,
+                    expectedSha256: record.sha256,
+                });
+            }
+            prepared.push(record);
+        }
+
+        for (const record of prepared) {
+            await targetLookup.directoryHandle.removeEntry(record.fileName);
+        }
+        return prepared.map(record => ({
+            status: "deleted",
+            path: `${libraryDirectory}/${record.fileName}`,
+        }));
+    }
+
     return Object.freeze({
+        loadMaterials,
         copyMaterial,
         copyMaterials,
         writeImportedBatch,
+        saveMaterial,
+        deleteMaterials,
     });
 }
 

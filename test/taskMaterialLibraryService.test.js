@@ -21,6 +21,7 @@ function notFound(name) {
 
 class MemoryFileHandle {
     constructor(bytes = new Uint8Array(), { failWrite = false } = {}) {
+        this.kind = "file";
         this.bytes = new Uint8Array(bytes);
         this.writeCount = 0;
         this.failWrite = failWrite;
@@ -61,6 +62,7 @@ class MemoryFileHandle {
 
 class MemoryDirectoryHandle {
     constructor() {
+        this.kind = "directory";
         this.directories = new Map();
         this.files = new Map();
     }
@@ -79,6 +81,17 @@ class MemoryDirectoryHandle {
             this.files.set(name, new MemoryFileHandle());
         }
         return this.files.get(name);
+    }
+
+    async *entries() {
+        for (const entry of this.directories) yield entry;
+        for (const entry of this.files) yield entry;
+    }
+
+    async removeEntry(name) {
+        if (!this.files.delete(name) && !this.directories.delete(name)) {
+            throw notFound(name);
+        }
     }
 }
 
@@ -132,12 +145,11 @@ test("a base material is copied byte-for-byte into the task-local library", asyn
 
     assert.deepEqual(result, {
         status: "created",
-        path: "input3XX/xapLibFMM/Сталь 3.txt",
+        path: "xapLibFMM/Сталь 3.txt",
         byteSize: bytes.byteLength,
         sha256: sha256(bytes),
     });
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibFMM");
+    const library = await root.getDirectoryHandle("xapLibFMM");
     const file = await library.getFileHandle("Сталь 3.txt");
     assert.deepEqual(Buffer.from(file.bytes), bytes);
 });
@@ -145,8 +157,7 @@ test("a base material is copied byte-for-byte into the task-local library", asyn
 test("an identical task-local material is an idempotent copy", async () => {
     const bytes = Buffer.from("одинаковые байты", "utf8");
     const root = await taskRoot();
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibHTC", { create: true });
+    const library = await root.getDirectoryHandle("xapLibHTC", { create: true });
     library.files.set("ВТСП 1.txt", new MemoryFileHandle(bytes));
     const { service, getLoadCount } = serviceFor(bytes);
 
@@ -163,8 +174,7 @@ test("a changed task-local material is preserved until overwrite is explicit", a
     const baseBytes = Buffer.from("базовая версия", "utf8");
     const localBytes = Buffer.from("пользовательская версия", "utf8");
     const root = await taskRoot();
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibFMM", { create: true });
+    const library = await root.getDirectoryHandle("xapLibFMM", { create: true });
     const file = new MemoryFileHandle(localBytes);
     library.files.set("Сталь 3.txt", file);
     const { service, getLoadCount } = serviceFor(baseBytes);
@@ -208,8 +218,7 @@ test("selected base materials are all preflighted before the first copy", async 
     const baseConflictBytes = Buffer.from("базовый конфликт\n", "utf8");
     const localConflictBytes = Buffer.from("локальный конфликт\n", "utf8");
     const root = await taskRoot();
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibFMM", { create: true });
+    const library = await root.getDirectoryHandle("xapLibFMM", { create: true });
     const conflictFile = new MemoryFileHandle(localConflictBytes);
     library.files.set("Конфликт.txt", conflictFile);
     let loadCount = 0;
@@ -272,8 +281,7 @@ test("an imported batch writes UTF-8 files only after full validation", async ()
     assert.equal(result.unchanged, 0);
     assert.equal(result.sourceName, "XAP.lib");
 
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibFMM");
+    const library = await root.getDirectoryHandle("xapLibFMM");
     for (const material of materials) {
         const file = await library.getFileHandle(material.fileName);
         assert.equal(
@@ -285,8 +293,7 @@ test("an imported batch writes UTF-8 files only after full validation", async ()
 
 test("batch conflicts are all reported before any file is written", async () => {
     const root = await taskRoot();
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibFMM", { create: true });
+    const library = await root.getDirectoryHandle("xapLibFMM", { create: true });
     const local = new MemoryFileHandle(Buffer.from("локальная", "utf8"));
     const localSecond = new MemoryFileHandle(Buffer.from("локальная 2", "utf8"));
     library.files.set("Конфликт.txt", local);
@@ -309,7 +316,7 @@ test("batch conflicts are all reported before any file is written", async () => 
             assert.equal(error.conflicts.length, 2);
             assert.equal(
                 error.conflicts[0].path,
-                "input3XX/xapLibFMM/Конфликт.txt",
+                "xapLibFMM/Конфликт.txt",
             );
             return true;
         },
@@ -326,8 +333,7 @@ test("batch conflicts are all reported before any file is written", async () => 
 
 test("confirmed imported batch replaces conflicts and skips identical files", async () => {
     const root = await taskRoot();
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibHTC", { create: true });
+    const library = await root.getDirectoryHandle("xapLibHTC", { create: true });
     const changed = new MemoryFileHandle(Buffer.from("старая\n", "utf8"));
     const same = new MemoryFileHandle(Buffer.from("без изменений\n", "utf8"));
     library.files.set("A.txt", changed);
@@ -382,8 +388,7 @@ test("confirmed imported batch replaces conflicts and skips identical files", as
 
 test("changed conflicts after confirmation require a new confirmation", async () => {
     const root = await taskRoot();
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibFMM", { create: true });
+    const library = await root.getDirectoryHandle("xapLibFMM", { create: true });
     const file = new MemoryFileHandle(Buffer.from("первая локальная\n", "utf8"));
     library.files.set("A.txt", file);
     const { service } = serviceFor(new Uint8Array());
@@ -429,8 +434,7 @@ test("changed conflicts after confirmation require a new confirmation", async ()
 
 test("a mid-write failure reports completed, failed, and remaining files", async () => {
     const root = await taskRoot();
-    const input = await root.getDirectoryHandle("input3XX");
-    const library = await input.getDirectoryHandle("xapLibFMM", { create: true });
+    const library = await root.getDirectoryHandle("xapLibFMM", { create: true });
     const failing = new MemoryFileHandle(
         Buffer.from("локальная B\n", "utf8"),
         { failWrite: true },
@@ -469,13 +473,13 @@ test("a mid-write failure reports completed, failed, and remaining files", async
             assert.equal(error.sourceName, "XAP.lib");
             assert.deepEqual(
                 error.written.map(item => item.path),
-                ["input3XX/xapLibFMM/A.txt"],
+                ["xapLibFMM/A.txt"],
             );
-            assert.equal(error.failed.path, "input3XX/xapLibFMM/B.txt");
+            assert.equal(error.failed.path, "xapLibFMM/B.txt");
             assert.match(error.failed.message, /имитация сбоя записи/u);
             assert.deepEqual(
                 error.remaining.map(item => item.path),
-                ["input3XX/xapLibFMM/C.txt"],
+                ["xapLibFMM/C.txt"],
             );
             return true;
         },
@@ -493,7 +497,6 @@ test("a mid-write failure reports completed, failed, and remaining files", async
 test("an unsafe or duplicate batch fails before creating its library", async () => {
     const root = await taskRoot();
     const { service } = serviceFor(new Uint8Array());
-    const input = await root.getDirectoryHandle("input3XX");
 
     await assert.rejects(
         service.writeImportedBatch({
@@ -506,7 +509,7 @@ test("an unsafe or duplicate batch fails before creating its library", async () 
         }),
         /зарезервировано Windows/,
     );
-    assert.equal(input.directories.has("xapLibFMM"), false);
+    assert.equal(root.directories.has("xapLibFMM"), false);
 
     await assert.rejects(
         service.writeImportedBatch({
@@ -519,5 +522,67 @@ test("an unsafe or duplicate batch fails before creating its library", async () 
         }),
         /конфликтуют в Windows/,
     );
-    assert.equal(input.directories.has("xapLibHTC"), false);
+    assert.equal(root.directories.has("xapLibHTC"), false);
+});
+
+test("task-local materials are loaded from directories beside input3XX", async () => {
+    const root = await taskRoot();
+    const library = await root.getDirectoryHandle("xapLibFMM", { create: true });
+    const first = Buffer.from('{"tabl":[0,1],"hip":0,"comment":"Б"}\n', "utf8");
+    const second = Buffer.from('{"tabl":[0,1],"hip":0,"comment":"А"}\n', "utf8");
+    library.files.set("Бета.txt", new MemoryFileHandle(first));
+    library.files.set("Альфа.txt", new MemoryFileHandle(second));
+    library.files.set("служебный.bin", new MemoryFileHandle(second));
+    const { service } = serviceFor(new Uint8Array());
+
+    const records = await service.loadMaterials({
+        taskHandle: root,
+        kind: "FMM",
+    });
+
+    assert.deepEqual(records.map(record => record.name), ["Альфа", "Бета"]);
+    assert.equal(records[0].source, "task");
+    assert.equal(records[0].relativePath, "xapLibFMM/Альфа.txt");
+    assert.equal(records[0].sha256, sha256(second));
+});
+
+test("explicit local edit and delete use the loaded SHA as a concurrency guard", async () => {
+    const root = await taskRoot();
+    const library = await root.getDirectoryHandle("xapLibFMM", { create: true });
+    const original = Buffer.from('{"comment":"исходная"}\n', "utf8");
+    const file = new MemoryFileHandle(original);
+    library.files.set("Сталь.txt", file);
+    const { service } = serviceFor(new Uint8Array());
+    const [loaded] = await service.loadMaterials({
+        taskHandle: root,
+        kind: "FMM",
+    });
+
+    const editedText = '{"comment":"изменённая"}\n';
+    const result = await service.saveMaterial({
+        taskHandle: root,
+        material: importedMaterial("Сталь", editedText),
+        expectedSha256: loaded.sha256,
+    });
+    assert.equal(result.status, "replaced");
+    assert.equal(new TextDecoder().decode(file.bytes), editedText);
+
+    await assert.rejects(
+        service.deleteMaterials({ taskHandle: root, records: [loaded] }),
+        error => error instanceof MaterialFileConflictError,
+    );
+
+    const [reloaded] = await service.loadMaterials({
+        taskHandle: root,
+        kind: "FMM",
+    });
+    const deleted = await service.deleteMaterials({
+        taskHandle: root,
+        records: [reloaded],
+    });
+    assert.deepEqual(deleted, [{
+        status: "deleted",
+        path: "xapLibFMM/Сталь.txt",
+    }]);
+    assert.equal(library.files.has("Сталь.txt"), false);
 });

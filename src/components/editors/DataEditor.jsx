@@ -27,7 +27,7 @@ import {
   STORAGE_TYPES,
   VIEW_TYPES,
 } from "../../services/schemas/common/constants";
-import { createEffect, onMount } from "solid-js";
+import { createEffect, createSignal, onMount } from "solid-js";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
 import { TableBuilder } from "../../tabulator/builders/TableBuilder";
 import { resolveProperty } from "../../tabulator/schema/propertyResolver";
@@ -65,7 +65,7 @@ export function DataEditor(props) {
   let tableDiv;
   let table;
   let loadRevision = 0;
-  let hasActiveTask = false;
+  const [hasActiveTask, setHasActiveTask] = createSignal(false);
   let applyingModel = false;
   let changingStructure = false;
   let latestModelRevision = 0;
@@ -151,6 +151,9 @@ export function DataEditor(props) {
         },
         setRecordValue(rowData, field, value) {
           return setNestedRecordValue(rowData, field, value);
+        },
+        setRecordsValue(rowDataItems, field, value) {
+          return setRecordValues(rowDataItems, field, value);
         },
       },
       structure: {
@@ -251,6 +254,23 @@ export function DataEditor(props) {
     return row.getData()[field];
   }
 
+  async function setRecordValues(rowDataItems, field, value) {
+    const selected = new Set(rowDataItems);
+    const rows = table?.getRows().filter(row => selected.has(row.getData())) ?? [];
+    if (rows.length !== selected.size) {
+      throw new Error("Не все выбранные записи найдены в активной таблице.");
+    }
+
+    applyingModel = true;
+    try {
+      await Promise.all(rows.map(row => row.update({ [field]: value })));
+    } finally {
+      applyingModel = false;
+    }
+    pendingCellChange = null;
+    return publishTableChanged(true);
+  }
+
   async function replaceEditorData(data) {
     if (hasMainView) {
       mainViewModel = data;
@@ -266,6 +286,7 @@ export function DataEditor(props) {
   }
 
   function handleRowSelectionChanged(_data, rows) {
+    selectionContextService.notifySelectionChanged(table);
     const tableSchema = table?._gui?.schema;
 
     if (tableSchema?.config.storage === STORAGE_TYPES.RECORDS) {
@@ -549,6 +570,7 @@ export function DataEditor(props) {
   // Операции панели основной таблицы выполняются над своей таблицей.
   function mainAction(action) {
     return () => {
+      if (!hasActiveTask()) return;
       selectionContextService.setActiveTable(table);
       action();
     };
@@ -606,6 +628,8 @@ export function DataEditor(props) {
   createEffect(() => {
     if (!props.active) return;
 
+    selectionContextService.setActiveTable(table);
+
     requestAnimationFrame(() => {
       if (!props.active || !table) return;
 
@@ -657,16 +681,16 @@ export function DataEditor(props) {
     }
 
     if (!dirHandle) {
-      if (!hasActiveTask) return;
+      if (!hasActiveTask()) return;
 
-      hasActiveTask = false;
+      setHasActiveTask(false);
       if (table) {
         await replaceEditorData(null);
       }
       return;
     }
 
-    hasActiveTask = true;
+    setHasActiveTask(true);
 
     try {
       const diagnostics = [];
@@ -781,7 +805,10 @@ export function DataEditor(props) {
           }}
         >
           <button
-            title={hasMainView ? "Добавить строку" : "Добавить запись"}
+            disabled={!hasActiveTask()}
+            title={!hasActiveTask()
+              ? "Сначала загрузите задание"
+              : hasMainView ? "Добавить строку" : "Добавить запись"}
             onClick={mainAction(() => recordsActions.addRecord())}
           >
             +
@@ -789,14 +816,20 @@ export function DataEditor(props) {
           {!hasMainView && (
             <>
               <button
-                title="Копировать выделенные"
+                disabled={!hasActiveTask()}
+                title={!hasActiveTask()
+                  ? "Сначала загрузите задание"
+                  : "Копировать выделенные"}
                 onClick={mainAction(() => recordsActions.copyRecords())}
               >
                 {" "}
                 C
               </button>
               <button
-                title="Вставить скопированные"
+                disabled={!hasActiveTask()}
+                title={!hasActiveTask()
+                  ? "Сначала загрузите задание"
+                  : "Вставить скопированные"}
                 onClick={mainAction(() => recordsActions.pasteRecords())}
               >
                 P
@@ -804,19 +837,28 @@ export function DataEditor(props) {
             </>
           )}
           <button
-            title={hasMainView ? "Удалить строки" : "Удалить выделенные"}
+            disabled={!hasActiveTask()}
+            title={!hasActiveTask()
+              ? "Сначала загрузите задание"
+              : hasMainView ? "Удалить строки" : "Удалить выделенные"}
             onClick={mainAction(() => recordsActions.removeRecord())}
           >
             −
           </button>
           <button
-            title={hasMainView ? "Переместить строки вверх" : "Переместить выделенные вверх"}
+            disabled={!hasActiveTask()}
+            title={!hasActiveTask()
+              ? "Сначала загрузите задание"
+              : hasMainView ? "Переместить строки вверх" : "Переместить выделенные вверх"}
             onClick={mainAction(() => recordsActions.moveRecordUp())}
           >
             ↑
           </button>
           <button
-            title={hasMainView ? "Переместить строки вниз" : "Переместить выделенные вниз"}
+            disabled={!hasActiveTask()}
+            title={!hasActiveTask()
+              ? "Сначала загрузите задание"
+              : hasMainView ? "Переместить строки вниз" : "Переместить выделенные вниз"}
             onClick={mainAction(() => recordsActions.moveRecordDown())}
           >
             ↓

@@ -109,6 +109,29 @@ export function SidePanel(props) {
           </div>
         </section>
 
+        {props.materialActionVisible && (
+          <>
+            <hr class="side-panel-separator" />
+            <section class="side-panel-section">
+              <div class="side-panel-section-title">
+                Элементы модели
+              </div>
+              <button
+                class="side-panel-option"
+                disabled={!props.open || !props.materialActionEnabled}
+                onClick={props.onChooseMaterial}
+                title={
+                  props.materialActionEnabled
+                    ? "Назначить одну локальную характеристику всем выделенным элементам"
+                    : "Выберите задание и хотя бы один элемент"
+                }
+              >
+                Выбрать характеристику
+              </button>
+            </section>
+          </>
+        )}
+
         <hr class="side-panel-separator" />
 
         <section class="side-panel-section side-panel-history">

@@ -1,5 +1,31 @@
+import { createEffect, onCleanup } from "solid-js";
+
+import { fmmGraphConfig } from "../../services/materials/fmmGraphModel.js";
+
 export function FmmGraphRegion(props) {
-  const count = () => props.records?.length ?? 0;
+  let canvas;
+  let chart;
+  let renderRevision = 0;
+
+  createEffect(() => {
+    const records = props.records ?? [];
+    const revision = ++renderRevision;
+    chart?.destroy();
+    chart = null;
+    if (!canvas || records.length === 0) return;
+    void import("chart.js/auto").then(({ default: Chart }) => {
+      if (revision !== renderRevision || !canvas) return;
+      chart = new Chart(canvas, fmmGraphConfig(records));
+    }).catch((error) => {
+      console.error("FMM graph creation error:", error);
+    });
+  });
+
+  onCleanup(() => {
+    renderRevision += 1;
+    chart?.destroy();
+    chart = null;
+  });
 
   return (
     <section
@@ -10,9 +36,12 @@ export function FmmGraphRegion(props) {
         Графики характеристик ФММ
       </div>
       <div class="fmm-graph-region-host">
-        {count() > 0
-          ? `Выбрано характеристик: ${count()}`
-          : "Выберите характеристики в таблице"}
+        <canvas ref={(element) => (canvas = element)} />
+        {(props.records?.length ?? 0) === 0 && (
+          <div class="fmm-graph-region-hint">
+            Выберите характеристики в таблице
+          </div>
+        )}
       </div>
     </section>
   );

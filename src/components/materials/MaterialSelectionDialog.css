@@ -1,0 +1,91 @@
+.material-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 4100;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, .62);
+}
+
+.material-dialog {
+    width: min(620px, 90vw);
+    max-height: 86vh;
+    box-sizing: border-box;
+    padding: 16px;
+    color: #edf2f7;
+    background: #20262d;
+    border: 1px solid #596674;
+    border-radius: 5px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .62);
+}
+
+.material-dialog-title {
+    margin-bottom: 8px;
+    font-size: 17px;
+    font-weight: bold;
+}
+
+.material-dialog-summary,
+.material-dialog-status {
+    margin-bottom: 8px;
+    color: #bdc7d1;
+    font-size: 13px;
+}
+
+.material-dialog-error {
+    color: #ffb5b5;
+}
+
+.material-dialog-list {
+    width: 100%;
+    min-height: 280px;
+    box-sizing: border-box;
+    color: #edf2f7;
+    background: #151a1f;
+    border: 1px solid #596674;
+}
+
+.material-dialog-list option {
+    padding: 4px 7px;
+}
+
+.material-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.fmm-material-editor {
+    width: min(780px, 94vw);
+}
+
+.fmm-material-editor-field {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.fmm-material-editor-field input,
+.fmm-material-editor-table input {
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.fmm-material-editor-table-wrap {
+    max-height: 52vh;
+    overflow: auto;
+}
+
+.fmm-material-editor-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.fmm-material-editor-table th,
+.fmm-material-editor-table td {
+    padding: 3px 5px;
+    border: 1px solid #4c5864;
+}

@@ -159,6 +159,7 @@ export default createSchema({
             label: "Образы локальной симметрии",
             description: "Число образов локальной симметрии",
             default: 1,
+            minimum: 1,
         },
 
         symAs: {

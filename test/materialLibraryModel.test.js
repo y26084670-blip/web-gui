@@ -73,6 +73,26 @@ test("browser-import material is adapted without a default-library source", () =
     assert.equal(record._libraryRecord, undefined);
 });
 
+test("task-local material keeps separate transient file metadata", () => {
+    const [record] = toFmmLibraryModel([{
+        source: "task",
+        kind: "FMM",
+        name: "Локальная",
+        fileName: "Локальная.txt",
+        relativePath: "xapLibFMM/Локальная.txt",
+        sha256: "c".repeat(64),
+        data: {
+            tabl: Array.from({ length: 24 }, (_, index) => index),
+            hip: 1,
+            comment: "",
+        },
+    }]);
+
+    assert.equal(record._libraryRecord, undefined);
+    assert.equal(record._taskLibraryRecord.source, "task");
+    assert.equal(record.name, "Локальная");
+});
+
 test("malformed FMM table is rejected before rendering", () => {
     assert.throws(
         () => decodeFmmTable(Array(23).fill(0)),
