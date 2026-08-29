@@ -158,7 +158,8 @@ export function MaterialLibraryTab(props) {
   const [deleteRequest, setDeleteRequest] = createSignal(null);
   const [legacyFmmAvailable, setLegacyFmmAvailable] = createSignal(false);
   const [checkingLegacyFmm, setCheckingLegacyFmm] = createSignal(false);
-  const [lowerHeight, setLowerHeight] = createSignal(300);
+  const [tableReady, setTableReady] = createSignal(false);
+  const [lowerHeight, setLowerHeight] = createSignal(360);
   const [detailRatio, setDetailRatio] = createSignal(0.5);
 
   let tableHost;
@@ -250,19 +251,23 @@ export function MaterialLibraryTab(props) {
     const host = document.createElement("div");
     host.className = "nested-table-view";
 
-    const view = new TableView(property, {
-      getSchema: () => tableSchema,
-      getValue: () => rowData[propertyName],
-      getRecord: () => record,
-      getModelSnapshot: () => ({}),
-      isWritable: () => isTaskSource() && !actionBusy(),
-      setValue: async (value) => {
-        await row.update({
-          [propertyName]: structuredClone(value),
-        });
-        markRecordDirty(row.getData());
+    const view = new TableView(
+      property,
+      {
+        getSchema: () => tableSchema,
+        getValue: () => rowData[propertyName],
+        getRecord: () => record,
+        getModelSnapshot: () => ({}),
+        isWritable: () => isTaskSource() && !actionBusy(),
+        setValue: async (value) => {
+          await row.update({
+            [propertyName]: structuredClone(value),
+          });
+          markRecordDirty(row.getData());
+        },
       },
-    });
+      { primary: true },
+    );
 
     const entry = {
       host,
@@ -613,7 +618,6 @@ export function MaterialLibraryTab(props) {
         writeSummary("Импорт завершён", result.writeResult?.results),
       );
       materialLibraryRevisionService.notifyChanged();
-      if (isTaskSource()) await loadRecords();
     } catch (importError) {
       if (importError instanceof ImportConflictCancelled) {
         setActionMessage(
@@ -666,7 +670,6 @@ export function MaterialLibraryTab(props) {
       setDeleteRequest(null);
       setActionMessage(`Удалено характеристик: ${results.length}.`);
       materialLibraryRevisionService.notifyChanged();
-      await loadRecords();
     } catch (deleteError) {
       setActionError(
         `Удаление не завершено: ${actionErrorMessage(deleteError, "удалить характеристики")}`,
@@ -707,7 +710,6 @@ export function MaterialLibraryTab(props) {
       setDirtyRecords([]);
       setActionMessage(`Сохранено характеристик: ${saved.size}.`);
       materialLibraryRevisionService.notifyChanged();
-      await loadRecords();
     } catch (saveError) {
       setDirtyRecords(current =>
         current.filter(record => !saved.has(record)));
@@ -841,7 +843,11 @@ export function MaterialLibraryTab(props) {
     });
     detailRegion.showHint("Выберите характеристику в таблице");
     createTable();
-    void loadRecords();
+    if (supportsTaskSource) {
+      setTableReady(true);
+    } else {
+      void loadRecords();
+    }
   });
 
   createEffect(() => {
@@ -862,9 +868,13 @@ export function MaterialLibraryTab(props) {
   });
 
   createEffect(() => {
+    const ready = tableReady();
     const source = librarySource();
     const destination = taskHandle();
-    if (!table || !supportsTaskSource) return;
+    if (!ready || !table || !supportsTaskSource) return;
+    if (source === "task") {
+      materialLibraryRevisionService.revision();
+    }
     void loadRecords({ source, destination });
   });
 
@@ -894,12 +904,6 @@ export function MaterialLibraryTab(props) {
     onCleanup(() => {
       current = false;
     });
-  });
-
-  createEffect(() => {
-    materialLibraryRevisionService.revision();
-    if (!table || !isTaskSource()) return;
-    void loadRecords();
   });
 
   onCleanup(() => {

@@ -55,6 +55,7 @@ import {
   hasRecordColumnsView,
   recordIndexFromColumn,
 } from "../../tabulator/converters/recordColumns";
+import { RecordGraphRegion } from "../graphs/RecordGraphRegion.jsx";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
 import "../../tabs/Tasks.css";
@@ -66,6 +67,7 @@ export function DataEditor(props) {
   let table;
   let loadRevision = 0;
   const [hasActiveTask, setHasActiveTask] = createSignal(false);
+  const [selectedGraphRecords, setSelectedGraphRecords] = createSignal([]);
   let applyingModel = false;
   let changingStructure = false;
   let latestModelRevision = 0;
@@ -98,6 +100,8 @@ export function DataEditor(props) {
     mainViewProperty.rowsMutable !== false;
   const hasDetailRegion =
     !hasMainView && hasNestedArrays(schema);
+  const hasGraphRegion =
+    hasDetailRegion && Boolean(schema.views?.graph);
   const hasMainToolbar =
     schema.config.storage === STORAGE_TYPES.RECORDS &&
     !hasRecordColumns &&
@@ -272,6 +276,8 @@ export function DataEditor(props) {
   }
 
   async function replaceEditorData(data) {
+    if (hasGraphRegion) setSelectedGraphRecords([]);
+
     if (hasMainView) {
       mainViewModel = data;
       await mainView?.render();
@@ -287,6 +293,7 @@ export function DataEditor(props) {
 
   function handleRowSelectionChanged(_data, rows) {
     selectionContextService.notifySelectionChanged(table);
+    syncSelectedGraphRecords(rows);
     const tableSchema = table?._gui?.schema;
 
     if (tableSchema?.config.storage === STORAGE_TYPES.RECORDS) {
@@ -295,6 +302,13 @@ export function DataEditor(props) {
     }
 
     showDetailForSelection(rows);
+  }
+
+  function syncSelectedGraphRecords(rows = table?.getSelectedRows()) {
+    if (!hasGraphRegion) return;
+    setSelectedGraphRecords(
+      (rows ?? []).map(row => structuredClone(row.getData())),
+    );
   }
 
   // Объединение синхронной цепочки selection-событий RECORDS не создаёт
@@ -400,6 +414,7 @@ export function DataEditor(props) {
     }
 
     detailRegion.clearIfSourceMissing(table);
+    syncSelectedGraphRecords();
 
     const rows = table.getData();
     const baseModel = rowsToModel(schema, rows);
@@ -552,6 +567,7 @@ export function DataEditor(props) {
 
         applyingModel = true;
         detailRegion.showHint();
+        if (hasGraphRegion) setSelectedGraphRecords([]);
 
         try {
           await table.replaceData(rows);
@@ -874,18 +890,34 @@ export function DataEditor(props) {
         }}
       />
       {hasDetailRegion && (
-        <div class="detail-region">
-          <div class="detail-region-header">
+        <div
+          classList={{
+            "data-editor-lower": true,
+            "with-graph": hasGraphRegion,
+          }}
+        >
+          <div class="detail-region data-editor-detail">
+            <div class="detail-region-header">
+              <div
+                class="detail-region-title"
+                ref={(el) => (detailTitleDiv = el)}
+              />
+              <div
+                class="detail-region-toolbar"
+                ref={(el) => (detailToolbarDiv = el)}
+              />
+            </div>
             <div
-              class="detail-region-title"
-              ref={(el) => (detailTitleDiv = el)}
-            />
-            <div
-              class="detail-region-toolbar"
-              ref={(el) => (detailToolbarDiv = el)}
+              class="detail-region-host"
+              ref={(el) => (detailHostDiv = el)}
             />
           </div>
-          <div class="detail-region-host" ref={(el) => (detailHostDiv = el)} />
+          {hasGraphRegion && (
+            <RecordGraphRegion
+              schema={schema}
+              records={selectedGraphRecords()}
+            />
+          )}
         </div>
       )}
     </div>

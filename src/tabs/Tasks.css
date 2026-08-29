@@ -154,6 +154,42 @@ button:hover {
   padding: 4px;
 }
 
+.data-editor-lower {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: 300px;
+  margin-top: 6px;
+}
+
+.data-editor-lower .data-editor-detail.detail-region {
+  margin-top: 0;
+}
+
+.data-editor-lower.with-graph {
+  display: flex;
+  gap: 6px;
+  flex-basis: 320px;
+  max-height: none;
+}
+
+.data-editor-lower.with-graph .data-editor-detail {
+  flex: 0 0 calc(50% - 3px);
+  min-width: 280px;
+  min-height: 0;
+  max-height: none;
+}
+
+.data-editor-lower.with-graph .record-graph-region {
+  min-width: 280px;
+}
+
+@media (max-width: 900px) {
+  .data-editor-lower.with-graph .data-editor-detail,
+  .data-editor-lower.with-graph .record-graph-region {
+    min-width: 220px;
+  }
+}
+
 .task-load-error-dialog {
   max-width: 440px;
   padding: 18px;

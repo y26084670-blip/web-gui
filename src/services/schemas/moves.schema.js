@@ -46,6 +46,41 @@ export default createSchema({
 
     required: false,
 
+    views: {
+        graph: {
+            title: "Графики траекторий",
+            recordLabel: "Траектория",
+            selectorLabel: "Показ",
+            defaultMode: "position",
+            modes: [
+                {
+                    value: "position",
+                    label: "Смещение",
+                    property: "position",
+                    x: { column: 0, title: "Время, сек" },
+                    y: { title: "Смещение, мм" },
+                    series: [
+                        { column: 1, label: "X" },
+                        { column: 2, label: "Y" },
+                        { column: 3, label: "Z" },
+                    ],
+                },
+                {
+                    value: "angle",
+                    label: "Углы",
+                    property: "angle",
+                    x: { column: 0, title: "Время, сек" },
+                    y: { title: "Угол, град" },
+                    series: [
+                        { column: 1, label: "aX" },
+                        { column: 2, label: "aY" },
+                        { column: 3, label: "aZ" },
+                    ],
+                },
+            ],
+        },
+    },
+
     properties: {
 
         angle: {

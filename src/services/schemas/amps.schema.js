@@ -52,6 +52,22 @@ export default createSchema({
     required: false,
     stretchLastColumn: true,
 
+    views: {
+        graph: {
+            title: "Графики амплитуд",
+            recordLabel: "Амплитуда",
+            defaultMode: "amplitude",
+            modes: [{
+                value: "amplitude",
+                label: "Амплитуда",
+                property: "impuls",
+                x: { column: 0, title: "Время, сек" },
+                y: { title: "Амплитуда" },
+                series: [{ column: 1, label: "Амплитуда" }],
+            }],
+        },
+    },
+
     properties: {
 
         impuls: {

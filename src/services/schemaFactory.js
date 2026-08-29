@@ -56,7 +56,8 @@ export function createSchema({
     // Описание полей
     properties = {},
     // Проекции вкладки. views.main выводит единственное ARRAY/TABLE
-    // свойство RECORDS непосредственно в основной области.
+    // свойство RECORDS непосредственно в основной области; views.graph
+    // описывает линейный график выделенных RECORDS-записей.
     views = {},
     summaryMaxLength = DEFAULT_SUMMARY_MAX_LENGTH,
 }) {
@@ -190,6 +191,7 @@ function validateSchema(schema) {
     validateRecordCount(schema);
     validateMainView(schema);
     validateRecordColumnsView(schema);
+    validateGraphView(schema);
 
     const storagePaths = [];
 
@@ -261,6 +263,102 @@ function validateSchema(schema) {
                 path: storagePath,
             });
         }
+    }
+}
+
+function isNonEmptyString(value) {
+    return typeof value === "string" && value.trim().length > 0;
+}
+
+function validateGraphView(schema) {
+    const descriptor = schema.views.graph;
+    if (descriptor === undefined) return;
+
+    const modes = descriptor?.modes;
+    if (
+        schema.config.storage !== STORAGE_TYPES.RECORDS ||
+        schema.views.main !== undefined ||
+        schema.views.recordsAsColumns !== undefined ||
+        !descriptor ||
+        typeof descriptor !== "object" ||
+        Array.isArray(descriptor) ||
+        !isNonEmptyString(descriptor.title) ||
+        !isNonEmptyString(descriptor.recordLabel) ||
+        !isNonEmptyString(descriptor.defaultMode) ||
+        !Array.isArray(modes) ||
+        modes.length === 0
+    ) {
+        throw new Error(
+            `Schema '${schema.id}': views.graph requires a RECORDS table, `
+            + "title, recordLabel, defaultMode and at least one mode."
+        );
+    }
+
+    if (
+        descriptor.selectorLabel !== undefined &&
+        !isNonEmptyString(descriptor.selectorLabel)
+    ) {
+        throw new Error(
+            `Schema '${schema.id}': views.graph.selectorLabel must be non-empty.`
+        );
+    }
+
+    const modeValues = new Set();
+    for (const mode of modes) {
+        const property = schema.properties[mode?.property];
+        const xColumn = mode?.x?.column;
+        const series = mode?.series;
+        if (
+            !mode ||
+            typeof mode !== "object" ||
+            Array.isArray(mode) ||
+            !isNonEmptyString(mode.value) ||
+            !isNonEmptyString(mode.label) ||
+            modeValues.has(mode.value) ||
+            !property ||
+            property.type !== FIELD_TYPES.ARRAY ||
+            property.view !== VIEW_TYPES.TABLE ||
+            !Number.isInteger(property.nColumns) ||
+            !Number.isInteger(xColumn) ||
+            xColumn < 0 ||
+            xColumn >= property.nColumns ||
+            !isNonEmptyString(mode.x.title) ||
+            !isNonEmptyString(mode?.y?.title) ||
+            !Array.isArray(series) ||
+            series.length === 0
+        ) {
+            throw new Error(
+                `Schema '${schema.id}': invalid views.graph mode `
+                + `'${mode?.value ?? ""}'.`
+            );
+        }
+
+        const seriesColumns = new Set();
+        for (const item of series) {
+            if (
+                !item ||
+                !Number.isInteger(item.column) ||
+                item.column < 0 ||
+                item.column >= property.nColumns ||
+                item.column === xColumn ||
+                seriesColumns.has(item.column) ||
+                !isNonEmptyString(item.label)
+            ) {
+                throw new Error(
+                    `Schema '${schema.id}': invalid views.graph series `
+                    + `for mode '${mode.value}'.`
+                );
+            }
+            seriesColumns.add(item.column);
+        }
+
+        modeValues.add(mode.value);
+    }
+
+    if (!modeValues.has(descriptor.defaultMode)) {
+        throw new Error(
+            `Schema '${schema.id}': views.graph.defaultMode must name a mode.`
+        );
     }
 }
 

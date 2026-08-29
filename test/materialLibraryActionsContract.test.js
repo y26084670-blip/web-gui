@@ -34,6 +34,14 @@ test("material tabs expose copy and both legacy import actions", async () => {
     assert.match(source, /material-library-splitter-vertical/u);
     assert.match(source, /createMaterialLibraryLoadQueue/u);
     assert.match(source, /tableLoadQueue\.run/u);
+    assert.match(source, /const \[tableReady, setTableReady\]/u);
+    assert.match(source, /if \(source === "task"\).*revision\(\)/su);
+    assert.equal(
+        source.match(/loadRecords\(\{ source, destination \}\)/gu)?.length,
+        1,
+    );
+    assert.match(source, /createSignal\(360\)/u);
+    assert.match(source, /\{ primary: true \}/u);
 });
 
 test("material actions keep task save notifications outside their contract", async () => {

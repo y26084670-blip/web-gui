@@ -1,0 +1,81 @@
+.record-graph-region {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid #666;
+  background: #20262d;
+  box-sizing: border-box;
+}
+
+.record-graph-region-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 29px;
+  padding: 2px 8px;
+  border-bottom: 1px solid #666;
+  background: #d0d0d0;
+  color: #000;
+  box-sizing: border-box;
+}
+
+.record-graph-region-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.record-graph-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.record-graph-mode-switch button {
+  min-width: 86px;
+  padding: 2px 8px;
+  border: 1px solid #777;
+  border-radius: 3px;
+  background: #eee;
+  color: #111;
+}
+
+.record-graph-mode-switch button.active {
+  border-color: #245f91;
+  background: #4d789e;
+  color: #fff;
+}
+
+.record-graph-region-host {
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px;
+  position: relative;
+  color: #b8c3cd;
+  text-align: center;
+}
+
+.record-graph-region-host canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.record-graph-region-hint,
+.record-graph-region-error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.record-graph-region-error {
+  background: rgba(32, 38, 45, .92);
+  color: #ffb3b3;
+}

@@ -36,6 +36,31 @@ test("a newer material source is applied after an older pending render", async (
     assert.deepEqual(visible, ["task"]);
 });
 
+test("a base source replaces an older pending task render", async () => {
+    const queue = createMaterialLibraryLoadQueue();
+    const taskRender = deferred();
+    const taskStarted = deferred();
+    let visible = [];
+
+    const task = queue.run(async () => {
+        taskStarted.resolve();
+        await taskRender.promise;
+        visible = ["task"];
+    });
+    await taskStarted.promise;
+
+    const clear = queue.run(() => {
+        visible = [];
+    });
+    const base = queue.run(() => {
+        visible = ["base"];
+    });
+
+    taskRender.resolve();
+    await Promise.all([task, clear, base]);
+    assert.deepEqual(visible, ["base"]);
+});
+
 test("a failed table mutation does not block later source changes", async () => {
     const queue = createMaterialLibraryLoadQueue();
 

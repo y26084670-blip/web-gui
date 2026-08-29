@@ -83,7 +83,7 @@
 .material-library-lower {
   display: flex;
   gap: 0;
-  flex: 0 0 300px;
+  flex: 0 0 360px;
   min-height: 0;
 }
 
@@ -98,6 +98,15 @@
 .material-library-lower.with-graph .material-library-detail {
   flex: 0 0 calc(var(--material-detail-percent, 50%) - 3px);
   min-width: 280px;
+}
+
+.material-library-detail .detail-region-host {
+  display: flex;
+}
+
+.material-library-detail .nested-table-view {
+  height: 100%;
+  min-height: 0;
 }
 
 .material-library-splitter {
