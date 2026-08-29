@@ -14,6 +14,21 @@ import {
     mockLibraryDirectory,
     mockMaterialDirectory,
 } from "./fixtures/materialImportFixtures.js";
+import { BASE_LEGACY_FMM_LIBRARY_SHA256 } from "../src/services/materialImport/legacyFmmLibraryFingerprint.js";
+
+function fixedDigestCrypto(hexDigest) {
+    const bytes = Uint8Array.from(
+        hexDigest.match(/../gu),
+        pair => Number.parseInt(pair, 16),
+    );
+    return {
+        subtle: {
+            async digest() {
+                return bytes.buffer.slice(0);
+            },
+        },
+    };
+}
 
 test("FMM coordinator validates all input and calls writer once", async () => {
     const batches = [];
@@ -53,6 +68,23 @@ test("FMM coordinator supports handles and rejects a wrong selected file", async
             writeBatch: async () => { writes += 1; },
         }),
         /требуется legacy-библиотека XAP\.lib/,
+    );
+    assert.equal(writes, 0);
+});
+
+test("FMM coordinator rejects the unchanged base legacy library before writing", async () => {
+    let writes = 0;
+
+    await assert.rejects(
+        importFmmLegacyMaterials({
+            pickFile: async () => mockFile(
+                "XAP.lib",
+                buildXapRecord({ name: "BASE" }),
+            ),
+            writeBatch: async () => { writes += 1; },
+            cryptoImpl: fixedDigestCrypto(BASE_LEGACY_FMM_LIBRARY_SHA256),
+        }),
+        /совпадает со стандартной legacy-библиотекой/u,
     );
     assert.equal(writes, 0);
 });

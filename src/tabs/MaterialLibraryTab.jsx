@@ -29,6 +29,7 @@ import {
 } from "../services/taskMaterialLibraryService";
 import { createMaterialImportService } from "../services/materialImportService";
 import { createFmmMaterialFile } from "../services/materialImport/xapLibImporter.js";
+import { identifyLegacyFmmLibrary } from "../services/materialImport/legacyFmmLibraryFingerprint.js";
 import {
   resizedDetailRatio,
   resizedLowerHeight,
@@ -156,8 +157,7 @@ export function MaterialLibraryTab(props) {
   const [librarySource, setLibrarySource] = createSignal("default");
   const [dirtyRecords, setDirtyRecords] = createSignal([]);
   const [deleteRequest, setDeleteRequest] = createSignal(null);
-  const [legacyFmmAvailable, setLegacyFmmAvailable] = createSignal(false);
-  const [checkingLegacyFmm, setCheckingLegacyFmm] = createSignal(false);
+  const [legacyFmmStatus, setLegacyFmmStatus] = createSignal("missing");
   const [tableReady, setTableReady] = createSignal(false);
   const [lowerHeight, setLowerHeight] = createSignal(360);
   const [detailRatio, setDetailRatio] = createSignal(0.5);
@@ -740,11 +740,18 @@ export function MaterialLibraryTab(props) {
     if (dirtyRecords().length > 0) {
       return "Сначала сохраните изменения локальных характеристик";
     }
-    if (checkingLegacyFmm()) return "Проверяется наличие XAP.lib";
-    if (!legacyFmmAvailable()) {
-      return "В каталоге выбранного задания отсутствует XAP.lib";
+    switch (legacyFmmStatus()) {
+      case "checking":
+        return "Проверяется отпечаток XAP.lib";
+      case "base":
+        return "XAP.lib совпадает со стандартной legacy-библиотекой; импорт не требуется";
+      case "error":
+        return "Не удалось проверить отпечаток XAP.lib; импорт недоступен";
+      case "missing":
+        return "В каталоге выбранного задания отсутствует XAP.lib";
+      default:
+        return "Импортировать локальную библиотеку старого формата";
     }
-    return "Импортировать локальную библиотеку старого формата";
   }
 
   function scheduleLayoutRedraw() {
@@ -882,23 +889,25 @@ export function MaterialLibraryTab(props) {
     const destination = taskHandle();
     const localSource = isTaskSource();
     if (!supportsTaskSource || !localSource || !destination) {
-      setLegacyFmmAvailable(false);
-      setCheckingLegacyFmm(false);
+      setLegacyFmmStatus("missing");
       return;
     }
 
     let current = true;
-    setLegacyFmmAvailable(false);
-    setCheckingLegacyFmm(true);
-    void destination.getFileHandle("XAP.lib").then(() => {
-      if (current) setLegacyFmmAvailable(true);
-    }).catch((lookupError) => {
-      if (lookupError?.name !== "NotFoundError") {
+    setLegacyFmmStatus("checking");
+    void destination.getFileHandle("XAP.lib").then(handle => handle.getFile())
+      .then(file => identifyLegacyFmmLibrary(file))
+      .then((identity) => {
+        if (current) {
+          setLegacyFmmStatus(identity.isBaseLibrary ? "base" : "importable");
+        }
+      }).catch((lookupError) => {
+      if (lookupError?.name === "NotFoundError") {
+        if (current) setLegacyFmmStatus("missing");
+      } else {
         console.error("XAP.lib availability check error:", lookupError);
+        if (current) setLegacyFmmStatus("error");
       }
-      if (current) setLegacyFmmAvailable(false);
-    }).finally(() => {
-      if (current) setCheckingLegacyFmm(false);
     });
 
     onCleanup(() => {
@@ -966,8 +975,7 @@ export function MaterialLibraryTab(props) {
             disabled={
               actionBusy()
               || !taskHandle()
-              || checkingLegacyFmm()
-              || !legacyFmmAvailable()
+              || legacyFmmStatus() !== "importable"
               || dirtyRecords().length > 0
             }
             title={localImportTitle()}

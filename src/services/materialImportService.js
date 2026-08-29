@@ -7,6 +7,7 @@ import {
     parseHtcMaterial,
 } from "./materialImport/htcConfigImporter.js";
 import { validateUniqueLegacyMaterialNames } from "./materialImport/legacyMaterialName.js";
+import { identifyLegacyFmmLibrary } from "./materialImport/legacyFmmLibraryFingerprint.js";
 
 export const MATERIAL_IMPORT_KINDS = Object.freeze({
     FMM: "FMM",
@@ -89,6 +90,7 @@ function compareNames([first], [second]) {
 export async function importFmmLegacyMaterials({
     pickFile,
     writeBatch,
+    cryptoImpl = globalThis.crypto,
 }) {
     requireCallback(pickFile, "pickFile");
     requireCallback(writeBatch, "writeBatch");
@@ -109,7 +111,15 @@ export async function importFmmLegacyMaterials({
         );
     }
 
-    const records = parseXapLibrary(await file.arrayBuffer());
+    const identity = await identifyLegacyFmmLibrary(file, { cryptoImpl });
+    if (identity.isBaseLibrary) {
+        throw new Error(
+            "XAP.lib совпадает со стандартной legacy-библиотекой; "
+            + "импорт и дублирование характеристик не требуются.",
+        );
+    }
+
+    const records = parseXapLibrary(identity.source);
     const materials = records.map(createFmmMaterialFile);
     const writeResult = await writeBatch({
         kind: MATERIAL_IMPORT_KINDS.FMM,
@@ -227,6 +237,7 @@ export function createMaterialImportService({
     pickFmmFile,
     pickHtcDirectory,
     writeBatch,
+    cryptoImpl = globalThis.crypto,
 }) {
     requireCallback(writeBatch, "writeBatch");
 
@@ -235,6 +246,7 @@ export function createMaterialImportService({
             return importFmmLegacyMaterials({
                 pickFile: requireCallback(pickFmmFile, "pickFmmFile"),
                 writeBatch,
+                cryptoImpl,
             });
         },
         importHtc() {

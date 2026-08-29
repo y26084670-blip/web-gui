@@ -27,7 +27,11 @@ test("material tabs expose copy and both legacy import actions", async () => {
     assert.match(source, />\s*Сохранить\s*</u);
     assert.match(source, />\s*Удалить\s*</u);
     assert.match(source, /destination\.getFileHandle\("XAP\.lib"\)/u);
-    assert.match(source, /legacyFmmAvailable/u);
+    assert.match(source, /legacyFmmStatus/u);
+    assert.match(source, /identifyLegacyFmmLibrary/u);
+    assert.match(source, /identity\.isBaseLibrary \? "base" : "importable"/u);
+    assert.match(source, /legacyFmmStatus\(\) !== "importable"/u);
+    assert.match(source, /совпадает со стандартной legacy-библиотекой/u);
     assert.match(source, /MaterialDeleteConfirmationDialog/u);
     assert.match(source, /sourceRecord: source/u);
     assert.match(source, /material-library-splitter-horizontal/u);
