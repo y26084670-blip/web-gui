@@ -9,10 +9,14 @@ test("amplitude and trajectory schemas declare record graph projections", () => 
     ]).then(([ampsSource, movesSource]) => {
         assert.match(ampsSource, /defaultMode: "amplitude"/u);
         assert.match(ampsSource, /property: "impuls"/u);
+        assert.match(ampsSource, /generator:\s*\{/u);
+        assert.match(ampsSource, /Генератор временных зависимостей/u);
         assert.match(movesSource, /defaultMode: "position"/u);
         assert.match(movesSource, /value: "position"/u);
         assert.match(movesSource, /value: "angle"/u);
         assert.match(movesSource, /label: "Смещение"/u);
         assert.match(movesSource, /label: "Углы"/u);
+        assert.match(movesSource, /generator:\s*\{/u);
+        assert.match(movesSource, /Генератор временных зависимостей/u);
     });
 });

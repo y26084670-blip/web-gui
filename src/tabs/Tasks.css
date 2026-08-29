@@ -216,6 +216,45 @@ button:hover {
   background: rgba(0, 0, 0, .35);
 }
 
+.task-load-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.task-unsaved-dialog {
+  max-width: 520px;
+  padding: 18px;
+  border: 1px solid #888;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .3);
+  background: white;
+  color: #000;
+}
+
+.task-unsaved-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.task-unsaved-dialog::backdrop {
+  background: rgba(0, 0, 0, .42);
+}
+
+.task-unsaved-dialog p {
+  margin: 0;
+  text-align: center;
+}
+
+.task-unsaved-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.task-unsaved-actions button {
+  flex: 1 1 0;
+}
+
 
 /* Увеличенный горизонтальный и компактный вертикальный скроллы Tabulator. */
 .tabulator .tabulator-tableholder {

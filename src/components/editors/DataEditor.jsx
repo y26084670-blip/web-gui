@@ -27,7 +27,7 @@ import {
   STORAGE_TYPES,
   VIEW_TYPES,
 } from "../../services/schemas/common/constants";
-import { createEffect, createSignal, onMount } from "solid-js";
+import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
 import { TableBuilder } from "../../tabulator/builders/TableBuilder";
 import { resolveProperty } from "../../tabulator/schema/propertyResolver";
@@ -56,9 +56,12 @@ import {
   recordIndexFromColumn,
 } from "../../tabulator/converters/recordColumns";
 import { RecordGraphRegion } from "../graphs/RecordGraphRegion.jsx";
+import { unsavedChangesService } from "../../services/unsavedChangesService.js";
+import { resizedEditorTableRatio } from "../../services/dataEditorLayout.js";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
 import "../../tabs/Tasks.css";
+import "./DataEditor.css";
 
 export function DataEditor(props) {
   const schema = props.schema;
@@ -78,6 +81,10 @@ export function DataEditor(props) {
   let observedViewDependencyKey = null;
   let mainView = null;
   let mainViewModel = null;
+  let mainRegionHost;
+  let mainResizeCleanup = null;
+  let mainRedrawFrame = 0;
+  const [mainTableRatio, setMainTableRatio] = createSignal(0.65);
 
   const viewDependencies = [
     ...new Set(
@@ -106,6 +113,8 @@ export function DataEditor(props) {
     schema.config.storage === STORAGE_TYPES.RECORDS &&
     !hasRecordColumns &&
     (!hasMainView || mainViewStructureMutable);
+  const generatorDescriptor = schema.views?.generator ?? null;
+  const hasGeneratorRegion = Boolean(generatorDescriptor);
 
   // Transient source ID существует только в памяти и не входит в BaseModel.
   const modelSource = Symbol(`DataEditor:${schema.id}`);
@@ -592,6 +601,57 @@ export function DataEditor(props) {
     };
   }
 
+  function scheduleMainLayoutRedraw() {
+    cancelAnimationFrame(mainRedrawFrame);
+    mainRedrawFrame = requestAnimationFrame(() => {
+      mainRedrawFrame = 0;
+      table?.redraw?.(true);
+    });
+  }
+
+  function stopMainResize() {
+    mainResizeCleanup?.();
+    mainResizeCleanup = null;
+  }
+
+  function beginMainResize(event) {
+    if (event.button !== 0 || !mainRegionHost) return;
+    event.preventDefault();
+    stopMainResize();
+    const bounds = mainRegionHost.getBoundingClientRect();
+    const move = (moveEvent) => {
+      setMainTableRatio(resizedEditorTableRatio({
+        pointerX: moveEvent.clientX,
+        containerLeft: bounds.left,
+        containerWidth: bounds.width,
+      }));
+      scheduleMainLayoutRedraw();
+    };
+    const finish = () => stopMainResize();
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
+    mainResizeCleanup = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+  }
+
+  function handleMainSplitterKey(event) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const bounds = mainRegionHost.getBoundingClientRect();
+    const contentWidth = Math.max(1, bounds.width - 6);
+    const step = event.key === "ArrowLeft" ? -0.05 : 0.05;
+    setMainTableRatio(resizedEditorTableRatio({
+      pointerX: bounds.left + contentWidth * (mainTableRatio() + step),
+      containerLeft: bounds.left,
+      containerWidth: bounds.width,
+    }));
+    scheduleMainLayoutRedraw();
+  }
+
   function applyComputedColumnsVisibility(mode) {
     if (!table) return;
 
@@ -716,11 +776,12 @@ export function DataEditor(props) {
       diagnosticService.setLoadResult(schema.id, diagnostics);
 
       if (baseModel === null) {
-        modelService.setModelPart(
+        const update = modelService.setModelPart(
           schema,
           null,
           { source: modelSource },
         );
+        unsavedChangesService.setBaseline(schema.id, update.data);
         await replaceEditorData(null);
         return;
       }
@@ -730,18 +791,25 @@ export function DataEditor(props) {
         baseModel,
         { source: modelSource },
       );
+      unsavedChangesService.setBaseline(schema.id, update.data);
       await replaceEditorData(update.data);
     } catch (err) {
       if (revision !== loadRevision) return;
 
       console.error(schema.config.file + " loading error:", err);
-      modelService.setModelPart(
+      const update = modelService.setModelPart(
         schema,
         null,
         { source: modelSource },
       );
+      unsavedChangesService.setBaseline(schema.id, update.data);
       await replaceEditorData(null);
     }
+  });
+
+  onCleanup(() => {
+    stopMainResize();
+    cancelAnimationFrame(mainRedrawFrame);
   });
 
   // Направление BaseModel -> Tabulator. Собственные публикации редактора
@@ -883,12 +951,44 @@ export function DataEditor(props) {
       )}
 
       <div
-        ref={(el) => (tableDiv = el)}
-        style={{
-          flex: 1,
-          "min-height": 0,
+        ref={(el) => (mainRegionHost = el)}
+        classList={{
+          "data-editor-main": true,
+          "with-generator": hasGeneratorRegion,
         }}
-      />
+      >
+        <div
+          ref={(el) => (tableDiv = el)}
+          class="data-editor-main-table"
+          style={hasGeneratorRegion
+            ? { "flex-basis": `${mainTableRatio() * 100}%` }
+            : undefined}
+        />
+        {hasGeneratorRegion && (
+          <>
+            <div
+              class="data-editor-main-splitter"
+              role="separator"
+              aria-label="Изменить ширину основной таблицы"
+              aria-orientation="vertical"
+              tabIndex="0"
+              onPointerDown={beginMainResize}
+              onKeyDown={handleMainSplitterKey}
+            />
+            <section
+              class="data-editor-generator"
+              aria-label={generatorDescriptor.title}
+            >
+              <div class="data-editor-generator-title">
+                {generatorDescriptor.title}
+              </div>
+              <div class="data-editor-generator-placeholder">
+                Область зарезервирована для последующего развития
+              </div>
+            </section>
+          </>
+        )}
+      </div>
       {hasDetailRegion && (
         <div
           classList={{

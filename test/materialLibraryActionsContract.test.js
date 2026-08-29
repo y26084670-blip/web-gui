@@ -50,6 +50,7 @@ test("material tabs expose copy and FMM-only legacy import actions", async () =>
     assert.match(source, /HtcMaterialDetailView/u);
     assert.match(source, /materialLibraryHistoryService\.record/u);
     assert.match(source, /materialLibraryHistoryService\.attach/u);
+    assert.match(source, /unsavedChangesService\.setExplicitDirty/u);
     assert.equal(
         source.match(/loadRecords\(\{ source, destination \}\)/gu)?.length,
         1,

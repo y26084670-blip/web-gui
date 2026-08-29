@@ -17,6 +17,7 @@ import { diagnosticService } from "./services/diagnosticService";
 import { dataService } from "./services/dataService";
 import { viewSettingsService } from "./services/viewSettingsService";
 import { selectionContextService } from "./services/selectionContextService.js";
+import { unsavedChangesService } from "./services/unsavedChangesService.js";
 import {
   assignSelectedElementMaterial,
   selectedElementMaterialRequest,
@@ -47,8 +48,11 @@ export default function App() {
     {
       id: TABS.TASKS.id,
       label: "Задачи и результаты",
-      component: Tasks,
+      component: (props) => (
+        <Tasks onReturnToEditing={props.onReturnToEditing} />
+      ),
       historyEnabled: false,
+      changeIndicator: false,
     },
 
     ...tabRegistry.map((schema) => ({
@@ -127,6 +131,7 @@ export default function App() {
         const baseModel = modelService.getModel();
         const itemModel = baseModel[schema.id];
         await dataService.save(dirHandle, schema, itemModel);
+        unsavedChangesService.setBaseline(schema.id, itemModel);
       } catch (error) {
         console.warn(`Не удалось сохранить '${schema.id}'`, error);
       }
@@ -137,6 +142,13 @@ export default function App() {
     void Promise.resolve()
       .then(action)
       .catch(error => console.error("History action error:", error));
+  }
+
+  function handleReturnToEditing() {
+    const firstDirtyTab = unsavedChangesService.dirtyTabIds(
+      tabs.filter(tab => tab.changeIndicator !== false).map(tab => tab.id),
+    )[0];
+    if (firstDirtyTab) setActiveTab(firstDirtyTab);
   }
 
   return (
@@ -181,7 +193,21 @@ export default function App() {
                 setActiveTab(tab.id);
               }}
             >
-              {tab.label}
+              <span class="tab-label">{tab.label}</span>
+              {tab.changeIndicator !== false && (
+                <span
+                  classList={{
+                    "tab-change-indicator": true,
+                    dirty: unsavedChangesService.isDirty(tab.id),
+                  }}
+                  title={unsavedChangesService.isDirty(tab.id)
+                    ? "Есть несохранённые изменения"
+                    : "Нет несохранённых изменений"}
+                  aria-label={unsavedChangesService.isDirty(tab.id)
+                    ? "Есть несохранённые изменения"
+                    : "Нет несохранённых изменений"}
+                />
+              )}
             </button>
           )}
         </For>
@@ -203,6 +229,7 @@ export default function App() {
                 computedColumnsMode={
                   viewSettingsService.computedColumnsMode()
                 }
+                onReturnToEditing={handleReturnToEditing}
               />
             </div>
           );

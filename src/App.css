@@ -36,11 +36,35 @@ body,
   cursor: pointer;
   color: rgb(0, 0, 0);
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 .tabs-header button.active {
   background: rgb(125, 206, 111);
   font-weight: bold;
+}
+
+.tab-label {
+  min-width: 0;
+}
+
+.tab-change-indicator {
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  border: 1px solid #626262;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: #8d8d8d;
+}
+
+.tab-change-indicator.dirty {
+  border-color: #8a4700;
+  background: #f28c18;
+  box-shadow: 0 0 4px rgba(242, 140, 24, .75);
 }
 
 /* Контейнер содержимого: */

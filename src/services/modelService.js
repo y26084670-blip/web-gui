@@ -1,6 +1,7 @@
 import { batch, createSignal } from "solid-js";
 import { recomputeModel } from "./model/modelCompute";
 import { modelHistoryService } from "./modelHistoryService";
+import { unsavedChangesService } from "./unsavedChangesService.js";
 
 const [model, setModel] = createSignal({});
 const [partUpdates, setPartUpdates] = createSignal({});
@@ -51,6 +52,8 @@ function setModelPart(
         );
     }
 
+    unsavedChangesService.setCurrent(schema.id, update.data);
+
     return update;
 }
 
@@ -82,6 +85,8 @@ function clearModel({ source = null } = {}) {
             return updates;
         });
     });
+
+    unsavedChangesService.clear();
 }
 
 function getModel() {

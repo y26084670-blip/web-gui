@@ -5,6 +5,7 @@ import { createSignal } from "solid-js";
 import { selectionService } from "../services/selectionService";
 import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
+import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
 import {
   getFilePickerErrorMessage,
@@ -14,20 +15,24 @@ import {
 
 import "./Tasks.css";
 
-export function Tasks() {
+export function Tasks(props) {
   // состояние компонента
   const [rootHandle, setRootHandle] = createSignal(null);
   const [rootName, setRootName] = createSignal("");
   const [projects, setProjects] = createSignal([]);
   const [selectedProject, setSelectedProject] = createSignal("");
   const [tasks, setTasks] = createSignal([]);
-  const [selectedTask, setSelectedTask] = createSignal("");
+  const [selectedTask, setSelectedTask] = createSignal(null);
   const loadedTaskHandle = selectionService.loadedTaskHandle;
   const [taskErrorMessage, setTaskErrorMessage] = createSignal("");
+  const [pendingTaskLoad, setPendingTaskLoad] = createSignal(null);
 
   let taskErrorDialog;
   let taskErrorCloseButton;
+  let unsavedDialog;
+  let returnToEditingButton;
   let selectionRevision = 0;
+  let taskLoadRevision = 0;
 
   // Сброс данных прежнего задания выполняется до любой новой загрузки.
   const clearLoadedTaskState = () => {
@@ -38,9 +43,9 @@ export function Tasks() {
     diagnosticService.clearLoadResult();
   };
 
-  const invalidateTaskSelection = () => {
+  const invalidateBrowserSelection = () => {
     selectionRevision += 1;
-    clearLoadedTaskState();
+    taskLoadRevision += 1;
     return selectionRevision;
   };
 
@@ -94,13 +99,13 @@ export function Tasks() {
       const handle = await window.showDirectoryPicker({
         mode: "readwrite",
       });
-      const requestId = invalidateTaskSelection();
+      const requestId = invalidateBrowserSelection();
       setRootHandle(handle);
       setRootName("Корневой каталог: " + handle.name);
       setProjects([]);
       setSelectedProject("");
       setTasks([]);
-      setSelectedTask("");
+      setSelectedTask(null);
 
       const subdirs = await getSubdirs(handle);
       if (requestId !== selectionRevision) return;
@@ -119,10 +124,10 @@ export function Tasks() {
   // выбор проекта
   const handleProjectChange = async (event) => {
     const projectName = event.currentTarget.value;
-    const requestId = invalidateTaskSelection();
+    const requestId = invalidateBrowserSelection();
     setSelectedProject(projectName);
     setTasks([]);
-    setSelectedTask("");
+    setSelectedTask(null);
     if (!projectName) return;
     try {
       const root = rootHandle();
@@ -140,9 +145,22 @@ export function Tasks() {
   };
 
   // выбор задания
-  const handleTaskClick = async (task) => {
-    const requestId = invalidateTaskSelection();
-    setSelectedTask(task.name);
+  const commitTaskLoad = ({ task, fullPath }) => {
+    clearLoadedTaskState();
+    console.log("Выбранное задание:", fullPath);
+    selectionService.setLoadedTaskHandle(task.handle);
+    selectionService.setLoadedTaskPath(fullPath);
+  };
+
+  const selectTaskCandidate = (task) => {
+    taskLoadRevision += 1;
+    setSelectedTask(task);
+  };
+
+  const requestTaskLoad = async () => {
+    const task = selectedTask();
+    if (!task || task.handle === loadedTaskHandle()) return;
+    const requestId = ++taskLoadRevision;
 
     try {
       const root = rootHandle();
@@ -152,19 +170,41 @@ export function Tasks() {
         task.handle.getDirectoryHandle(DIRECTORIES.INPUT),
         getFullPath(root, task.handle),
       ]);
-      if (requestId !== selectionRevision) return;
+      if (requestId !== taskLoadRevision) return;
 
-      console.log("Выбранное задание:", fullPath);
-      selectionService.setLoadedTaskHandle(task.handle);
-      selectionService.setLoadedTaskPath(fullPath);
+      const request = { task, fullPath };
+      if (loadedTaskHandle() && unsavedChangesService.hasDirty()) {
+        setPendingTaskLoad(request);
+        queueMicrotask(() => {
+          if (!unsavedDialog.open) unsavedDialog.showModal();
+          returnToEditingButton?.focus();
+        });
+        return;
+      }
+
+      commitTaskLoad(request);
     } catch (error) {
-      if (requestId !== selectionRevision) return;
+      if (requestId !== taskLoadRevision) return;
       if (error?.name === "NotFoundError") {
         showLoadError(task.name);
         return;
       }
       console.error("Ошибка обработки задания:", error);
     }
+  };
+
+  const confirmTaskLoad = () => {
+    const request = pendingTaskLoad();
+    if (!request) return;
+    setPendingTaskLoad(null);
+    unsavedDialog.close();
+    commitTaskLoad(request);
+  };
+
+  const returnToEditing = () => {
+    setPendingTaskLoad(null);
+    unsavedDialog.close();
+    props.onReturnToEditing?.();
   };
   return (
     <div
@@ -215,16 +255,24 @@ export function Tasks() {
               <div
                 classList={{
                   "listTask-item": true,
-                  selected: selectedTask() === task.name,
+                  selected: selectedTask()?.handle === task.handle,
                 }}
-                onClick={() => handleTaskClick(task)}
+                onClick={() => selectTaskCandidate(task)}
               >
                 {task.name}
               </div>
             ))}
           </div>
-          <h4 style="margin-bottom: 5px">Текущее выбранное задание:</h4>
-          <div>{loadedTaskHandle() ? loadedTaskHandle().name : "—"}</div>
+          <button
+            class="task-load-button"
+            disabled={
+              !selectedTask()
+              || selectedTask()?.handle === loadedTaskHandle()
+            }
+            onClick={requestTaskLoad}
+          >
+            Загрузить для редактирования
+          </button>
         </div>
       </div>
       <div
@@ -258,6 +306,28 @@ export function Tasks() {
         >
           Закрыть
         </button>
+      </dialog>
+
+      <dialog
+        class="task-unsaved-dialog"
+        ref={(el) => (unsavedDialog = el)}
+        onCancel={(event) => event.preventDefault()}
+      >
+        <p>
+          В редакторе есть несохранённые изменения. Загрузить другое задание
+          без сохранения текущих данных?
+        </p>
+        <div class="task-unsaved-actions">
+          <button onClick={confirmTaskLoad}>
+            Загрузить без сохранения
+          </button>
+          <button
+            ref={(el) => (returnToEditingButton = el)}
+            onClick={returnToEditing}
+          >
+            Вернуться к редактированию
+          </button>
+        </div>
       </dialog>
     </div>
   );

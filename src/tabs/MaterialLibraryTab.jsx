@@ -29,6 +29,7 @@ import { createFmmMaterialFile } from "../services/materialImport/xapLibImporter
 import { createHtcMaterialFile } from "../services/materialImport/htcConfigImporter.js";
 import { identifyLegacyFmmLibrary } from "../services/materialImport/legacyFmmLibraryFingerprint.js";
 import { materialLibraryHistoryService } from "../services/materialLibraryHistoryService.js";
+import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import {
   resizedDetailRatio,
   resizedLowerHeight,
@@ -875,6 +876,13 @@ export function MaterialLibraryTab(props) {
   });
 
   createEffect(() => {
+    unsavedChangesService.setExplicitDirty(
+      schema.id,
+      dirtyRecords().length > 0,
+    );
+  });
+
+  createEffect(() => {
     if (!props.active || !table) return;
 
     requestAnimationFrame(() => {
@@ -934,6 +942,7 @@ export function MaterialLibraryTab(props) {
 
   onCleanup(() => {
     disposed = true;
+    unsavedChangesService.clear(schema.id);
     detachHistory?.();
     detachHistory = null;
     clearLibraryHistory();

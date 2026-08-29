@@ -192,6 +192,7 @@ function validateSchema(schema) {
     validateMainView(schema);
     validateRecordColumnsView(schema);
     validateGraphView(schema);
+    validateGeneratorView(schema);
 
     const storagePaths = [];
 
@@ -268,6 +269,26 @@ function validateSchema(schema) {
 
 function isNonEmptyString(value) {
     return typeof value === "string" && value.trim().length > 0;
+}
+
+function validateGeneratorView(schema) {
+    const descriptor = schema.views.generator;
+    if (descriptor === undefined) return;
+
+    if (
+        schema.config.storage !== STORAGE_TYPES.RECORDS ||
+        schema.views.main !== undefined ||
+        schema.views.recordsAsColumns !== undefined ||
+        !descriptor ||
+        typeof descriptor !== "object" ||
+        Array.isArray(descriptor) ||
+        !isNonEmptyString(descriptor.title)
+    ) {
+        throw new Error(
+            `Schema '${schema.id}': views.generator requires a RECORDS `
+            + "main table and a non-empty title."
+        );
+    }
 }
 
 function validateGraphView(schema) {

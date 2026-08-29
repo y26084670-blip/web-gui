@@ -53,6 +53,9 @@ export default createSchema({
     stretchLastColumn: true,
 
     views: {
+        generator: {
+            title: "Генератор временных зависимостей",
+        },
         graph: {
             title: "Графики амплитуд",
             recordLabel: "Амплитуда",

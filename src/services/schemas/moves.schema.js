@@ -47,6 +47,9 @@ export default createSchema({
     required: false,
 
     views: {
+        generator: {
+            title: "Генератор временных зависимостей",
+        },
         graph: {
             title: "Графики траекторий",
             recordLabel: "Траектория",

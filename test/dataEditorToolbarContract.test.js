@@ -15,3 +15,13 @@ test("record list actions are disabled until a task is loaded", async () => {
     assert.match(source, /if \(!hasActiveTask\(\)\) return;/u);
     assert.match(source, /Сначала загрузите задание/u);
 });
+
+test("generator-enabled data tabs expose an accessible vertical splitter", async () => {
+    const source = await readFile(componentUrl, "utf8");
+
+    assert.match(source, /schema\.views\?\.generator/u);
+    assert.match(source, /class="data-editor-main-splitter"/u);
+    assert.match(source, /role="separator"/u);
+    assert.match(source, /onPointerDown=\{beginMainResize\}/u);
+    assert.match(source, /onKeyDown=\{handleMainSplitterKey\}/u);
+});
