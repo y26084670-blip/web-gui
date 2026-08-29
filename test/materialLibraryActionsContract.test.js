@@ -11,7 +11,11 @@ test("material tabs expose copy and both legacy import actions", async () => {
     const source = await readFile(componentUrl, "utf8");
 
     assert.match(source, />\s*Копировать в задание\s*</u);
-    assert.match(source, /Импортировать XAP\.lib/u);
+    assert.match(source, />\s*Импортировать\s*</u);
+    assert.match(
+        source,
+        /Импортировать локальную библиотеку старого формата/u,
+    );
     assert.match(source, /Импортировать legacy-библиотеку ВТСП/u);
     assert.match(source, /createMaterialImportService/u);
     assert.match(source, /taskMaterialLibraryService\.copyMaterials/u);
@@ -19,9 +23,15 @@ test("material tabs expose copy and both legacy import actions", async () => {
     assert.match(source, /Источник характеристик/u);
     assert.match(source, /Базовая библиотека/u);
     assert.match(source, /Локальная библиотека задания/u);
-    assert.match(source, />\s*Редактировать\s*</u);
+    assert.doesNotMatch(source, />\s*Редактировать\s*</u);
+    assert.match(source, />\s*Сохранить\s*</u);
     assert.match(source, />\s*Удалить\s*</u);
     assert.match(source, /destination\.getFileHandle\("XAP\.lib"\)/u);
+    assert.match(source, /legacyFmmAvailable/u);
+    assert.match(source, /MaterialDeleteConfirmationDialog/u);
+    assert.match(source, /sourceRecord: source/u);
+    assert.match(source, /material-library-splitter-horizontal/u);
+    assert.match(source, /material-library-splitter-vertical/u);
 });
 
 test("material actions keep task save notifications outside their contract", async () => {

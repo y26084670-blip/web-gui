@@ -8,7 +8,7 @@ import {
 import { TabulatorFull as Tabulator } from "tabulator-tables";
 
 import { FmmGraphRegion } from "../components/materials/FmmGraphRegion.jsx";
-import { FmmMaterialEditorDialog } from "../components/materials/FmmMaterialEditorDialog.jsx";
+import { MaterialDeleteConfirmationDialog } from "../components/materials/MaterialDeleteConfirmationDialog.jsx";
 import { modelToRows } from "../tabulator/converters/modelConverter";
 import { TableBuilder } from "../tabulator/builders/TableBuilder";
 import { DetailRegion } from "../tabulator/views/DetailRegion";
@@ -30,6 +30,10 @@ import {
 import { createMaterialImportService } from "../services/materialImportService";
 import { createFmmMaterialFile } from "../services/materialImport/xapLibImporter.js";
 import {
+  resizedDetailRatio,
+  resizedLowerHeight,
+} from "../services/materials/materialLibraryLayout.js";
+import {
   getFilePickerErrorMessage,
   getFileSystemAccessSupport,
 } from "../services/fileSystemAccessSupport";
@@ -40,6 +44,25 @@ import "./MaterialLibraryTab.css";
 function withoutRowLabel(rowData) {
   const { rowLabel, ...record } = rowData;
   return record;
+}
+
+function editableFmmSchema(schema) {
+  const tabl = schema.properties.tabl;
+  return {
+    ...schema,
+    properties: {
+      ...schema.properties,
+      name: { ...schema.properties.name, readonly: false },
+      hip: { ...schema.properties.hip, readonly: false },
+      tabl: {
+        ...tabl,
+        readonly: false,
+        rowsMutable: false,
+        items: { ...tabl.items, readonly: false },
+      },
+      comment: { ...schema.properties.comment, readonly: false },
+    },
+  };
 }
 
 function htcDetailProperty(entries) {
@@ -117,6 +140,11 @@ function partialWriteMessage(summary, error) {
 export function MaterialLibraryTab(props) {
   const definition = props.definition;
   const schema = definition.schema;
+  const taskHandle = selectionService.loadedTaskHandle;
+  const supportsTaskSource = definition.kind === "FMM";
+  const tableSchema = supportsTaskSource
+    ? editableFmmSchema(schema)
+    : schema;
 
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal("");
@@ -125,26 +153,31 @@ export function MaterialLibraryTab(props) {
   const [actionMessage, setActionMessage] = createSignal("");
   const [actionError, setActionError] = createSignal("");
   const [librarySource, setLibrarySource] = createSignal("default");
-  const [editorRecord, setEditorRecord] = createSignal(null);
-  const [editorError, setEditorError] = createSignal("");
+  const [dirtyRecords, setDirtyRecords] = createSignal([]);
+  const [deleteRequest, setDeleteRequest] = createSignal(null);
+  const [legacyFmmAvailable, setLegacyFmmAvailable] = createSignal(false);
+  const [checkingLegacyFmm, setCheckingLegacyFmm] = createSignal(false);
+  const [lowerHeight, setLowerHeight] = createSignal(300);
+  const [detailRatio, setDetailRatio] = createSignal(0.5);
 
   let tableHost;
+  let lowerRegionHost;
   let detailTitleHost;
   let detailToolbarHost;
   let detailViewHost;
   let table;
   let disposed = false;
   let recordLoadRevision = 0;
+  let resizeCleanup = null;
+  let redrawFrame = 0;
 
   const detailRegion = new DetailRegion();
   const recordDetailViews = new Map();
 
-  const taskHandle = selectionService.loadedTaskHandle;
-  const supportsTaskSource = definition.kind === "FMM";
   const isTaskSource = () =>
     supportsTaskSource && librarySource() === "task";
   const importActionLabel = definition.kind === "FMM"
-    ? "Импортировать XAP.lib"
+    ? "Импортировать"
     : "Импортировать legacy-библиотеку ВТСП";
 
   function beginAction() {
@@ -157,8 +190,17 @@ export function MaterialLibraryTab(props) {
     setActionBusy(false);
   }
 
-  function selectedBaseRecords(rows) {
-    return rows.map(row => withoutRowLabel(row.getData()));
+  function selectedTableRecords(rows) {
+    return rows.map(row => row.getData());
+  }
+
+  function markRecordDirty(record) {
+    if (!isTaskSource() || !record?._taskLibraryRecord) return;
+    setDirtyRecords(current =>
+      current.includes(record) ? current : [...current, record]);
+    setActionMessage("");
+    setActionError("");
+    setSelectedRecords(selectedTableRecords(table.getSelectedRows()));
   }
 
   function clearRenderedRecords() {
@@ -200,19 +242,24 @@ export function MaterialLibraryTab(props) {
 
   function createPropertyDetail(row) {
     const rowData = row.getData();
-    const record = withoutRowLabel(rowData);
+    const record = rowData;
     const propertyName = definition.detail.property;
-    const property = schema.properties[propertyName];
+    const property = tableSchema.properties[propertyName];
     const host = document.createElement("div");
     host.className = "nested-table-view";
 
     const view = new TableView(property, {
-      getSchema: () => schema,
+      getSchema: () => tableSchema,
       getValue: () => rowData[propertyName],
       getRecord: () => record,
       getModelSnapshot: () => ({}),
-      isWritable: () => false,
-      setValue: () => undefined,
+      isWritable: () => isTaskSource() && !actionBusy(),
+      setValue: async (value) => {
+        await row.update({
+          [propertyName]: structuredClone(value),
+        });
+        markRecordDirty(row.getData());
+      },
     });
 
     const entry = {
@@ -274,12 +321,20 @@ export function MaterialLibraryTab(props) {
   }
 
   function handleSelectionChanged(_data, rows) {
-    setSelectedRecords(selectedBaseRecords(rows));
+    setSelectedRecords(selectedTableRecords(rows));
     showDetail(rows.length > 0 ? rows[rows.length - 1] : null);
   }
 
   function createTable() {
-    const columns = TableBuilder.buildColumns(schema);
+    const columns = TableBuilder.buildColumns(tableSchema);
+
+    if (supportsTaskSource) {
+      for (const column of columns) {
+        const property = tableSchema.properties[column.field];
+        if (!property || property.type === FIELD_TYPES.ARRAY) continue;
+        column.editable = () => isTaskSource() && !actionBusy();
+      }
+    }
 
     if (definition.detail.type === "property") {
       const propertyName = definition.detail.property;
@@ -306,7 +361,7 @@ export function MaterialLibraryTab(props) {
     });
 
     table._gui = {
-      schema,
+      schema: tableSchema,
       required: false,
       detailRegion,
       model: {
@@ -320,6 +375,15 @@ export function MaterialLibraryTab(props) {
     };
 
     table.on("rowSelectionChanged", handleSelectionChanged);
+    table.on("cellEdited", (cell) => {
+      if (!isTaskSource()) return;
+      const row = cell.getRow();
+      markRecordDirty(row.getData());
+      if (cell.getField() === "name" && row.isSelected()) {
+        detailTitleHost.textContent = `${tableSchema.properties.tabl.label} — `
+          + String(row.getData().name ?? "");
+      }
+    });
   }
 
   async function loadRecords({
@@ -329,7 +393,9 @@ export function MaterialLibraryTab(props) {
     const revision = ++recordLoadRevision;
     setLoading(true);
     setError("");
+    setDirtyRecords([]);
     clearRenderedRecords();
+    await table.clearData();
 
     try {
       const records = source === "task"
@@ -338,7 +404,7 @@ export function MaterialLibraryTab(props) {
           : []
         : await definition.loadRecords();
       if (disposed || revision !== recordLoadRevision) return;
-      await table.setData(modelToRows(schema, records));
+      await table.setData(modelToRows(tableSchema, records));
     } catch (loadError) {
       if (disposed || revision !== recordLoadRevision) return;
       console.error(`${definition.id} ${source} loading error:`, loadError);
@@ -559,24 +625,31 @@ export function MaterialLibraryTab(props) {
     }
   }
 
-  async function deleteSelectedMaterials() {
+  function requestDeleteSelectedMaterials() {
     const destination = taskHandle();
-    const localRecords = selectedRecords()
-      .map(record => record._taskLibraryRecord)
-      .filter(Boolean);
+    const selected = selectedRecords()
+      .filter(record => record._taskLibraryRecord);
+    const localRecords = selected.map(record => record._taskLibraryRecord);
     if (!destination || localRecords.length === 0) return;
 
-    const names = localRecords.map(record => record.name).join(", ");
-    if (!window.confirm(`Удалить локальные характеристики: ${names}?`)) {
-      return;
-    }
+    setDeleteRequest({
+      records: localRecords,
+      names: selected.map(record => record.name),
+    });
+  }
+
+  async function confirmDeleteSelectedMaterials() {
+    const destination = taskHandle();
+    const request = deleteRequest();
+    if (!destination || !request?.records?.length) return;
 
     beginAction();
     try {
       const results = await taskMaterialLibraryService.deleteMaterials({
         taskHandle: destination,
-        records: localRecords,
+        records: request.records,
       });
+      setDeleteRequest(null);
       setActionMessage(`Удалено характеристик: ${results.length}.`);
       materialLibraryRevisionService.notifyChanged();
       await loadRecords();
@@ -589,37 +662,161 @@ export function MaterialLibraryTab(props) {
     }
   }
 
-  function editSelectedMaterial() {
-    const selected = selectedRecords();
-    if (selected.length !== 1 || !selected[0]._taskLibraryRecord) return;
-    setEditorError("");
-    setEditorRecord(selected[0]);
-  }
-
-  async function saveEditedMaterial(record) {
+  async function saveEditedMaterials() {
     const destination = taskHandle();
-    const source = editorRecord()?._taskLibraryRecord;
-    if (!destination || !source) return;
+    const pending = [...dirtyRecords()];
+    if (!destination || pending.length === 0) return;
 
-    setActionBusy(true);
-    setEditorError("");
+    beginAction();
+    const saved = new Set();
     try {
-      await taskMaterialLibraryService.saveMaterial({
-        taskHandle: destination,
-        material: createFmmMaterialFile(record),
-        expectedSha256: source.sha256,
-      });
-      setEditorRecord(null);
-      setActionMessage(`Характеристика «${record.name}» сохранена.`);
+      for (const record of pending) {
+        const source = record._taskLibraryRecord;
+        const file = createFmmMaterialFile(record);
+        const result = await taskMaterialLibraryService.saveMaterial({
+          taskHandle: destination,
+          material: file,
+          sourceRecord: source,
+        });
+        record._taskLibraryRecord = {
+          ...source,
+          name: record.name,
+          fileName: result.fileName,
+          relativePath: result.path,
+          byteSize: result.byteSize,
+          sha256: result.sha256,
+          data: file.data,
+        };
+        saved.add(record);
+      }
+
+      setDirtyRecords([]);
+      setActionMessage(`Сохранено характеристик: ${saved.size}.`);
       materialLibraryRevisionService.notifyChanged();
       await loadRecords();
     } catch (saveError) {
-      setEditorError(
-        saveError instanceof Error ? saveError.message : String(saveError),
+      setDirtyRecords(current =>
+        current.filter(record => !saved.has(record)));
+      setActionError(
+        `Сохранение не завершено: сохранено — ${saved.size}; `
+        + actionErrorMessage(saveError, "сохранить характеристики"),
       );
     } finally {
-      setActionBusy(false);
+      endAction();
     }
+  }
+
+  function changeLibrarySource(event) {
+    const nextSource = event.currentTarget.value;
+    if (
+      dirtyRecords().length > 0
+      && !window.confirm(
+        "Есть несохранённые изменения локальной библиотеки. Отменить их?",
+      )
+    ) {
+      event.currentTarget.value = librarySource();
+      return;
+    }
+    setLibrarySource(nextSource);
+  }
+
+  function localImportTitle() {
+    if (dirtyRecords().length > 0) {
+      return "Сначала сохраните изменения локальных характеристик";
+    }
+    if (checkingLegacyFmm()) return "Проверяется наличие XAP.lib";
+    if (!legacyFmmAvailable()) {
+      return "В каталоге выбранного задания отсутствует XAP.lib";
+    }
+    return "Импортировать локальную библиотеку старого формата";
+  }
+
+  function scheduleLayoutRedraw() {
+    cancelAnimationFrame(redrawFrame);
+    redrawFrame = requestAnimationFrame(() => {
+      redrawFrame = 0;
+      table?.redraw(true);
+      void Promise.resolve(detailRegion.onVisible()).catch((resizeError) => {
+        console.error(`${definition.id} resize error:`, resizeError);
+      });
+    });
+  }
+
+  function stopResize() {
+    resizeCleanup?.();
+    resizeCleanup = null;
+  }
+
+  function beginResize(event, onMove) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    stopResize();
+
+    const move = (moveEvent) => {
+      onMove(moveEvent);
+      scheduleLayoutRedraw();
+    };
+    const finish = () => stopResize();
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
+    resizeCleanup = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+  }
+
+  function beginHorizontalResize(event) {
+    const tableHeight = tableHost.getBoundingClientRect().height;
+    const startHeight = lowerRegionHost.getBoundingClientRect().height;
+    const startY = event.clientY;
+    const availableHeight = tableHeight + startHeight;
+    beginResize(event, moveEvent => {
+      setLowerHeight(resizedLowerHeight({
+        startHeight,
+        deltaY: moveEvent.clientY - startY,
+        availableHeight,
+      }));
+    });
+  }
+
+  function beginVerticalResize(event) {
+    const bounds = lowerRegionHost.getBoundingClientRect();
+    beginResize(event, moveEvent => {
+      setDetailRatio(resizedDetailRatio({
+        pointerX: moveEvent.clientX,
+        containerLeft: bounds.left,
+        containerWidth: bounds.width,
+      }));
+    });
+  }
+
+  function handleHorizontalSplitterKey(event) {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    const tableHeight = tableHost.getBoundingClientRect().height;
+    const currentHeight = lowerRegionHost.getBoundingClientRect().height;
+    setLowerHeight(resizedLowerHeight({
+      startHeight: currentHeight,
+      deltaY: event.key === "ArrowUp" ? -20 : 20,
+      availableHeight: tableHeight + currentHeight,
+    }));
+    scheduleLayoutRedraw();
+  }
+
+  function handleVerticalSplitterKey(event) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const bounds = lowerRegionHost.getBoundingClientRect();
+    const contentWidth = Math.max(1, bounds.width - 6);
+    const step = event.key === "ArrowLeft" ? -0.05 : 0.05;
+    setDetailRatio(resizedDetailRatio({
+      pointerX: bounds.left + contentWidth * (detailRatio() + step),
+      containerLeft: bounds.left,
+      containerWidth: bounds.width,
+    }));
+    scheduleLayoutRedraw();
   }
 
   onMount(() => {
@@ -658,6 +855,34 @@ export function MaterialLibraryTab(props) {
   });
 
   createEffect(() => {
+    const destination = taskHandle();
+    const localSource = isTaskSource();
+    if (!supportsTaskSource || !localSource || !destination) {
+      setLegacyFmmAvailable(false);
+      setCheckingLegacyFmm(false);
+      return;
+    }
+
+    let current = true;
+    setLegacyFmmAvailable(false);
+    setCheckingLegacyFmm(true);
+    void destination.getFileHandle("XAP.lib").then(() => {
+      if (current) setLegacyFmmAvailable(true);
+    }).catch((lookupError) => {
+      if (lookupError?.name !== "NotFoundError") {
+        console.error("XAP.lib availability check error:", lookupError);
+      }
+      if (current) setLegacyFmmAvailable(false);
+    }).finally(() => {
+      if (current) setCheckingLegacyFmm(false);
+    });
+
+    onCleanup(() => {
+      current = false;
+    });
+  });
+
+  createEffect(() => {
     materialLibraryRevisionService.revision();
     if (!table || !isTaskSource()) return;
     void loadRecords();
@@ -665,6 +890,8 @@ export function MaterialLibraryTab(props) {
 
   onCleanup(() => {
     disposed = true;
+    stopResize();
+    cancelAnimationFrame(redrawFrame);
     detailRegion.destroy();
     for (const entry of recordDetailViews.values()) {
       entry.view.destroy();
@@ -683,7 +910,7 @@ export function MaterialLibraryTab(props) {
             <select
               value={librarySource()}
               disabled={actionBusy()}
-              onChange={(event) => setLibrarySource(event.currentTarget.value)}
+              onChange={changeLibrarySource}
             >
               <option value="default">Базовая библиотека</option>
               <option value="task">Локальная библиотека задания</option>
@@ -718,26 +945,41 @@ export function MaterialLibraryTab(props) {
         </Show>
         <Show when={isTaskSource()}>
           <button
-            disabled={actionBusy() || !taskHandle()}
-            title="Импортировать XAP.lib из каталога выбранного задания"
+            disabled={
+              actionBusy()
+              || !taskHandle()
+              || checkingLegacyFmm()
+              || !legacyFmmAvailable()
+              || dirtyRecords().length > 0
+            }
+            title={localImportTitle()}
             onClick={importLegacyMaterials}
           >
-            Импортировать XAP.lib
+            Импортировать
           </button>
           <button
-            disabled={actionBusy() || selectedRecords().length !== 1}
-            title="Редактировать одну выбранную локальную характеристику"
-            onClick={editSelectedMaterial}
+            disabled={actionBusy() || dirtyRecords().length === 0}
+            title="Сохранить изменённые локальные характеристики"
+            onClick={saveEditedMaterials}
           >
-            Редактировать
+            Сохранить
           </button>
           <button
-            disabled={actionBusy() || selectedRecords().length === 0}
+            disabled={
+              actionBusy()
+              || selectedRecords().length === 0
+              || dirtyRecords().length > 0
+            }
             title="Удалить выбранные локальные характеристики"
-            onClick={deleteSelectedMaterials}
+            onClick={requestDeleteSelectedMaterials}
           >
             Удалить
           </button>
+          <Show when={dirtyRecords().length > 0}>
+            <span class="material-library-action-progress">
+              Изменено: {dirtyRecords().length}
+            </span>
+          </Show>
         </Show>
         <Show when={actionBusy()}>
           <span class="material-library-action-progress">
@@ -781,11 +1023,29 @@ export function MaterialLibraryTab(props) {
         ref={(element) => (tableHost = element)}
       />
 
+      <Show when={definition.graphRegion}>
+        <div
+          class="material-library-splitter material-library-splitter-horizontal"
+          role="separator"
+          aria-label="Изменить высоту таблицы деталей и графика"
+          aria-orientation="horizontal"
+          aria-valuenow={Math.round(lowerHeight())}
+          tabIndex="0"
+          onPointerDown={beginHorizontalResize}
+          onKeyDown={handleHorizontalSplitterKey}
+        />
+      </Show>
+
       <div
         classList={{
           "material-library-lower": true,
           "with-graph": definition.graphRegion,
         }}
+        style={definition.graphRegion ? {
+          "flex-basis": `${lowerHeight()}px`,
+          "--material-detail-percent": `${detailRatio() * 100}%`,
+        } : {}}
+        ref={(element) => (lowerRegionHost = element)}
       >
         <div class="detail-region material-library-detail">
           <div class="detail-region-header">
@@ -805,15 +1065,24 @@ export function MaterialLibraryTab(props) {
         </div>
 
         <Show when={definition.graphRegion}>
+          <div
+            class="material-library-splitter material-library-splitter-vertical"
+            role="separator"
+            aria-label="Изменить ширину таблицы деталей и графика"
+            aria-orientation="vertical"
+            aria-valuenow={Math.round(detailRatio() * 100)}
+            tabIndex="0"
+            onPointerDown={beginVerticalResize}
+            onKeyDown={handleVerticalSplitterKey}
+          />
           <FmmGraphRegion records={selectedRecords()} />
         </Show>
       </div>
-      <FmmMaterialEditorDialog
-        record={editorRecord()}
-        error={editorError()}
+      <MaterialDeleteConfirmationDialog
+        request={deleteRequest()}
         busy={actionBusy()}
-        onCancel={() => setEditorRecord(null)}
-        onSave={saveEditedMaterial}
+        onCancel={() => setDeleteRequest(null)}
+        onConfirm={confirmDeleteSelectedMaterials}
       />
     </div>
   );

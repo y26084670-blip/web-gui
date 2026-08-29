@@ -75,14 +75,14 @@ export function MaterialSelectionDialog(props) {
               {(record) => <option value={record.name}>{record.name}</option>}
             </For>
           </select>
-          <div class="material-dialog-actions">
-            <button onClick={props.onCancel}>Отмена</button>
+          <div class="material-dialog-actions material-selection-actions">
             <button
               disabled={!selectedName() || loading()}
               onClick={() => props.onApply?.(selectedName())}
             >
               Назначить
             </button>
+            <button onClick={props.onCancel}>Отмена</button>
           </div>
         </section>
       </div>

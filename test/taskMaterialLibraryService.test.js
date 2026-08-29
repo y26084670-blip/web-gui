@@ -659,3 +659,70 @@ test("explicit local edit and delete use the loaded SHA as a concurrency guard",
     }]);
     assert.equal(library.files.has("Сталь.txt"), false);
 });
+
+test("saving an edited local name renames its JSON file", async () => {
+    const root = await taskRoot();
+    const library = await taskLibraryDirectory(
+        root,
+        "xapLibFMM",
+        { create: true },
+    );
+    const original = Buffer.from('{"comment":"исходная"}\n', "utf8");
+    library.files.set("Старое имя.txt", new MemoryFileHandle(original));
+    const { service } = serviceFor(new Uint8Array());
+    const [loaded] = await service.loadMaterials({
+        taskHandle: root,
+        kind: "FMM",
+    });
+
+    const editedText = '{"comment":"новое имя"}\n';
+    const result = await service.saveMaterial({
+        taskHandle: root,
+        material: importedMaterial("Новое имя", editedText),
+        sourceRecord: loaded,
+    });
+
+    assert.equal(result.status, "renamed");
+    assert.equal(result.renamedFrom, "Старое имя.txt");
+    assert.equal(result.fileName, "Новое имя.txt");
+    assert.equal(library.files.has("Старое имя.txt"), false);
+    const renamed = await library.getFileHandle("Новое имя.txt");
+    assert.equal(new TextDecoder().decode(renamed.bytes), editedText);
+});
+
+test("renaming refuses to replace another local material", async () => {
+    const root = await taskRoot();
+    const library = await taskLibraryDirectory(
+        root,
+        "xapLibFMM",
+        { create: true },
+    );
+    const original = Buffer.from('{"comment":"A"}\n', "utf8");
+    const occupied = Buffer.from('{"comment":"B"}\n', "utf8");
+    library.files.set("A.txt", new MemoryFileHandle(original));
+    library.files.set("B.txt", new MemoryFileHandle(occupied));
+    const { service } = serviceFor(new Uint8Array());
+    const records = await service.loadMaterials({
+        taskHandle: root,
+        kind: "FMM",
+    });
+    const source = records.find(record => record.name === "A");
+
+    await assert.rejects(
+        service.saveMaterial({
+            taskHandle: root,
+            material: importedMaterial("B", '{"comment":"замена"}\n'),
+            sourceRecord: source,
+        }),
+        error => error instanceof MaterialFileConflictError,
+    );
+
+    assert.equal(
+        new TextDecoder().decode((await library.getFileHandle("A.txt")).bytes),
+        new TextDecoder().decode(original),
+    );
+    assert.equal(
+        new TextDecoder().decode((await library.getFileHandle("B.txt")).bytes),
+        new TextDecoder().decode(occupied),
+    );
+});

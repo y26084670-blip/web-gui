@@ -56,36 +56,31 @@
     margin-top: 12px;
 }
 
-.fmm-material-editor {
-    width: min(780px, 94vw);
+.material-selection-actions button {
+    flex: 0 0 120px;
+    width: 120px;
 }
 
-.fmm-material-editor-field {
-    display: grid;
-    grid-template-columns: 120px 1fr;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+.material-delete-dialog {
+    width: min(520px, 90vw);
 }
 
-.fmm-material-editor-field input,
-.fmm-material-editor-table input {
-    box-sizing: border-box;
-    width: 100%;
-}
-
-.fmm-material-editor-table-wrap {
-    max-height: 52vh;
+.material-delete-list {
+    max-height: 42vh;
+    margin: 10px 0 0;
+    padding: 8px 8px 8px 30px;
     overflow: auto;
+    color: #edf2f7;
+    background: #151a1f;
+    border: 1px solid #596674;
 }
 
-.fmm-material-editor-table {
-    width: 100%;
-    border-collapse: collapse;
+.material-delete-actions button {
+    min-width: 110px;
 }
 
-.fmm-material-editor-table th,
-.fmm-material-editor-table td {
-    padding: 3px 5px;
-    border: 1px solid #4c5864;
+.material-delete-confirm {
+    color: #fff;
+    background: #8f2525;
+    border-color: #bb4d4d;
 }

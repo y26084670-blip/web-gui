@@ -126,8 +126,8 @@ function materialNameFromFile(fileName) {
 export class MaterialFileConflictError extends Error {
     constructor({ path, existingSha256, expectedSha256 }) {
         super(
-            `Локальная характеристика '${path}' отличается от базовой. `
-            + "Для замены требуется явное подтверждение.",
+            `Локальная характеристика '${path}' изменилась или конфликтует `
+            + "с выбранным именем. Повторите загрузку библиотеки.",
         );
         this.name = "MaterialFileConflictError";
         this.path = path;
@@ -714,6 +714,7 @@ export function createTaskMaterialLibraryService({
         taskHandle,
         material,
         expectedSha256,
+        sourceRecord,
     } = {}) {
         requireTaskHandle(taskHandle);
         const [prepared] = await prepareImportedMaterials({
@@ -727,40 +728,112 @@ export function createTaskMaterialLibraryService({
             libraryDirectory,
             { create: true },
         );
-        const existing = await findFileHandle(
-            targetDirectory,
-            prepared.fileName,
-        );
-        let existingSha256 = null;
+        const sourceFileName = sourceRecord?.fileName ?? prepared.fileName;
+        const sourceSha256 = sourceRecord?.sha256 ?? expectedSha256;
+        if (sourceRecord?.kind !== undefined && sourceRecord.kind !== material.kind) {
+            throw new Error(
+                "Исходная и сохраняемая характеристики имеют разные виды.",
+            );
+        }
+        assertSafeFileName(sourceFileName);
+        if (
+            typeof sourceSha256 === "string"
+            && !SHA256_PATTERN.test(sourceSha256)
+        ) {
+            throw new Error("Исходная характеристика не содержит корректный SHA-256.");
+        }
 
-        if (existing.exists) {
-            existingSha256 = await digestBytes(
-                await readHandleBytes(existing.fileHandle),
+        const source = await findFileHandle(
+            targetDirectory,
+            sourceFileName,
+        );
+        let actualSourceSha256 = null;
+
+        if (source.exists) {
+            actualSourceSha256 = await digestBytes(
+                await readHandleBytes(source.fileHandle),
                 cryptoImpl,
             );
         }
 
         if (
-            typeof expectedSha256 === "string"
-            && existingSha256 !== expectedSha256
+            typeof sourceSha256 === "string"
+            && actualSourceSha256 !== sourceSha256
         ) {
             throw new MaterialFileConflictError({
-                path: `${libraryPathFor(material.kind)}/${prepared.fileName}`,
-                existingSha256,
-                expectedSha256,
+                path: `${libraryPathFor(material.kind)}/${sourceFileName}`,
+                existingSha256: actualSourceSha256,
+                expectedSha256: sourceSha256,
             });
         }
 
-        const fileHandle = existing.fileHandle
-            ?? await targetDirectory.getFileHandle(
+        const renamed = sourceFileName !== prepared.fileName;
+        if (
+            renamed
+            && sourceFileName.toLocaleLowerCase("ru-RU")
+                === prepared.fileName.toLocaleLowerCase("ru-RU")
+        ) {
+            throw new Error(
+                "Изменение только регистра имени характеристики не поддерживается.",
+            );
+        }
+
+        if (renamed) {
+            const target = await findFileHandle(
+                targetDirectory,
+                prepared.fileName,
+            );
+            if (target.exists) {
+                throw new MaterialFileConflictError({
+                    path: `${libraryPathFor(material.kind)}/${prepared.fileName}`,
+                    existingSha256: await digestBytes(
+                        await readHandleBytes(target.fileHandle),
+                        cryptoImpl,
+                    ),
+                    expectedSha256: null,
+                });
+            }
+
+            const targetHandle = await targetDirectory.getFileHandle(
                 prepared.fileName,
                 { create: true },
             );
-        await writeBytes(fileHandle, prepared.bytes);
+            try {
+                await writeBytes(targetHandle, prepared.bytes);
+            } catch (error) {
+                try {
+                    await targetDirectory.removeEntry(prepared.fileName);
+                } catch {
+                    // Исходная ошибка записи важнее ошибки очистки.
+                }
+                throw error;
+            }
+            try {
+                await targetDirectory.removeEntry(sourceFileName);
+            } catch (error) {
+                try {
+                    await targetDirectory.removeEntry(prepared.fileName);
+                } catch {
+                    // Исходная ошибка удаления важнее ошибки отката.
+                }
+                throw error;
+            }
+        } else {
+            const fileHandle = source.fileHandle
+                ?? await targetDirectory.getFileHandle(
+                    prepared.fileName,
+                    { create: true },
+                );
+            await writeBytes(fileHandle, prepared.bytes);
+        }
 
         return {
-            status: existing.exists ? "replaced" : "created",
+            status: renamed
+                ? "renamed"
+                : source.exists ? "replaced" : "created",
             path: `${libraryPathFor(material.kind)}/${prepared.fileName}`,
+            fileName: prepared.fileName,
+            renamedFrom: renamed ? sourceFileName : null,
             byteSize: prepared.bytes.byteLength,
             sha256: prepared.sha256,
         };
