@@ -97,8 +97,8 @@ test("default-library URLs preserve Vite base paths and encode path segments", (
 test("default-library service loads RECORDS data without exposing its cache", async () => {
     const { bytes, index } = fixture();
     const calls = [];
-    const fetchImpl = async url => {
-        calls.push(url);
+    const fetchImpl = async (url, options) => {
+        calls.push({ url, options });
         if (url.endsWith("library-index.json")) {
             return response(JSON.stringify(index));
         }
@@ -116,10 +116,15 @@ test("default-library service loads RECORDS data without exposing its cache", as
 
     assert.equal(secondRead[0].data.comment, "Сталь");
     assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.cache, "no-store");
 
     const loaded = await service.loadBytes(secondRead[0]);
     assert.deepEqual(Buffer.from(loaded), bytes);
-    assert.match(calls[1], /xapLibFMM\/.*%D0%A1%D1%82%D0%B0%D0%BB%D1%8C%203\.txt$/);
+    assert.match(
+        calls[1].url,
+        /xapLibFMM\/.*%D0%A1%D1%82%D0%B0%D0%BB%D1%8C%203\.txt\?sha256=[0-9a-f]{64}$/,
+    );
+    assert.equal(calls[1].options.cache, "force-cache");
 });
 
 test("default-library service rejects bytes that differ from the index", async () => {

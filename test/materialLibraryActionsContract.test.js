@@ -32,6 +32,8 @@ test("material tabs expose copy and both legacy import actions", async () => {
     assert.match(source, /sourceRecord: source/u);
     assert.match(source, /material-library-splitter-horizontal/u);
     assert.match(source, /material-library-splitter-vertical/u);
+    assert.match(source, /createMaterialLibraryLoadQueue/u);
+    assert.match(source, /tableLoadQueue\.run/u);
 });
 
 test("material actions keep task save notifications outside their contract", async () => {

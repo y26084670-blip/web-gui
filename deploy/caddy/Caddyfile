@@ -7,6 +7,14 @@ https://{$CLARK_GUI_HOST} {
     tls internal
     root * "{$CLARK_GUI_ROOT}/dist"
     encode zstd gzip
-    try_files {path} /index.html
-    file_server
+
+    @default_library path /data/default/*
+    handle @default_library {
+        file_server
+    }
+
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
 }

@@ -33,6 +33,7 @@ import {
   resizedDetailRatio,
   resizedLowerHeight,
 } from "../services/materials/materialLibraryLayout.js";
+import { createMaterialLibraryLoadQueue } from "../services/materials/materialLibraryLoadQueue.js";
 import {
   getFilePickerErrorMessage,
   getFileSystemAccessSupport,
@@ -173,6 +174,7 @@ export function MaterialLibraryTab(props) {
 
   const detailRegion = new DetailRegion();
   const recordDetailViews = new Map();
+  const tableLoadQueue = createMaterialLibraryLoadQueue();
 
   const isTaskSource = () =>
     supportsTaskSource && librarySource() === "task";
@@ -395,16 +397,25 @@ export function MaterialLibraryTab(props) {
     setError("");
     setDirtyRecords([]);
     clearRenderedRecords();
-    await table.clearData();
 
     try {
+      await tableLoadQueue.run(() => {
+        if (disposed) return undefined;
+        return table.clearData();
+      });
+      if (disposed || revision !== recordLoadRevision) return;
+
       const records = source === "task"
         ? destination
           ? await loadTaskMaterialLibrary(definition.kind, destination)
           : []
         : await definition.loadRecords();
       if (disposed || revision !== recordLoadRevision) return;
-      await table.setData(modelToRows(tableSchema, records));
+      const rows = modelToRows(tableSchema, records);
+      await tableLoadQueue.run(() => {
+        if (disposed || revision !== recordLoadRevision) return undefined;
+        return table.setData(rows);
+      });
     } catch (loadError) {
       if (disposed || revision !== recordLoadRevision) return;
       console.error(`${definition.id} ${source} loading error:`, loadError);
@@ -413,7 +424,10 @@ export function MaterialLibraryTab(props) {
           ? loadError.message
           : String(loadError),
       );
-      await table.setData([]);
+      await tableLoadQueue.run(() => {
+        if (disposed || revision !== recordLoadRevision) return undefined;
+        return table.setData([]);
+      });
     } finally {
       if (!disposed && revision === recordLoadRevision) setLoading(false);
     }

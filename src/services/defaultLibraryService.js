@@ -213,7 +213,7 @@ export function createDefaultLibraryService({
     async function fetchIndex() {
         const url = assetUrl(INDEX_FILE);
         const response = await ensureSuccessfulResponse(
-            await fetchImpl(url),
+            await fetchImpl(url, { cache: "no-store" }),
             url,
         );
         let index;
@@ -258,9 +258,10 @@ export function createDefaultLibraryService({
         }
         validateMaterialRecord(record, record.kind, directory);
 
-        const url = assetUrl(record.relativePath);
+        const url = `${assetUrl(record.relativePath)}`
+            + `?sha256=${record.sha256}`;
         const response = await ensureSuccessfulResponse(
-            await fetchImpl(url),
+            await fetchImpl(url, { cache: "force-cache" }),
             url,
         );
         const bytes = new Uint8Array(await response.arrayBuffer());
