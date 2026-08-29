@@ -11,6 +11,7 @@ const TASK_LIBRARY_DIRECTORIES = Object.freeze({
     [MATERIAL_LIBRARY_KINDS.FMM]: "xapLibFMM",
     [MATERIAL_LIBRARY_KINDS.HTC]: "xapLibHTC",
 });
+const TASK_INPUT_DIRECTORY = "input3XX";
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const JSON_FILE_PATTERN = /\.txt$/i;
 
@@ -248,6 +249,23 @@ function libraryDirectoryFor(kind) {
     return libraryDirectory;
 }
 
+function libraryPathFor(kind) {
+    return `${TASK_INPUT_DIRECTORY}/${libraryDirectoryFor(kind)}`;
+}
+
+async function taskInputDirectory(taskHandle) {
+    const lookup = await findDirectoryHandle(
+        taskHandle,
+        TASK_INPUT_DIRECTORY,
+    );
+    if (!lookup.exists) {
+        throw new Error(
+            `Каталог задания не содержит обязательный ${TASK_INPUT_DIRECTORY}.`,
+        );
+    }
+    return lookup.directoryHandle;
+}
+
 async function prepareImportedMaterials({
     kind,
     materials,
@@ -321,7 +339,11 @@ export function createTaskMaterialLibraryService({
     async function loadMaterials({ taskHandle, kind } = {}) {
         requireTaskHandle(taskHandle);
         const libraryDirectory = libraryDirectoryFor(kind);
-        const lookup = await findDirectoryHandle(taskHandle, libraryDirectory);
+        const inputDirectory = await taskInputDirectory(taskHandle);
+        const lookup = await findDirectoryHandle(
+            inputDirectory,
+            libraryDirectory,
+        );
         if (!lookup.exists) return [];
 
         const records = [];
@@ -331,7 +353,7 @@ export function createTaskMaterialLibraryService({
             }
 
             assertSafeFileName(fileName);
-            const relativePath = `${libraryDirectory}/${fileName}`;
+            const relativePath = `${libraryPathFor(kind)}/${fileName}`;
             const bytes = await readHandleBytes(handle);
             records.push({
                 source: "task",
@@ -366,11 +388,12 @@ export function createTaskMaterialLibraryService({
             throw new Error("Характеристика не содержит корректный SHA-256.");
         }
 
-        const targetDirectory = await taskHandle.getDirectoryHandle(
+        const inputDirectory = await taskInputDirectory(taskHandle);
+        const targetDirectory = await inputDirectory.getDirectoryHandle(
             libraryDirectory,
             { create: true },
         );
-        const targetPath = `${libraryDirectory}/${record.fileName}`;
+        const targetPath = `${libraryPathFor(record.kind)}/${record.fileName}`;
         const existing = await findFileHandle(targetDirectory, record.fileName);
 
         if (existing.exists) {
@@ -447,11 +470,12 @@ export function createTaskMaterialLibraryService({
             }
         }
 
+        const inputDirectory = await taskInputDirectory(taskHandle);
         const targetLookup = await findDirectoryHandle(
-            taskHandle,
+            inputDirectory,
             libraryDirectory,
         );
-        const targetPathPrefix = libraryDirectory;
+        const targetPathPrefix = libraryPathFor(kind);
         const preflight = [];
         const conflicts = [];
 
@@ -515,7 +539,7 @@ export function createTaskMaterialLibraryService({
         const needsWrite = preflight.some(item => !item.unchanged);
         const targetDirectory = needsWrite
             ? targetLookup.directoryHandle
-                ?? await taskHandle.getDirectoryHandle(
+                ?? await inputDirectory.getDirectoryHandle(
                     libraryDirectory,
                     { create: true },
                 )
@@ -580,11 +604,12 @@ export function createTaskMaterialLibraryService({
             materials,
             cryptoImpl,
         });
+        const inputDirectory = await taskInputDirectory(taskHandle);
         const targetLookup = await findDirectoryHandle(
-            taskHandle,
+            inputDirectory,
             libraryDirectory,
         );
-        const targetPathPrefix = libraryDirectory;
+        const targetPathPrefix = libraryPathFor(kind);
         const preflight = [];
         const conflicts = [];
 
@@ -638,7 +663,7 @@ export function createTaskMaterialLibraryService({
         const needsWrite = preflight.some(item => !item.unchanged);
         const targetDirectory = needsWrite
             ? targetLookup.directoryHandle
-                ?? await taskHandle.getDirectoryHandle(
+                ?? await inputDirectory.getDirectoryHandle(
                     libraryDirectory,
                     { create: true },
                 )
@@ -697,7 +722,8 @@ export function createTaskMaterialLibraryService({
             cryptoImpl,
         });
         const libraryDirectory = libraryDirectoryFor(material.kind);
-        const targetDirectory = await taskHandle.getDirectoryHandle(
+        const inputDirectory = await taskInputDirectory(taskHandle);
+        const targetDirectory = await inputDirectory.getDirectoryHandle(
             libraryDirectory,
             { create: true },
         );
@@ -719,7 +745,7 @@ export function createTaskMaterialLibraryService({
             && existingSha256 !== expectedSha256
         ) {
             throw new MaterialFileConflictError({
-                path: `${libraryDirectory}/${prepared.fileName}`,
+                path: `${libraryPathFor(material.kind)}/${prepared.fileName}`,
                 existingSha256,
                 expectedSha256,
             });
@@ -734,7 +760,7 @@ export function createTaskMaterialLibraryService({
 
         return {
             status: existing.exists ? "replaced" : "created",
-            path: `${libraryDirectory}/${prepared.fileName}`,
+            path: `${libraryPathFor(material.kind)}/${prepared.fileName}`,
             byteSize: prepared.bytes.byteLength,
             sha256: prepared.sha256,
         };
@@ -748,8 +774,9 @@ export function createTaskMaterialLibraryService({
 
         const kind = records[0]?.kind;
         const libraryDirectory = libraryDirectoryFor(kind);
+        const inputDirectory = await taskInputDirectory(taskHandle);
         const targetLookup = await findDirectoryHandle(
-            taskHandle,
+            inputDirectory,
             libraryDirectory,
         );
         if (!targetLookup.exists) return [];
@@ -773,7 +800,7 @@ export function createTaskMaterialLibraryService({
             );
             if (existingSha256 !== record.sha256) {
                 throw new MaterialFileConflictError({
-                    path: `${libraryDirectory}/${record.fileName}`,
+                    path: `${libraryPathFor(kind)}/${record.fileName}`,
                     existingSha256,
                     expectedSha256: record.sha256,
                 });
@@ -786,7 +813,7 @@ export function createTaskMaterialLibraryService({
         }
         return prepared.map(record => ({
             status: "deleted",
-            path: `${libraryDirectory}/${record.fileName}`,
+            path: `${libraryPathFor(kind)}/${record.fileName}`,
         }));
     }
 

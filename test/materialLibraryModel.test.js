@@ -79,7 +79,7 @@ test("task-local material keeps separate transient file metadata", () => {
         kind: "FMM",
         name: "Локальная",
         fileName: "Локальная.txt",
-        relativePath: "xapLibFMM/Локальная.txt",
+        relativePath: "input3XX/xapLibFMM/Локальная.txt",
         sha256: "c".repeat(64),
         data: {
             tabl: Array.from({ length: 24 }, (_, index) => index),
@@ -90,6 +90,10 @@ test("task-local material keeps separate transient file metadata", () => {
 
     assert.equal(record._libraryRecord, undefined);
     assert.equal(record._taskLibraryRecord.source, "task");
+    assert.equal(
+        record._taskLibraryRecord.relativePath,
+        "input3XX/xapLibFMM/Локальная.txt",
+    );
     assert.equal(record.name, "Локальная");
 });
 
