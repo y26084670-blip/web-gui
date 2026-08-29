@@ -1,11 +1,14 @@
-import { createSignal } from "solid-js";
+import { createSignal, untrack } from "solid-js";
 
 const [activeTable, setActiveTableSignal] = createSignal(null);
 const [selectionRevision, setSelectionRevision] = createSignal(0);
 
 export const selectionContextService = {
     setActiveTable(table) {
-        if (activeTable() === table) return;
+        // Setter may be called from a reactive tab-activation effect. Reading
+        // the current value there must not subscribe that effect to later
+        // detail-table activation and immediately restore the main table.
+        if (untrack(activeTable) === table) return;
         setActiveTableSignal(table);
         setSelectionRevision(value => value + 1);
     },
