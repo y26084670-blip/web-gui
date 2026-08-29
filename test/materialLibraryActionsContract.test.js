@@ -8,7 +8,7 @@ const componentUrl = new URL(
 );
 const appUrl = new URL("../src/App.jsx", import.meta.url);
 
-test("material tabs expose copy and both legacy import actions", async () => {
+test("material tabs expose copy and FMM-only legacy import actions", async () => {
     const source = await readFile(componentUrl, "utf8");
 
     assert.match(source, />\s*Копировать в задание\s*</u);
@@ -17,7 +17,9 @@ test("material tabs expose copy and both legacy import actions", async () => {
         source,
         /Импортировать локальную библиотеку старого формата/u,
     );
-    assert.match(source, /Импортировать legacy-библиотеку ВТСП/u);
+    assert.match(source, /<Show when=\{isFmm\}>[\s\S]*?>\s*Импортировать\s*<[\s\S]*?<\/Show>/u);
+    assert.doesNotMatch(source, /Импортировать legacy-библиотеку ВТСП/u);
+    assert.doesNotMatch(source, /pickHtcDirectory|importHtc/u);
     assert.match(source, /createMaterialImportService/u);
     assert.match(source, /taskMaterialLibraryService\.copyMaterials/u);
     assert.match(source, /taskMaterialLibraryService\.writeImportedBatch/u);
@@ -31,7 +33,7 @@ test("material tabs expose copy and both legacy import actions", async () => {
     assert.match(source, /legacyFmmStatus/u);
     assert.match(source, /identifyLegacyFmmLibrary/u);
     assert.match(source, /identity\.isBaseLibrary \? "base" : "importable"/u);
-    assert.match(source, /isFmm && legacyFmmStatus\(\) !== "importable"/u);
+    assert.match(source, /legacyFmmStatus\(\) !== "importable"/u);
     assert.match(source, /совпадает со стандартной legacy-библиотекой/u);
     assert.match(source, /MaterialDeleteConfirmationDialog/u);
     assert.match(source, /sourceRecord: source/u);

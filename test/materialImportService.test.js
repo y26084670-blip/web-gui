@@ -4,15 +4,11 @@ import assert from "node:assert/strict";
 import {
     createMaterialImportService,
     importFmmLegacyMaterials,
-    importHtcLegacyMaterials,
     MATERIAL_IMPORT_KINDS,
 } from "../src/services/materialImportService.js";
 import {
-    buildHtcConfig,
     buildXapRecord,
     mockFile,
-    mockLibraryDirectory,
-    mockMaterialDirectory,
 } from "./fixtures/materialImportFixtures.js";
 import { BASE_LEGACY_FMM_LIBRARY_SHA256 } from "../src/services/materialImport/legacyFmmLibraryFingerprint.js";
 
@@ -89,113 +85,15 @@ test("FMM coordinator rejects the unchanged base legacy library before writing",
     assert.equal(writes, 0);
 });
 
-test("HTC coordinator sorts directories and writes one validated batch", async () => {
-    const second = mockMaterialDirectory(
-        "Бета",
-        buildHtcConfig(204),
-        "Комментарий Б",
-    );
-    const first = mockMaterialDirectory(
-        "Альфа",
-        buildHtcConfig(203),
-        "Комментарий А",
-    );
-    const previousOutput = mockMaterialDirectory(
-        "new_xapLibHTC",
-        "повреждённый прежний результат",
-        "не является исходной характеристикой",
-    );
-    previousOutput.deleteFile("config.txt");
-    previousOutput.deleteFile("comment.txt");
-    const batches = [];
-
-    const result = await importHtcLegacyMaterials({
-        pickDirectory: async () => mockLibraryDirectory(
-            "legacy-htc",
-            [second, previousOutput, first],
-        ),
-        writeBatch: async batch => {
-            batches.push(batch);
-            return "written";
-        },
-    });
-
-    assert.equal(result.status, "written");
-    assert.equal(result.kind, MATERIAL_IMPORT_KINDS.HTC);
-    assert.deepEqual(
-        result.materials.map(material => material.name),
-        ["Альфа", "Бета"],
-    );
-    assert.deepEqual(
-        result.materials.map(material => material.legacyVersion),
-        [203, 204],
-    );
-    assert.equal(batches.length, 1);
-    assert.equal(batches[0].kind, "HTC");
-});
-
-test("HTC coordinator rejects ambiguous new_xapLibHTC material directory", async () => {
-    const ambiguous = mockMaterialDirectory(
-        "new_xapLibHTC",
-        buildHtcConfig(203),
-        "Это характеристика, а не пустой прежний output",
-    );
-    let writes = 0;
-
-    await assert.rejects(
-        importHtcLegacyMaterials({
-            pickDirectory: async () => mockLibraryDirectory(
-                "legacy-htc",
-                [ambiguous],
-            ),
-            writeBatch: async () => { writes += 1; },
-        }),
-        /неоднозначен с каталогом характеристики ВТСП/,
-    );
-    assert.equal(writes, 0);
-});
-
-test("HTC coordinator performs no write after any source error", async () => {
-    const valid = mockMaterialDirectory(
-        "Альфа",
-        buildHtcConfig(203),
-        "Комментарий",
-    );
-    const invalid = mockMaterialDirectory(
-        "Бета",
-        buildHtcConfig(203),
-        "Комментарий",
-    );
-    invalid.deleteFile("comment.txt");
-    let writes = 0;
-
-    await assert.rejects(
-        importHtcLegacyMaterials({
-            pickDirectory: async () => mockLibraryDirectory(
-                "legacy-htc",
-                [valid, invalid],
-            ),
-            writeBatch: async () => { writes += 1; },
-        }),
-        /отсутствует comment\.txt/,
-    );
-    assert.equal(writes, 0);
-});
-
-test("coordinator treats AbortError and null selection as cancellation", async () => {
+test("FMM coordinator treats AbortError as cancellation", async () => {
     const abort = new Error("cancelled");
     abort.name = "AbortError";
     const fmm = await importFmmLegacyMaterials({
         pickFile: async () => { throw abort; },
         writeBatch: async () => assert.fail("writer must not run"),
     });
-    const htc = await importHtcLegacyMaterials({
-        pickDirectory: async () => null,
-        writeBatch: async () => assert.fail("writer must not run"),
-    });
 
     assert.equal(fmm.status, "cancelled");
-    assert.equal(htc.status, "cancelled");
 });
 
 test("service factory keeps picker and writer dependencies outside parsers", async () => {
@@ -205,11 +103,9 @@ test("service factory keeps picker and writer dependencies outside parsers", asy
             "XAP.lib",
             buildXapRecord({ name: "FACTORY" }),
         ),
-        pickHtcDirectory: async () => null,
         writeBatch: async batch => calls.push(batch.kind),
     });
 
     await service.importFmm();
-    await service.importHtc();
     assert.deepEqual(calls, ["FMM"]);
 });

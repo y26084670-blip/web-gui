@@ -579,7 +579,7 @@ export function MaterialLibraryTab(props) {
     return outcome.result;
   }
 
-  async function importLegacyMaterials() {
+  async function importLegacyFmmMaterials() {
     const destination = taskHandle();
     if (!destination) {
       setActionError(
@@ -610,17 +610,11 @@ export function MaterialLibraryTab(props) {
           throw error;
         }
       },
-      pickHtcDirectory: () => window.showDirectoryPicker({
-        id: "clark-import-xaplib-htc",
-        mode: "read",
-      }),
       writeBatch: batch => writeImportedBatch(destination, batch),
     });
 
     try {
-      const result = isFmm
-        ? await importer.importFmm()
-        : await importer.importHtc();
+      const result = await importer.importFmm();
 
       if (result.status === "cancelled") {
         setActionMessage("Импорт отменён пользователем; файлы не изменены.");
@@ -762,9 +756,6 @@ export function MaterialLibraryTab(props) {
   function localImportTitle() {
     if (dirtyRecords().length > 0) {
       return "Сначала сохраните изменения локальных характеристик";
-    }
-    if (!isFmm) {
-      return "Импортировать legacy-библиотеку ВТСП";
     }
     switch (legacyFmmStatus()) {
       case "checking":
@@ -989,18 +980,20 @@ export function MaterialLibraryTab(props) {
           </button>
         </Show>
         <Show when={isTaskSource()}>
-          <button
-            disabled={
-              actionBusy()
-              || !taskHandle()
-              || (isFmm && legacyFmmStatus() !== "importable")
-              || dirtyRecords().length > 0
-            }
-            title={localImportTitle()}
-            onClick={importLegacyMaterials}
-          >
-            Импортировать
-          </button>
+          <Show when={isFmm}>
+            <button
+              disabled={
+                actionBusy()
+                || !taskHandle()
+                || legacyFmmStatus() !== "importable"
+                || dirtyRecords().length > 0
+              }
+              title={localImportTitle()}
+              onClick={importLegacyFmmMaterials}
+            >
+              Импортировать
+            </button>
+          </Show>
           <button
             disabled={actionBusy() || dirtyRecords().length === 0}
             title="Сохранить изменённые локальные характеристики"
