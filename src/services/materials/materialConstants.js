@@ -18,3 +18,10 @@ export const HTC_PARAMETER_NAMES = Object.freeze([
     "Diag",
     "M3D",
 ]);
+
+// solver/src/core/types.jl — defaults конструктора PropHTC.
+export const HTC_EFFECTIVE_DEFAULTS = Object.freeze({
+    KHabc: 1,
+    Diag: 0,
+    M3D: false,
+});

@@ -42,6 +42,16 @@ test("new edit clears the Redo branch", () => {
     });
 });
 
+test("one history can be cleared without changing another tab", () => {
+    modelHistoryService.record(schemaA, 0, 1);
+    modelHistoryService.record(schemaB, 10, 11);
+
+    modelHistoryService.clear("a");
+
+    assert.equal(modelHistoryService.canUndo("a"), false);
+    assert.equal(modelHistoryService.canUndo("b"), true);
+});
+
 test("transaction joins sequential changes of one schema", () => {
     modelHistoryService.beginTransaction();
     modelHistoryService.record(schemaA, { value: 0 }, { value: 1 });

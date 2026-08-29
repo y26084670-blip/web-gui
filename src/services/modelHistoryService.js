@@ -158,7 +158,15 @@ function takeRedo(schemaId) {
     };
 }
 
-function clear() {
+function clear(schemaId = null) {
+    if (schemaId) {
+        const historyChanged = histories.delete(schemaId);
+        const transactionChanged = transactionChanges.delete(schemaId);
+        const changed = historyChanged || transactionChanged;
+        if (changed) notify();
+        return;
+    }
+
     histories.clear();
     transactionDepth = 0;
     transactionChanges = new Map();

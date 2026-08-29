@@ -12,13 +12,10 @@ import { MaterialDeleteConfirmationDialog } from "../components/materials/Materi
 import { modelToRows } from "../tabulator/converters/modelConverter";
 import { TableBuilder } from "../tabulator/builders/TableBuilder";
 import { DetailRegion } from "../tabulator/views/DetailRegion";
+import { HtcMaterialDetailView } from "../tabulator/views/HtcMaterialDetailView.js";
 import { TableView } from "../tabulator/views/TableView";
 import { COMMON_TABLE_OPTIONS } from "../tabulator/tableOptions";
-import {
-  FIELD_TYPES,
-  VIEW_TYPES,
-} from "../services/schemas/common/constants";
-import { htcParameterEntries } from "../services/materials/materialLibraryModel";
+import { FIELD_TYPES } from "../services/schemas/common/constants";
 import { loadTaskMaterialLibrary } from "../services/materials/materialLibraryService.js";
 import { selectionService } from "../services/selectionService";
 import { materialLibraryRevisionService } from "../services/materialLibraryRevisionService.js";
@@ -29,7 +26,9 @@ import {
 } from "../services/taskMaterialLibraryService";
 import { createMaterialImportService } from "../services/materialImportService";
 import { createFmmMaterialFile } from "../services/materialImport/xapLibImporter.js";
+import { createHtcMaterialFile } from "../services/materialImport/htcConfigImporter.js";
 import { identifyLegacyFmmLibrary } from "../services/materialImport/legacyFmmLibraryFingerprint.js";
+import { materialLibraryHistoryService } from "../services/materialLibraryHistoryService.js";
 import {
   resizedDetailRatio,
   resizedLowerHeight,
@@ -48,45 +47,22 @@ function withoutRowLabel(rowData) {
   return record;
 }
 
-function editableFmmSchema(schema) {
-  const tabl = schema.properties.tabl;
+function editableMaterialSchema(schema) {
   return {
     ...schema,
-    properties: {
-      ...schema.properties,
-      name: { ...schema.properties.name, readonly: false },
-      hip: { ...schema.properties.hip, readonly: false },
-      tabl: {
-        ...tabl,
-        readonly: false,
-        rowsMutable: false,
-        items: { ...tabl.items, readonly: false },
-      },
-      comment: { ...schema.properties.comment, readonly: false },
-    },
-  };
-}
-
-function htcDetailProperty(entries) {
-  return {
-    type: FIELD_TYPES.ARRAY,
-    view: VIEW_TYPES.TABLE,
-    label: "Параметры характеристики",
-    description: "Параметры выбранной характеристики ВТСП",
-    default: [],
-    readonly: true,
-    rowsMutable: false,
-    nColumns: 1,
-    columns: ["Значение"],
-    itemLabels: entries.map(([name]) => name),
-    itemLabelTitle: "Параметр",
-    itemLabelWidth: 130,
-    items: {
-      type: FIELD_TYPES.STRING,
-      description: "Значение параметра характеристики",
-      default: "",
-      readonly: true,
-    },
+    properties: Object.fromEntries(
+      Object.entries(schema.properties).map(([name, property]) => [
+        name,
+        property.type === FIELD_TYPES.ARRAY
+          ? {
+              ...property,
+              readonly: false,
+              rowsMutable: false,
+              items: { ...property.items, readonly: false },
+            }
+          : { ...property, readonly: false },
+      ]),
+    ),
   };
 }
 
@@ -143,10 +119,8 @@ export function MaterialLibraryTab(props) {
   const definition = props.definition;
   const schema = definition.schema;
   const taskHandle = selectionService.loadedTaskHandle;
-  const supportsTaskSource = definition.kind === "FMM";
-  const tableSchema = supportsTaskSource
-    ? editableFmmSchema(schema)
-    : schema;
+  const isFmm = definition.kind === "FMM";
+  const tableSchema = editableMaterialSchema(schema);
 
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal("");
@@ -172,16 +146,14 @@ export function MaterialLibraryTab(props) {
   let recordLoadRevision = 0;
   let resizeCleanup = null;
   let redrawFrame = 0;
+  let detachHistory = null;
+  let applyingHistory = false;
 
   const detailRegion = new DetailRegion();
   const recordDetailViews = new Map();
   const tableLoadQueue = createMaterialLibraryLoadQueue();
 
-  const isTaskSource = () =>
-    supportsTaskSource && librarySource() === "task";
-  const importActionLabel = definition.kind === "FMM"
-    ? "Импортировать"
-    : "Импортировать legacy-библиотеку ВТСП";
+  const isTaskSource = () => librarySource() === "task";
 
   function beginAction() {
     setActionBusy(true);
@@ -195,6 +167,54 @@ export function MaterialLibraryTab(props) {
 
   function selectedTableRecords(rows) {
     return rows.map(row => row.getData());
+  }
+
+  function taskRecordKey(record) {
+    return record?._taskLibraryRecord?.relativePath
+      ?? record?._taskLibraryRecord?.fileName
+      ?? null;
+  }
+
+  function captureLibrarySnapshot() {
+    const dirtyKeys = dirtyRecords()
+      .map(taskRecordKey)
+      .filter(Boolean);
+    return {
+      records: (table?.getData() ?? []).map(record =>
+        structuredClone(withoutRowLabel(record))),
+      dirtyKeys,
+    };
+  }
+
+  function recordLibraryChange(before, after) {
+    if (!isTaskSource() || applyingHistory) return;
+    materialLibraryHistoryService.record(schema, before, after);
+  }
+
+  async function applyLibrarySnapshot(snapshot) {
+    if (!isTaskSource() || !Array.isArray(snapshot?.records)) {
+      throw new Error(
+        "История локальной библиотеки не соответствует текущему источнику.",
+      );
+    }
+
+    applyingHistory = true;
+    clearRenderedRecords();
+    setActionMessage("");
+    setActionError("");
+    try {
+      await table.replaceData(modelToRows(tableSchema, snapshot.records));
+      const dirtyKeys = new Set(snapshot.dirtyKeys ?? []);
+      setDirtyRecords(
+        table.getData().filter(record => dirtyKeys.has(taskRecordKey(record))),
+      );
+    } finally {
+      applyingHistory = false;
+    }
+  }
+
+  function clearLibraryHistory() {
+    materialLibraryHistoryService.clear(schema.id);
   }
 
   function markRecordDirty(record) {
@@ -217,27 +237,25 @@ export function MaterialLibraryTab(props) {
 
   function createHtcDetail(row) {
     const rowData = row.getData();
-    const record = withoutRowLabel(rowData);
-    const entries = htcParameterEntries(record);
-    const property = htcDetailProperty(entries);
-    const values = entries.map(([, value]) => [value]);
     const host = document.createElement("div");
     host.className = "nested-table-view";
 
-    const view = new TableView(property, {
-      getSchema: () => schema,
-      getValue: () => values,
-      getRecord: () => record,
-      getModelSnapshot: () => ({}),
-      isWritable: () => false,
-      setValue: () => undefined,
+    const view = new HtcMaterialDetailView({
+      schema: tableSchema,
+      record: rowData,
+      isWritable: () => isTaskSource() && !actionBusy(),
+      setValue: async (propertyName, value) => {
+        const before = captureLibrarySnapshot();
+        await row.update({ [propertyName]: structuredClone(value) });
+        markRecordDirty(row.getData());
+        recordLibraryChange(before, captureLibrarySnapshot());
+      },
     });
 
     const entry = {
       host,
-      property,
       view,
-      record,
+      record: rowData,
     };
     recordDetailViews.set(rowData, entry);
     return entry;
@@ -260,10 +278,12 @@ export function MaterialLibraryTab(props) {
         getModelSnapshot: () => ({}),
         isWritable: () => isTaskSource() && !actionBusy(),
         setValue: async (value) => {
+          const before = captureLibrarySnapshot();
           await row.update({
             [propertyName]: structuredClone(value),
           });
           markRecordDirty(row.getData());
+          recordLibraryChange(before, captureLibrarySnapshot());
         },
       },
       { primary: true },
@@ -335,12 +355,10 @@ export function MaterialLibraryTab(props) {
   function createTable() {
     const columns = TableBuilder.buildColumns(tableSchema);
 
-    if (supportsTaskSource) {
-      for (const column of columns) {
-        const property = tableSchema.properties[column.field];
-        if (!property || property.type === FIELD_TYPES.ARRAY) continue;
-        column.editable = () => isTaskSource() && !actionBusy();
-      }
+    for (const column of columns) {
+      const property = tableSchema.properties[column.field];
+      if (!property || property.type === FIELD_TYPES.ARRAY) continue;
+      column.editable = () => isTaskSource() && !actionBusy();
     }
 
     if (definition.detail.type === "property") {
@@ -383,12 +401,22 @@ export function MaterialLibraryTab(props) {
 
     table.on("rowSelectionChanged", handleSelectionChanged);
     table.on("cellEdited", (cell) => {
-      if (!isTaskSource()) return;
+      if (!isTaskSource() || applyingHistory) return;
       const row = cell.getRow();
+      const rowIndex = table.getRows().indexOf(row);
+      const before = captureLibrarySnapshot();
+      if (before.records[rowIndex]) {
+        before.records[rowIndex][cell.getField()] = structuredClone(
+          cell.getOldValue(),
+        );
+      }
       markRecordDirty(row.getData());
+      recordLibraryChange(before, captureLibrarySnapshot());
       if (cell.getField() === "name" && row.isSelected()) {
-        detailTitleHost.textContent = `${tableSchema.properties.tabl.label} — `
-          + String(row.getData().name ?? "");
+        detailTitleHost.textContent = definition.detail.type === "property"
+          ? `${tableSchema.properties[definition.detail.property].label} — `
+            + String(row.getData().name ?? "")
+          : `Параметры характеристики — ${String(row.getData().name ?? "")}`;
       }
     });
   }
@@ -398,6 +426,7 @@ export function MaterialLibraryTab(props) {
     destination = taskHandle(),
   } = {}) {
     const revision = ++recordLoadRevision;
+    clearLibraryHistory();
     setLoading(true);
     setError("");
     setDirtyRecords([]);
@@ -482,7 +511,7 @@ export function MaterialLibraryTab(props) {
       setActionMessage(
         writeSummary("Копирование завершено", outcome.result.results),
       );
-      materialLibraryRevisionService.notifyChanged();
+      materialLibraryRevisionService.notifyChanged(definition.kind);
     } catch (copyError) {
       console.error(`${definition.id} copy error:`, copyError);
       if (copyError instanceof MaterialBatchWriteError) {
@@ -559,10 +588,7 @@ export function MaterialLibraryTab(props) {
       return;
     }
 
-    const isFmm = definition.kind === "FMM";
-    const support = getFileSystemAccessSupport(window, {
-      requireOpenFilePicker: isFmm && !isTaskSource(),
-    });
+    const support = getFileSystemAccessSupport(window);
     if (!support.supported) {
       setActionError(support.message);
       return;
@@ -572,30 +598,17 @@ export function MaterialLibraryTab(props) {
 
     const importer = createMaterialImportService({
       pickFmmFile: async () => {
-        if (isTaskSource()) {
-          try {
-            return [await destination.getFileHandle("XAP.lib")];
-          } catch (error) {
-            if (error?.name === "NotFoundError") {
-              throw new Error(
-                "В каталоге выбранного задания отсутствует XAP.lib.",
-                { cause: error },
-              );
-            }
-            throw error;
+        try {
+          return [await destination.getFileHandle("XAP.lib")];
+        } catch (error) {
+          if (error?.name === "NotFoundError") {
+            throw new Error(
+              "В каталоге выбранного задания отсутствует XAP.lib.",
+              { cause: error },
+            );
           }
+          throw error;
         }
-        return window.showOpenFilePicker({
-          id: "clark-import-xaplib-fmm",
-          multiple: false,
-          excludeAcceptAllOption: false,
-          types: [{
-            description: "Legacy-библиотека ФММ XAP.lib",
-            accept: {
-              "application/octet-stream": [".lib"],
-            },
-          }],
-        });
       },
       pickHtcDirectory: () => window.showDirectoryPicker({
         id: "clark-import-xaplib-htc",
@@ -617,7 +630,8 @@ export function MaterialLibraryTab(props) {
       setActionMessage(
         writeSummary("Импорт завершён", result.writeResult?.results),
       );
-      materialLibraryRevisionService.notifyChanged();
+      clearLibraryHistory();
+      materialLibraryRevisionService.notifyChanged(definition.kind);
     } catch (importError) {
       if (importError instanceof ImportConflictCancelled) {
         setActionMessage(
@@ -628,6 +642,10 @@ export function MaterialLibraryTab(props) {
 
       if (importError instanceof MaterialBatchWriteError) {
         console.error(`${definition.id} import partial write:`, importError);
+        if (importError.written.length > 0) {
+          clearLibraryHistory();
+          materialLibraryRevisionService.notifyChanged(definition.kind);
+        }
         setActionError(
           partialWriteMessage("Импорт выполнен частично", importError),
         );
@@ -669,7 +687,8 @@ export function MaterialLibraryTab(props) {
       });
       setDeleteRequest(null);
       setActionMessage(`Удалено характеристик: ${results.length}.`);
-      materialLibraryRevisionService.notifyChanged();
+      clearLibraryHistory();
+      materialLibraryRevisionService.notifyChanged(definition.kind);
     } catch (deleteError) {
       setActionError(
         `Удаление не завершено: ${actionErrorMessage(deleteError, "удалить характеристики")}`,
@@ -689,7 +708,9 @@ export function MaterialLibraryTab(props) {
     try {
       for (const record of pending) {
         const source = record._taskLibraryRecord;
-        const file = createFmmMaterialFile(record);
+        const file = isFmm
+          ? createFmmMaterialFile(record)
+          : createHtcMaterialFile(record);
         const result = await taskMaterialLibraryService.saveMaterial({
           taskHandle: destination,
           material: file,
@@ -709,10 +730,12 @@ export function MaterialLibraryTab(props) {
 
       setDirtyRecords([]);
       setActionMessage(`Сохранено характеристик: ${saved.size}.`);
-      materialLibraryRevisionService.notifyChanged();
+      clearLibraryHistory();
+      materialLibraryRevisionService.notifyChanged(definition.kind);
     } catch (saveError) {
       setDirtyRecords(current =>
         current.filter(record => !saved.has(record)));
+      if (saved.size > 0) clearLibraryHistory();
       setActionError(
         `Сохранение не завершено: сохранено — ${saved.size}; `
         + actionErrorMessage(saveError, "сохранить характеристики"),
@@ -739,6 +762,9 @@ export function MaterialLibraryTab(props) {
   function localImportTitle() {
     if (dirtyRecords().length > 0) {
       return "Сначала сохраните изменения локальных характеристик";
+    }
+    if (!isFmm) {
+      return "Импортировать legacy-библиотеку ВТСП";
     }
     switch (legacyFmmStatus()) {
       case "checking":
@@ -850,11 +876,11 @@ export function MaterialLibraryTab(props) {
     });
     detailRegion.showHint("Выберите характеристику в таблице");
     createTable();
-    if (supportsTaskSource) {
-      setTableReady(true);
-    } else {
-      void loadRecords();
-    }
+    detachHistory = materialLibraryHistoryService.attach(
+      schema.id,
+      applyLibrarySnapshot,
+    );
+    setTableReady(true);
   });
 
   createEffect(() => {
@@ -878,9 +904,9 @@ export function MaterialLibraryTab(props) {
     const ready = tableReady();
     const source = librarySource();
     const destination = taskHandle();
-    if (!ready || !table || !supportsTaskSource) return;
+    if (!ready || !table) return;
     if (source === "task") {
-      materialLibraryRevisionService.revision();
+      materialLibraryRevisionService.revision(definition.kind);
     }
     void loadRecords({ source, destination });
   });
@@ -888,7 +914,7 @@ export function MaterialLibraryTab(props) {
   createEffect(() => {
     const destination = taskHandle();
     const localSource = isTaskSource();
-    if (!supportsTaskSource || !localSource || !destination) {
+    if (!isFmm || !localSource || !destination) {
       setLegacyFmmStatus("missing");
       return;
     }
@@ -917,6 +943,9 @@ export function MaterialLibraryTab(props) {
 
   onCleanup(() => {
     disposed = true;
+    detachHistory?.();
+    detachHistory = null;
+    clearLibraryHistory();
     stopResize();
     cancelAnimationFrame(redrawFrame);
     detailRegion.destroy();
@@ -931,19 +960,17 @@ export function MaterialLibraryTab(props) {
   return (
     <div class="material-library-tab">
       <div class="material-library-actions">
-        <Show when={supportsTaskSource}>
-          <label class="material-library-source">
-            <span>Источник характеристик</span>
-            <select
-              value={librarySource()}
-              disabled={actionBusy()}
-              onChange={changeLibrarySource}
-            >
-              <option value="default">Базовая библиотека</option>
-              <option value="task">Локальная библиотека задания</option>
-            </select>
-          </label>
-        </Show>
+        <label class="material-library-source">
+          <span>Источник характеристик</span>
+          <select
+            value={librarySource()}
+            disabled={actionBusy()}
+            onChange={changeLibrarySource}
+          >
+            <option value="default">Базовая библиотека</option>
+            <option value="task">Локальная библиотека задания</option>
+          </select>
+        </label>
         <Show when={!isTaskSource()}>
           <button
             disabled={
@@ -960,22 +987,13 @@ export function MaterialLibraryTab(props) {
           >
             Копировать в задание
           </button>
-          <Show when={!supportsTaskSource}>
-            <button
-              disabled={actionBusy() || !taskHandle()}
-              title={!taskHandle() ? "Сначала выберите задание" : importActionLabel}
-              onClick={importLegacyMaterials}
-            >
-              {importActionLabel}
-            </button>
-          </Show>
         </Show>
         <Show when={isTaskSource()}>
           <button
             disabled={
               actionBusy()
               || !taskHandle()
-              || legacyFmmStatus() !== "importable"
+              || (isFmm && legacyFmmStatus() !== "importable")
               || dirtyRecords().length > 0
             }
             title={localImportTitle()}

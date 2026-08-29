@@ -3,10 +3,11 @@ import test from "node:test";
 
 import {
     decodeFmmTable,
-    htcParameterEntries,
     toFmmLibraryModel,
     toHtcLibraryModel,
 } from "../src/services/materials/materialLibraryModel.js";
+import { HTC_PARAMETER_NAMES } from "../src/services/materials/materialConstants.js";
+import { createHtcMaterialFile } from "../src/services/materialImport/htcConfigImporter.js";
 
 test("FMM default-library records become 12x2 RECORDS details", () => {
     const h = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -120,7 +121,7 @@ test("malformed FMM table is rejected before rendering", () => {
 });
 
 test("HTC model keeps scalar JSON fields and transient filename name", () => {
-    const model = toHtcLibraryModel([{
+    const [material] = toHtcLibraryModel([{
         kind: "HTC",
         name: "ВТСП",
         fileName: "ВТСП.txt",
@@ -133,40 +134,74 @@ test("HTC model keeps scalar JSON fields and transient filename name", () => {
         },
     }]);
 
-    assert.deepEqual(model, [{
-        _libraryRecord: {
-            kind: "HTC",
-            name: "ВТСП",
-            fileName: "ВТСП.txt",
-            relativePath: "xapLibHTC/ВТСП.txt",
-            sha256: "b".repeat(64),
-            data: {
-                j_HC0: 2300,
-                M3D: true,
-                comment: "Описание",
-            },
-        },
+    assert.deepEqual(material._libraryRecord, {
+        kind: "HTC",
         name: "ВТСП",
-        j_HC0: 2300,
-        M3D: true,
-        comment: "Описание",
-    }]);
+        fileName: "ВТСП.txt",
+        relativePath: "xapLibHTC/ВТСП.txt",
+        sha256: "b".repeat(64),
+        data: {
+            j_HC0: 2300,
+            M3D: true,
+            comment: "Описание",
+        },
+    });
+    assert.equal(material.name, "ВТСП");
+    assert.equal(material.j_HC0, 2300);
+    assert.equal(material.KHabc, 1);
+    assert.equal(material.Diag, 0);
+    assert.equal(material.M3D, true);
+    assert.equal(material.comment, "Описание");
+    assert.deepEqual(
+        Object.keys(material).filter(key => !key.startsWith("_")),
+        ["name", ...HTC_PARAMETER_NAMES, "comment"],
+    );
 });
 
-test("HTC detail projection shows current and unnormalized legacy fields", () => {
-    const entries = htcParameterEntries({
-        name: "ВТСП",
-        j_HC0: 2300,
-        m_type: 3,
-        m2_dh: 0.5,
-        m2_n: 4,
-        comment: "Описание",
-    });
+test("HTC model drops legacy fields and supplies solver defaults", () => {
+    const [material] = toHtcLibraryModel([{
+        kind: "HTC",
+        name: "Legacy",
+        data: {
+            j_HC0: 2300,
+            m2_dh: 0.5,
+            m2_n: 4,
+            comment: "Описание",
+        },
+    }]);
 
-    assert.deepEqual(entries, [
-        ["j_HC0", "2300"],
-        ["m_type", "3"],
-        ["m2_dh", "0.5"],
-        ["m2_n", "4"],
-    ]);
+    assert.equal(Object.hasOwn(material, "m2_dh"), false);
+    assert.equal(Object.hasOwn(material, "m2_n"), false);
+    assert.equal(material.KHabc, 1);
+    assert.equal(material.Diag, 0);
+    assert.equal(material.M3D, false);
+});
+
+test("normalized legacy HTC material serializes as the current local format", () => {
+    const legacyProperty = Object.fromEntries(
+        HTC_PARAMETER_NAMES
+            .filter(name => !["KHabc", "Diag", "M3D"].includes(name))
+            .map((name, index) => [name, index + 1]),
+    );
+    const [material] = toHtcLibraryModel([{
+        kind: "HTC",
+        name: "Legacy",
+        data: {
+            ...legacyProperty,
+            m2_dh: 0.5,
+            m2_dm: 0.25,
+            m2_n: 4,
+            comment: "Описание",
+        },
+    }]);
+
+    const file = createHtcMaterialFile(material);
+    assert.deepEqual(
+        Object.keys(file.data),
+        [...HTC_PARAMETER_NAMES, "comment"],
+    );
+    assert.equal(file.data.KHabc, 1);
+    assert.equal(file.data.Diag, 0);
+    assert.equal(file.data.M3D, false);
+    assert.equal(file.text.includes("m2_dh"), false);
 });

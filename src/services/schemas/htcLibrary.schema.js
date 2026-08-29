@@ -1,19 +1,27 @@
-// Readonly-проекция базовой библиотеки характеристик ВТСП.
-// Параметры остаются скалярными свойствами записи; таблица деталей является
-// только View-проекцией и не меняет JSON-файл материала.
+// Базовая библиотека остаётся readonly; локальная проекция снимает readonly
+// в MaterialLibraryTab. Параметры остаются скалярными свойствами записи и
+// редактируются в транспонированной таблице деталей.
 import {
     FIELD_TYPES,
     STORAGE_TYPES,
     TABS,
 } from "./common/constants";
 import { createSchema } from "../schemaFactory";
-import { HTC_PARAMETER_NAMES } from "../materials/materialConstants";
+import {
+    HTC_EFFECTIVE_DEFAULTS,
+    HTC_PARAMETER_NAMES,
+} from "../materials/materialConstants";
 
-const scalar = (type, label, description = label) => ({
+const scalar = (
+    type,
+    label,
+    description = label,
+    defaultValue = type === FIELD_TYPES.BOOLEAN ? false : 0,
+) => ({
     type,
     label,
     description,
-    default: type === FIELD_TYPES.BOOLEAN ? false : 0,
+    default: defaultValue,
     readonly: true,
     hidden: true,
 });
@@ -52,9 +60,24 @@ export default createSchema({
         m3_Mmax: scalar(FIELD_TYPES.FLOAT, "m3_Mmax"),
         m3_a: scalar(FIELD_TYPES.FLOAT, "m3_a"),
         m3_b: scalar(FIELD_TYPES.FLOAT, "m3_b"),
-        KHabc: scalar(FIELD_TYPES.FLOAT, "KHabc"),
-        Diag: scalar(FIELD_TYPES.FLOAT, "Diag"),
-        M3D: scalar(FIELD_TYPES.BOOLEAN, "M3D"),
+        KHabc: scalar(
+            FIELD_TYPES.FLOAT,
+            "KHabc",
+            undefined,
+            HTC_EFFECTIVE_DEFAULTS.KHabc,
+        ),
+        Diag: scalar(
+            FIELD_TYPES.FLOAT,
+            "Diag",
+            undefined,
+            HTC_EFFECTIVE_DEFAULTS.Diag,
+        ),
+        M3D: scalar(
+            FIELD_TYPES.BOOLEAN,
+            "M3D",
+            undefined,
+            HTC_EFFECTIVE_DEFAULTS.M3D,
+        ),
 
         comment: {
             type: FIELD_TYPES.STRING,

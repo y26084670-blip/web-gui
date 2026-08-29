@@ -6,6 +6,7 @@ const componentUrl = new URL(
     "../src/tabs/MaterialLibraryTab.jsx",
     import.meta.url,
 );
+const appUrl = new URL("../src/App.jsx", import.meta.url);
 
 test("material tabs expose copy and both legacy import actions", async () => {
     const source = await readFile(componentUrl, "utf8");
@@ -30,7 +31,7 @@ test("material tabs expose copy and both legacy import actions", async () => {
     assert.match(source, /legacyFmmStatus/u);
     assert.match(source, /identifyLegacyFmmLibrary/u);
     assert.match(source, /identity\.isBaseLibrary \? "base" : "importable"/u);
-    assert.match(source, /legacyFmmStatus\(\) !== "importable"/u);
+    assert.match(source, /isFmm && legacyFmmStatus\(\) !== "importable"/u);
     assert.match(source, /совпадает со стандартной legacy-библиотекой/u);
     assert.match(source, /MaterialDeleteConfirmationDialog/u);
     assert.match(source, /sourceRecord: source/u);
@@ -39,13 +40,31 @@ test("material tabs expose copy and both legacy import actions", async () => {
     assert.match(source, /createMaterialLibraryLoadQueue/u);
     assert.match(source, /tableLoadQueue\.run/u);
     assert.match(source, /const \[tableReady, setTableReady\]/u);
-    assert.match(source, /if \(source === "task"\).*revision\(\)/su);
+    assert.match(
+        source,
+        /if \(source === "task"\).*revision\(definition\.kind\)/su,
+    );
+    assert.match(source, /createHtcMaterialFile/u);
+    assert.match(source, /HtcMaterialDetailView/u);
+    assert.match(source, /materialLibraryHistoryService\.record/u);
+    assert.match(source, /materialLibraryHistoryService\.attach/u);
     assert.equal(
         source.match(/loadRecords\(\{ source, destination \}\)/gu)?.length,
         1,
     );
     assert.match(source, /createSignal\(360\)/u);
     assert.match(source, /\{ primary: true \}/u);
+});
+
+test("material tabs route side-panel history outside task BaseModel", async () => {
+    const source = await readFile(appUrl, "utf8");
+
+    assert.match(source, /historyController: materialLibraryHistoryService/u);
+    assert.match(source, /activeTabDefinition\(\)\?\.historyController \?\? modelService/u);
+    assert.match(
+        source,
+        /\.\.\.materialTabRegistry\.map\(\(definition\) => \(\{[\s\S]*historyController: materialLibraryHistoryService,[\s\S]*component:/u,
+    );
 });
 
 test("material actions keep task save notifications outside their contract", async () => {

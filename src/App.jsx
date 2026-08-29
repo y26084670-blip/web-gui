@@ -11,6 +11,7 @@ import { MaterialSelectionDialog } from "./components/materials/MaterialSelectio
 import { TABS } from "./services/schemas/common/constants";
 import { selectionService } from "./services/selectionService";
 import { modelService } from "./services/modelService";
+import { materialLibraryHistoryService } from "./services/materialLibraryHistoryService.js";
 import { modelValidator } from "./tabulator/validators/types/modelValidator";
 import { diagnosticService } from "./services/diagnosticService";
 import { dataService } from "./services/dataService";
@@ -65,7 +66,7 @@ export default function App() {
     ...materialTabRegistry.map((definition) => ({
       id: definition.id,
       label: definition.label,
-      historyEnabled: false,
+      historyController: materialLibraryHistoryService,
       component: (props) => (
         <MaterialLibraryTab
           definition={definition}
@@ -82,6 +83,8 @@ export default function App() {
       : activeTab();
   const historyTabLabel = () =>
     tabs.find((tab) => tab.id === activeTab())?.label ?? "";
+  const historyController = () =>
+    activeTabDefinition()?.historyController ?? modelService;
   const materialActionVisible = () => activeTab() === TABS.ELEMENTS.id;
   const materialActionEnabled = () =>
     materialActionVisible()
@@ -130,6 +133,12 @@ export default function App() {
     }
   }
 
+  function runHistoryAction(action) {
+    void Promise.resolve()
+      .then(action)
+      .catch(error => console.error("History action error:", error));
+  }
+
   return (
     <div class="app-container">
       <TaskInfoBar
@@ -149,10 +158,14 @@ export default function App() {
         }
         historyTabLabel={historyTabLabel()}
         historyEnabled={historyTabId() !== null}
-        canUndo={modelService.canUndo(historyTabId())}
-        canRedo={modelService.canRedo(historyTabId())}
-        onUndo={() => modelService.undo(historyTabId())}
-        onRedo={() => modelService.redo(historyTabId())}
+        canUndo={historyController().canUndo(historyTabId())}
+        canRedo={historyController().canRedo(historyTabId())}
+        onUndo={() => runHistoryAction(
+          () => historyController().undo(historyTabId()),
+        )}
+        onRedo={() => runHistoryAction(
+          () => historyController().redo(historyTabId()),
+        )}
         materialActionVisible={materialActionVisible()}
         materialActionEnabled={materialActionEnabled()}
         onChooseMaterial={handleMaterialSelectionOpen}

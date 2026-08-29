@@ -1,9 +1,7 @@
-import { HTC_PARAMETER_NAMES } from "./materialConstants.js";
-
-const PRESENTATION_KEYS = new Set([
-    "name",
-    "comment",
-]);
+import {
+    HTC_EFFECTIVE_DEFAULTS,
+    HTC_PARAMETER_NAMES,
+} from "./materialConstants.js";
 
 function isObject(value) {
     return value !== null &&
@@ -85,6 +83,33 @@ function assertFiniteFmmValues(values) {
     }
 }
 
+export function createHtcMaterialDetailSchema(schema) {
+    const properties = Object.fromEntries(
+        HTC_PARAMETER_NAMES.map(name => [name, {
+            ...schema.properties[name],
+            readonly: false,
+            hidden: false,
+        }]),
+    );
+
+    return {
+        ...schema,
+        config: {
+            ...schema.config,
+            recordCount: 1,
+            rowLabelTitle: "Параметр",
+            rowLabelWidth: 130,
+        },
+        properties,
+        views: {
+            ...schema.views,
+            recordsAsColumns: {
+                labels: ["Значение"],
+            },
+        },
+    };
+}
+
 export function toFmmLibraryModel(records) {
     if (!Array.isArray(records)) {
         throw new TypeError("Библиотека ФММ должна быть массивом RECORDS.");
@@ -110,42 +135,19 @@ export function toHtcLibraryModel(records) {
     return records.map(record => {
         const payload = cloneRecordPayload(record);
         delete payload.name;
+        const currentProperty = Object.fromEntries(
+            HTC_PARAMETER_NAMES.map(name => [
+                name,
+                Object.hasOwn(payload, name)
+                    ? payload[name]
+                    : HTC_EFFECTIVE_DEFAULTS[name],
+            ]),
+        );
         return {
             ...transientLibrarySource(record),
             name: recordName(record, payload),
-            ...payload,
+            ...currentProperty,
             comment: payload.comment ?? "",
         };
     });
-}
-
-export function htcParameterEntries(record) {
-    if (!isObject(record)) return [];
-
-    const sourceKeys = Object.keys(record).filter(
-        key =>
-            !PRESENTATION_KEYS.has(key) &&
-            !key.startsWith("_"),
-    );
-    const sourceKeySet = new Set(sourceKeys);
-    const known = HTC_PARAMETER_NAMES.filter(key => sourceKeySet.has(key));
-    const knownSet = new Set(known);
-    const additional = sourceKeys.filter(key => !knownSet.has(key));
-
-    return [...known, ...additional].map(key => [
-        key,
-        formatMaterialValue(record[key]),
-    ]);
-}
-
-export function formatMaterialValue(value) {
-    if (value === null) return "null";
-    if (typeof value === "string") return value;
-    if (
-        typeof value === "number" ||
-        typeof value === "boolean"
-    ) {
-        return JSON.stringify(value);
-    }
-    return JSON.stringify(value) ?? String(value);
 }
