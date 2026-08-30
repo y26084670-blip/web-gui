@@ -70,7 +70,7 @@ export default createSchema({
                 },
                 {
                     value: "angle",
-                    label: "Углы",
+                    label: "Поворот",
                     property: "angle",
                     x: { column: 0, title: "Время, сек" },
                     y: { title: "Угол, град" },
