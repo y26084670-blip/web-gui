@@ -25,6 +25,10 @@ amplitudes::Vector{Amplitude} = Amplitude[]
 import { VIEW_TYPES, TABS, STORAGE_TYPES, FIELD_TYPES, FILES } from "../../services/schemas/common/constants";
 import { createSchema } from "../schemaFactory";
 import { nodeCount } from "../solver/kvDerived";
+import {
+    amplitudeReferenceRows,
+    amplitudeReferenceSummary,
+} from "../references/modelReferenceViews.js";
 
 function impulsePairsSummary({ presentation }) {
     const rows = presentation?.rows;
@@ -53,8 +57,37 @@ export default createSchema({
     stretchLastColumn: true,
 
     views: {
+        references: {
+            usedByElements: {
+                type: FIELD_TYPES.ARRAY,
+                view: VIEW_TYPES.TABLE,
+                label: "Элементы",
+                description: "Элементы модели, использующие данную амплитуду",
+                readonly: true,
+                rowsMutable: false,
+                nColumns: 2,
+                columns: ["№ KV", "Название элемента"],
+                items: {
+                    type: FIELD_TYPES.STRING,
+                    default: "",
+                    description: "Ссылка на элемент модели",
+                },
+                dependencies: [TABS.ELEMENTS.id],
+                rows: amplitudeReferenceRows,
+                summary: amplitudeReferenceSummary,
+            },
+        },
         generator: {
             title: "Генератор временных зависимостей",
+            historyFile: "_генератор_амплитуд.txt",
+            defaultTarget: "amplitude",
+            synchronizedProperties: ["impuls"],
+            targets: [{
+                value: "amplitude",
+                label: "Амплитуда",
+                property: "impuls",
+                column: 1,
+            }],
         },
         graph: {
             title: "Графики амплитуд",

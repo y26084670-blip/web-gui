@@ -2,6 +2,8 @@ import { createError } from "../../common/createDiagnostic.js";
 import { TABS } from "../../../../services/schemas/common/constants.js";
 import { validateKvVertices }
     from "../../../../services/solver/geometryKv.js";
+import { validateElementMaterialReferences }
+    from "../../../../services/materialReferenceValidation.js";
 
 const GEO_SHAPE = Object.freeze({
     property: "geo",
@@ -26,6 +28,7 @@ const VALID_MODEL = new Set([0, 1, 2]);
 export function elementsValidator(
     service,
     diagnostics,
+    context = {},
 ) {
     const elements = service.getModel()[TABS.ELEMENTS.id];
     if (!Array.isArray(elements)) return;
@@ -33,6 +36,11 @@ export function elementsValidator(
     validateArrayShapes(elements, diagnostics);
     validateGeometry(elements, diagnostics);
     validateRecordOrder(elements, diagnostics);
+    validateElementMaterialReferences(
+        elements,
+        context.materialCatalog,
+        diagnostics,
+    );
 }
 
 function validateArrayShapes(elements, diagnostics) {

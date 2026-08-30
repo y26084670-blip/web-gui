@@ -49,12 +49,3 @@
   font-size: 13px;
   font-weight: 600;
 }
-
-.data-editor-generator-placeholder {
-  display: grid;
-  flex: 1 1 auto;
-  place-items: center;
-  padding: 12px;
-  color: #666;
-  text-align: center;
-}

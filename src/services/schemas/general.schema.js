@@ -19,8 +19,18 @@ mutable struct General
 end
  general::General = General()
 */
-import { TABS, STORAGE_TYPES, FIELD_TYPES, FILES } from "../../services/schemas/common/constants";
+import {
+    TABS,
+    STORAGE_TYPES,
+    FIELD_TYPES,
+    FILES,
+    VIEW_TYPES,
+} from "../../services/schemas/common/constants";
 import { createSchema } from "../schemaFactory";
+import {
+    measurementCoilRows,
+    measurementCoilSummary,
+} from "../references/modelReferenceViews.js";
 
 export default createSchema({
     id: TABS.GENERAL.id,
@@ -29,6 +39,37 @@ export default createSchema({
     storage: STORAGE_TYPES.CLUSTER,
     required: true,
     rowLabelDescription: "Общие параметры модели",
+
+    views: {
+        references: {
+            measurementCoils: {
+                type: FIELD_TYPES.ARRAY,
+                view: VIEW_TYPES.TABLE,
+                label: "Измерительные катушки",
+                description:
+                    "Сводный список измерительных катушек и связанных объектов",
+                readonly: true,
+                rowsMutable: false,
+                nColumns: 6,
+                columns: [
+                    "Катушка",
+                    "Тип",
+                    "№",
+                    "Название",
+                    "w",
+                    "Направление",
+                ],
+                items: {
+                    type: FIELD_TYPES.STRING,
+                    default: "",
+                    description: "Параметр связи измерительной катушки",
+                },
+                dependencies: [TABS.ELEMENTS.id, TABS.REGIONS.id],
+                rows: measurementCoilRows,
+                summary: measurementCoilSummary,
+            },
+        },
+    },
 
     properties: {
 

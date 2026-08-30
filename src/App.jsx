@@ -22,6 +22,8 @@ import {
   assignSelectedElementMaterial,
   selectedElementMaterialRequest,
 } from "./tabulator/actions/elementMaterialActions.js";
+import { loadMaterialReferenceCatalog } from "./services/materialReferenceValidation.js";
+import { createError } from "./tabulator/validators/common/createDiagnostic.js";
 
 import "./App.css";
 
@@ -30,9 +32,28 @@ export default function App() {
   const [selectedDiagnostic, setSelectedDiagnostic] = createSignal(null);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
+  let modelValidationRevision = 0;
 
-  function handleModelValidation() {
-    const diagnostics = modelValidator(modelService);
+  async function handleModelValidation() {
+    const revision = ++modelValidationRevision;
+    const taskHandle = selectionService.loadedTaskHandle();
+    if (!taskHandle) return;
+
+    const materialResult = await loadMaterialReferenceCatalog(taskHandle);
+    if (
+      revision !== modelValidationRevision
+      || taskHandle !== selectionService.loadedTaskHandle()
+    ) {
+      return;
+    }
+    const diagnostics = modelValidator(modelService, {
+      materialCatalog: materialResult.catalog,
+    });
+    diagnostics.push(...materialResult.errors.map(message => createError({
+      tab: TABS.ELEMENTS,
+      property: "xapName",
+      message: `Проверка ссылок на характеристики не завершена: ${message}`,
+    })));
     diagnosticService.setValidationResult(diagnostics);
   }
 

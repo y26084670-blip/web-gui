@@ -71,6 +71,7 @@ export function rowsToModel(schema, rows) {
         case STORAGE_TYPES.CLUSTER: {
             const baseModel = {};
             for (const row of rows) {
+                if (!schema.properties[row.property]) continue;
                 // Несколько строк одного ARRAY-свойства собираются
                 // обратно по arrayIndex, а не перезаписывают друг друга.
                 if (row.arrayIndex === undefined) {
@@ -89,7 +90,13 @@ export function rowsToModel(schema, rows) {
             if (hasRecordColumnsView(schema)) {
                 return propertyRowsToRecords(schema, rows);
             }
-            return rows.map(({ rowLabel, ...record }) => record);
+            return rows.map(row => Object.fromEntries(
+                Object.keys(schema.properties)
+                    .filter(propertyName =>
+                        Object.prototype.hasOwnProperty.call(row, propertyName)
+                    )
+                    .map(propertyName => [propertyName, row[propertyName]]),
+            ));
         }
 
         default:

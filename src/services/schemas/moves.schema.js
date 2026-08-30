@@ -12,6 +12,10 @@ import {
 } from "../../services/schemas/common/constants";
 import { createSchema } from "../schemaFactory";
 import { nodeCount } from "../solver/kvDerived";
+import {
+    moveReferenceRows,
+    moveReferenceSummary,
+} from "../references/modelReferenceViews.js";
 
 function commonMoveNodeCount({ values }) {
     const angleCount = nodeCount(values.angle);
@@ -47,8 +51,69 @@ export default createSchema({
     required: false,
 
     views: {
+        references: {
+            usedByObjects: {
+                type: FIELD_TYPES.ARRAY,
+                view: VIEW_TYPES.TABLE,
+                label: "Элементы и области",
+                description: "Элементы модели и области наблюдения, использующие траекторию",
+                readonly: true,
+                rowsMutable: false,
+                nColumns: 3,
+                columns: ["Тип", "№", "Название"],
+                items: {
+                    type: FIELD_TYPES.STRING,
+                    default: "",
+                    description: "Ссылка на элемент или область",
+                },
+                dependencies: [TABS.ELEMENTS.id, TABS.REGIONS.id],
+                rows: moveReferenceRows,
+                summary: moveReferenceSummary,
+            },
+        },
         generator: {
             title: "Генератор временных зависимостей",
+            historyFile: "_генератор_траекторий.txt",
+            defaultTarget: "positionX",
+            synchronizedProperties: ["angle", "position"],
+            targets: [
+                {
+                    value: "angleX",
+                    label: "Вращение вокруг оси X",
+                    property: "angle",
+                    column: 1,
+                },
+                {
+                    value: "angleY",
+                    label: "Вращение вокруг оси Y",
+                    property: "angle",
+                    column: 2,
+                },
+                {
+                    value: "angleZ",
+                    label: "Вращение вокруг оси Z",
+                    property: "angle",
+                    column: 3,
+                },
+                {
+                    value: "positionX",
+                    label: "Перемещение вдоль оси X",
+                    property: "position",
+                    column: 1,
+                },
+                {
+                    value: "positionY",
+                    label: "Перемещение вдоль оси Y",
+                    property: "position",
+                    column: 2,
+                },
+                {
+                    value: "positionZ",
+                    label: "Перемещение вдоль оси Z",
+                    property: "position",
+                    column: 3,
+                },
+            ],
         },
         graph: {
             title: "Графики траекторий",
@@ -70,7 +135,7 @@ export default createSchema({
                 },
                 {
                     value: "angle",
-                    label: "Поворот",
+                    label: "Углы",
                     property: "angle",
                     x: { column: 0, title: "Время, сек" },
                     y: { title: "Угол, град" },

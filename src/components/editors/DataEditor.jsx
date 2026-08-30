@@ -56,8 +56,16 @@ import {
   recordIndexFromColumn,
 } from "../../tabulator/converters/recordColumns";
 import { RecordGraphRegion } from "../graphs/RecordGraphRegion.jsx";
+import { TimeFunctionGenerator } from "../generator/TimeFunctionGenerator.jsx";
 import { unsavedChangesService } from "../../services/unsavedChangesService.js";
 import { resizedEditorTableRatio } from "../../services/dataEditorLayout.js";
+import { applyGeneratedSeries } from "../../services/generator/timeFunctionModel.js";
+import {
+  materializeReferenceViewRows,
+  referenceViewDependencies,
+  referenceViewEntries,
+  referenceViewValues,
+} from "../../services/referenceViewService.js";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
 import "../../tabs/Tasks.css";
@@ -88,11 +96,15 @@ export function DataEditor(props) {
 
   const viewDependencies = [
     ...new Set(
-      Object.values(schema.properties).flatMap(
-        (property) => property.computedView?.dependencies ?? [],
-      ),
+      [
+        ...Object.values(schema.properties).flatMap(
+          (property) => property.computedView?.dependencies ?? [],
+        ),
+        ...referenceViewDependencies(schema),
+      ],
     ),
   ];
+  const referenceEntries = referenceViewEntries(schema);
 
   const mainViewPropertyName =
     schema.views?.main?.property ?? null;
@@ -284,6 +296,40 @@ export function DataEditor(props) {
     return publishTableChanged(true);
   }
 
+  async function applyGeneratedDependency({ targetValue, points }) {
+    if (!hasActiveTask()) {
+      throw new Error("Сначала загрузите задание.");
+    }
+
+    const selected = table?.getSelectedRows?.() ?? [];
+    if (selected.length !== 1) {
+      throw new Error(
+        "Для применения зависимости выберите ровно одну запись основной таблицы.",
+      );
+    }
+
+    const row = selected[0];
+    const rowData = row.getData();
+    const patch = applyGeneratedSeries({
+      schema,
+      record: rowData,
+      targetValue,
+      points,
+    });
+
+    applyingModel = true;
+    try {
+      await row.update(patch);
+    } finally {
+      applyingModel = false;
+    }
+
+    pendingCellChange = null;
+    const update = publishTableChanged(false);
+    detailRegion.refresh();
+    return update;
+  }
+
   async function replaceEditorData(data) {
     if (hasGraphRegion) setSelectedGraphRecords([]);
 
@@ -296,8 +342,45 @@ export function DataEditor(props) {
     const rows =
       data === null || data === undefined
         ? []
-        : modelToRows(schema, data);
+        : materializeReferenceViewRows({
+            schema,
+            rows: modelToRows(schema, data),
+            baseModel: data,
+            modelSnapshot: modelService.getModel(),
+          });
     await table.setData(rows);
+  }
+
+  async function refreshReferenceViews() {
+    if (!table || referenceEntries.length === 0) return;
+    const baseModel = modelService.getModel()[schema.id];
+    if (baseModel === null || baseModel === undefined) return;
+    const values = referenceViewValues(
+      schema,
+      baseModel,
+      modelService.getModel(),
+    );
+
+    applyingModel = true;
+    try {
+      if (schema.config.storage === STORAGE_TYPES.RECORDS) {
+        const rows = table.getRows();
+        await Promise.all(rows.map((row, index) =>
+          row.update(values[index] ?? {})
+        ));
+      } else {
+        const rows = table.getRows();
+        await Promise.all(referenceEntries.map(([propertyName]) => {
+          const row = rows.find(item =>
+            item.getData().property === propertyName
+          );
+          return row?.update({ value: values[propertyName] });
+        }));
+      }
+    } finally {
+      applyingModel = false;
+    }
+    detailRegion.refresh();
   }
 
   function handleRowSelectionChanged(_data, rows) {
@@ -373,9 +456,10 @@ export function DataEditor(props) {
 
   // проверка наличия вложенных массивов
   function hasNestedArrays(schema) {
-    return Object.values(schema.properties).some(
-      (property) => property.type === FIELD_TYPES.ARRAY,
-    );
+    return [
+      ...Object.values(schema.properties),
+      ...referenceViewEntries(schema).map(([, property]) => property),
+    ].some((property) => property.type === FIELD_TYPES.ARRAY);
   }
 
   function captureCellChange(cell) {
@@ -454,6 +538,12 @@ export function DataEditor(props) {
     ) {
       // Защитный fallback при рассогласовании состава строк.
       queueModelUpdate(update);
+    }
+
+    if (referenceEntries.length > 0) {
+      void refreshReferenceViews().catch((error) => {
+        console.error(`${schema.id} reference view refresh error:`, error);
+      });
     }
 
     return update;
@@ -572,7 +662,12 @@ export function DataEditor(props) {
         const rows =
           update.data === null || update.data === undefined
             ? []
-            : modelToRows(schema, update.data);
+            : materializeReferenceViewRows({
+                schema,
+                rows: modelToRows(schema, update.data),
+                baseModel: update.data,
+                modelSnapshot: modelService.getModel(),
+              });
 
         applyingModel = true;
         detailRegion.showHint();
@@ -680,6 +775,18 @@ export function DataEditor(props) {
         } else {
           column.hide();
         }
+      }
+
+      for (const [name, property] of referenceEntries) {
+        const column = table.getColumn(name);
+        if (!column) continue;
+        const visible = viewSettingsService.isComputedColumnVisible(
+          property.hidden,
+          mode,
+        );
+        if (column.isVisible?.() === visible) continue;
+        if (visible) column.show();
+        else column.hide();
       }
     }
 
@@ -861,6 +968,10 @@ export function DataEditor(props) {
           error,
         );
       });
+    } else if (referenceEntries.length > 0) {
+      void refreshReferenceViews().catch((error) => {
+        console.error(`${schema.id} reference view refresh error:`, error);
+      });
     } else {
       detailRegion.refresh();
     }
@@ -982,9 +1093,10 @@ export function DataEditor(props) {
               <div class="data-editor-generator-title">
                 {generatorDescriptor.title}
               </div>
-              <div class="data-editor-generator-placeholder">
-                Область зарезервирована для последующего развития
-              </div>
+              <TimeFunctionGenerator
+                schema={schema}
+                onApply={applyGeneratedDependency}
+              />
             </section>
           </>
         )}

@@ -26,10 +26,14 @@ export function resolveProperty(cell, schema) {
         row.property;
 
     if (propertyName) {
-        return schema.properties?.[propertyName] ?? null;
+        return schema.properties?.[propertyName]
+            ?? schema.views?.references?.[propertyName]
+            ?? null;
     }
 
-    return schema.properties?.[field] ?? null;
+    return schema.properties?.[field]
+        ?? schema.views?.references?.[field]
+        ?? null;
 }
 
 export function resolveValueProperty(property) {

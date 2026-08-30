@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const componentUrl = new URL(
+    "../src/components/generator/TimeFunctionGenerator.jsx",
+    import.meta.url,
+);
+const editorUrl = new URL(
+    "../src/components/editors/DataEditor.jsx",
+    import.meta.url,
+);
+
+test("generator exposes preview, history context menu and explicit apply", async () => {
+    const source = await readFile(componentUrl, "utf8");
+    assert.match(source, /Генерировать/u);
+    assert.match(source, /Применить/u);
+    assert.match(source, /onContextMenu=\{openContextMenu\}/u);
+    assert.match(source, /saveFormulaHistory/u);
+    assert.match(source, /loadFormulaHistory/u);
+    assert.match(source, /setPreview\(\{/u);
+    assert.match(source, /catch \(error\) \{\s*showError\(error\);/u);
+});
+
+test("DataEditor applies generated data without recording model history", async () => {
+    const source = await readFile(editorUrl, "utf8");
+    assert.match(source, /applyGeneratedDependency/u);
+    assert.match(source, /publishTableChanged\(false\)/u);
+    assert.doesNotMatch(
+        source.match(/async function applyGeneratedDependency[\s\S]*?\n  \}/u)?.[0] ?? "",
+        /recordHistory:\s*true/u,
+    );
+});

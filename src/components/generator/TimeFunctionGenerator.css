@@ -1,0 +1,202 @@
+.time-generator {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  gap: 6px;
+  padding: 6px;
+  box-sizing: border-box;
+  background: #20262d;
+  color: #dce4ec;
+}
+
+.time-generator-graph {
+  position: relative;
+  flex: 1 1 54%;
+  min-height: 150px;
+  border: 1px solid #59636d;
+  background: #1b2026;
+}
+
+.time-generator-graph canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.time-generator-graph-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #9eabb6;
+  pointer-events: none;
+}
+
+.time-generator-workspace {
+  display: grid;
+  grid-template-columns: minmax(180px, .8fr) minmax(260px, 1.2fr);
+  flex: 1 1 46%;
+  min-height: 230px;
+  gap: 6px;
+}
+
+.time-generator-history,
+.time-generator-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 5px;
+}
+
+.time-generator-section-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.time-generator-history select {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  background: #f4f4f4;
+  color: #111;
+}
+
+.time-generator-history-hint,
+.time-generator-help {
+  font-size: 11px;
+  color: #aeb9c3;
+}
+
+.time-generator-editor textarea {
+  flex: 1 1 auto;
+  min-height: 88px;
+  resize: none;
+  padding: 6px;
+  box-sizing: border-box;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  background: #f7f7f7;
+  color: #111;
+}
+
+.time-generator-target,
+.time-generator-range,
+.time-generator-range label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.time-generator-target {
+  font-size: 12px;
+}
+
+.time-generator-target select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.time-generator-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.time-generator-range label {
+  align-items: stretch;
+  flex-direction: column;
+  font-size: 11px;
+}
+
+.time-generator-range input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.time-generator-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.time-generator-actions button {
+  min-height: 28px;
+}
+
+.time-generator-context-menu {
+  position: fixed;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  min-width: 250px;
+  padding: 4px;
+  border: 1px solid #555;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .45);
+  background: #ececec;
+}
+
+.time-generator-context-menu button {
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: #111;
+  text-align: left;
+}
+
+.time-generator-context-menu button:not(:disabled):hover {
+  background: #c9dced;
+}
+
+.time-generator-context-menu hr {
+  width: 100%;
+  margin: 3px 0;
+  border: 0;
+  border-top: 1px solid #aaa;
+}
+
+.time-generator-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, .55);
+}
+
+.time-generator-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(560px, 90vw);
+  padding: 18px;
+  border: 1px solid #666;
+  border-radius: 5px;
+  box-sizing: border-box;
+  background: #f2f2f2;
+  color: #111;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+}
+
+.time-generator-dialog-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.time-generator-dialog-message {
+  white-space: pre-wrap;
+}
+
+.time-generator-dialog button {
+  align-self: flex-end;
+  min-width: 110px;
+}
+
+@media (max-width: 1050px) {
+  .time-generator-workspace {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+}

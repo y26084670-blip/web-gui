@@ -14,7 +14,7 @@ import { modelRegistry } from "../models/modelRegistry.js";
  * @param {Object} service
  * @returns {Array} diagnostics
  */
-export function modelValidator(service) {
+export function modelValidator(service, context = {}) {
     const diagnostics = [];
     for (const schema of tabRegistry) {
         const validator = modelRegistry[schema.id];
@@ -22,6 +22,7 @@ export function modelValidator(service) {
         validator(
             service,
             diagnostics,
+            context,
         );
     }
     return diagnostics;

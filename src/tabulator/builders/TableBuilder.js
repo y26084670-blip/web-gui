@@ -27,6 +27,7 @@ import {
     hasRecordColumnsView,
     recordColumnField,
 } from "../converters/recordColumns";
+import { referenceViewEntries } from "../../services/referenceViewService.js";
 
 import "../../tabs/Tasks.css";
 
@@ -207,6 +208,21 @@ export const TableBuilder = {
                                 property.hidden,
                             ),
                     }
+                    : {}),
+                ...this.buildValueColumnConfig(schema),
+            });
+        }
+        for (const [name, property] of referenceViewEntries(schema)) {
+            columns.push({
+                title: property.label,
+                field: name,
+                headerTooltip: property.description ?? "",
+                cssClass: "computed-column",
+                visible: viewSettingsService.isComputedColumnVisible(
+                    property.hidden,
+                ),
+                ...(property.columnWidth !== undefined
+                    ? { width: property.columnWidth }
                     : {}),
                 ...this.buildValueColumnConfig(schema),
             });

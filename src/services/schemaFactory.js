@@ -193,6 +193,7 @@ function validateSchema(schema) {
     validateRecordColumnsView(schema);
     validateGraphView(schema);
     validateGeneratorView(schema);
+    validateReferenceViews(schema);
 
     const storagePaths = [];
 
@@ -275,6 +276,8 @@ function validateGeneratorView(schema) {
     const descriptor = schema.views.generator;
     if (descriptor === undefined) return;
 
+    const targets = descriptor?.targets;
+
     if (
         schema.config.storage !== STORAGE_TYPES.RECORDS ||
         schema.views.main !== undefined ||
@@ -282,11 +285,69 @@ function validateGeneratorView(schema) {
         !descriptor ||
         typeof descriptor !== "object" ||
         Array.isArray(descriptor) ||
-        !isNonEmptyString(descriptor.title)
+        !isNonEmptyString(descriptor.title) ||
+        !isNonEmptyString(descriptor.historyFile) ||
+        descriptor.historyFile.includes("/") ||
+        descriptor.historyFile.includes("\\") ||
+        !isNonEmptyString(descriptor.defaultTarget) ||
+        !Array.isArray(targets) ||
+        targets.length === 0 ||
+        !Array.isArray(descriptor.synchronizedProperties) ||
+        descriptor.synchronizedProperties.length === 0
     ) {
         throw new Error(
             `Schema '${schema.id}': views.generator requires a RECORDS `
-            + "main table and a non-empty title."
+            + "main table, title, historyFile, targets, defaultTarget and "
+            + "synchronizedProperties."
+        );
+    }
+
+    const targetValues = new Set();
+    for (const target of targets) {
+        const property = schema.properties[target?.property];
+        if (
+            !target ||
+            !isNonEmptyString(target.value) ||
+            !isNonEmptyString(target.label) ||
+            targetValues.has(target.value) ||
+            !property ||
+            property.type !== FIELD_TYPES.ARRAY ||
+            property.view !== VIEW_TYPES.TABLE ||
+            !Number.isInteger(property.nColumns) ||
+            !Number.isInteger(target.column) ||
+            target.column <= 0 ||
+            target.column >= property.nColumns
+        ) {
+            throw new Error(
+                `Schema '${schema.id}': invalid views.generator target `
+                + `'${target?.value ?? ""}'.`
+            );
+        }
+        targetValues.add(target.value);
+    }
+
+    if (!targetValues.has(descriptor.defaultTarget)) {
+        throw new Error(
+            `Schema '${schema.id}': views.generator.defaultTarget must name a target.`
+        );
+    }
+
+    const synchronized = new Set(descriptor.synchronizedProperties);
+    if (
+        synchronized.size !== descriptor.synchronizedProperties.length ||
+        [...synchronized].some(propertyName => {
+            const property = schema.properties[propertyName];
+            return !property ||
+                property.type !== FIELD_TYPES.ARRAY ||
+                property.view !== VIEW_TYPES.TABLE ||
+                !Number.isInteger(property.nColumns) ||
+                property.nColumns < 2;
+        }) ||
+        targets.some(target => !synchronized.has(target.property))
+    ) {
+        throw new Error(
+            `Schema '${schema.id}': views.generator.synchronizedProperties `
+            + "must contain unique TABLE properties used by all targets."
         );
     }
 }
@@ -380,6 +441,51 @@ function validateGraphView(schema) {
         throw new Error(
             `Schema '${schema.id}': views.graph.defaultMode must name a mode.`
         );
+    }
+}
+
+function validateReferenceViews(schema) {
+    const references = schema.views.references;
+    if (references === undefined) return;
+
+    if (
+        !references ||
+        typeof references !== "object" ||
+        Array.isArray(references)
+    ) {
+        throw new Error(`Schema '${schema.id}': views.references must be an object.`);
+    }
+
+    for (const [propertyName, descriptor] of Object.entries(references)) {
+        if (
+            !isNonEmptyString(propertyName) ||
+            schema.properties[propertyName] !== undefined ||
+            !descriptor ||
+            typeof descriptor !== "object" ||
+            Array.isArray(descriptor) ||
+            descriptor.type !== FIELD_TYPES.ARRAY ||
+            descriptor.view !== VIEW_TYPES.TABLE ||
+            descriptor.readonly !== true ||
+            descriptor.rowsMutable !== false ||
+            !isNonEmptyString(descriptor.label) ||
+            !Number.isInteger(descriptor.nColumns) ||
+            descriptor.nColumns <= 0 ||
+            !Array.isArray(descriptor.columns) ||
+            descriptor.columns.length !== descriptor.nColumns ||
+            !descriptor.items ||
+            !Array.isArray(descriptor.dependencies) ||
+            descriptor.dependencies.length === 0 ||
+            descriptor.dependencies.some(dependency =>
+                !isNonEmptyString(dependency) || dependency === schema.id
+            ) ||
+            new Set(descriptor.dependencies).size !== descriptor.dependencies.length ||
+            typeof descriptor.rows !== "function"
+        ) {
+            throw new Error(
+                `Schema '${schema.id}', view-only property '${propertyName}': `
+                + "invalid views.references descriptor."
+            );
+        }
     }
 }
 
@@ -696,6 +802,18 @@ export function validateSchemaRegistry(schemas) {
                 throw new Error(
                     `Schema '${schema.id}', property '${propertyName}': `
                     + `unknown computedView dependency '${dependency}'.`
+                );
+            }
+        }
+
+        for (const [propertyName, descriptor] of
+            Object.entries(schema.views.references ?? {})) {
+            for (const dependency of descriptor.dependencies) {
+                if (ids.has(dependency)) continue;
+
+                throw new Error(
+                    `Schema '${schema.id}', view-only property '${propertyName}': `
+                    + `unknown reference dependency '${dependency}'.`
                 );
             }
         }
