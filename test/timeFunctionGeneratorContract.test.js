@@ -27,6 +27,8 @@ test("generator exposes preview, history context menu and explicit apply", async
     assert.match(source, /role="separator"/u);
     assert.match(source, /onPointerDown=\{beginGraphResize\}/u);
     assert.match(source, /placeholder=\{FORMULA_PLACEHOLDER\}/u);
+    assert.match(source, /for \(const sourceLine of formula\(\)\.split/u);
+    assert.match(source, /\.\.\.nextFormulas/u);
     assert.match(source, /Зарезервированные имена функций и констант/u);
     assert.doesNotMatch(source, /<span>Величина<\/span>/u);
     assert.doesNotMatch(source, /class="time-generator-help"/u);
@@ -58,5 +60,7 @@ test("generator keeps its action row reachable when the panel is resized", async
         styles,
         /\.time-generator-splitter\s*\{[^}]*cursor:\s*row-resize;/u,
     );
+    assert.match(styles, /\.time-generator-editor textarea\s*\{[^}]*min-height:\s*0;/u);
     assert.match(styles, /\.time-generator-editor textarea\s*\{[^}]*font-size:\s*14px;/u);
+    assert.match(styles, /\.time-generator-workspace\s*\{[^}]*min-height:\s*0;/u);
 });

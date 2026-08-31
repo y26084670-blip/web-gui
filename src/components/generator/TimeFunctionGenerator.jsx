@@ -277,12 +277,16 @@ export function TimeFunctionGenerator(props) {
   }
 
   function addCurrentFormula() {
-    const value = formula();
-    if (!value.trim()) {
+    const nextFormulas = [];
+    for (const sourceLine of formula().split(/\r?\n/u)) {
+      const item = sourceLine.trim();
+      if (item) nextFormulas.push(item);
+    }
+    if (nextFormulas.length === 0) {
       showError("Нельзя добавить пустую формулу.");
       return;
     }
-    setFormulas(items => [...items, value]);
+    setFormulas(items => [...items, ...nextFormulas]);
   }
 
   function insertSelectedFormula() {

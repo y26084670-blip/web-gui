@@ -32,8 +32,8 @@ export function resizedEditorTableRatio({
 
 
 export const TIME_GENERATOR_SPLIT_LIMITS = Object.freeze({
-    graphHeight: 96,
-    workspaceHeight: 270,
+    graphHeight: 72,
+    workspaceHeight: 150,
     splitterSize: 6,
 });
 

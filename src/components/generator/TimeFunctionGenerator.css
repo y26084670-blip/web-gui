@@ -24,7 +24,7 @@
 .time-generator-graph {
   position: relative;
   flex: 0 0 auto;
-  min-height: 96px;
+  min-height: 72px;
   border: 1px solid #59636d;
   background: #1b2026;
 }
@@ -67,7 +67,7 @@
   display: grid;
   grid-template-columns: minmax(180px, .8fr) minmax(260px, 1.2fr);
   flex: 1 1 auto;
-  min-height: 270px;
+  min-height: 0;
   gap: 6px;
   overflow: hidden;
 }
@@ -120,8 +120,9 @@
 }
 
 .time-generator-editor textarea {
-  flex: 1 1 auto;
-  min-height: 140px;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
   resize: none;
   padding: 6px;
   box-sizing: border-box;

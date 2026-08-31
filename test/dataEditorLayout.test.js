@@ -41,8 +41,8 @@ test("editor splitter uses the pointer position inside valid limits", () => {
 });
 
 
-test("generator splitter preserves graph and workspace minimum heights", () => {
-    const containerHeight = 800;
+test("generator splitter preserves a draggable range in a compact panel", () => {
+    const containerHeight = 300;
     const contentHeight =
         containerHeight - TIME_GENERATOR_SPLIT_LIMITS.splitterSize;
 

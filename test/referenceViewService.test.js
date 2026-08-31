@@ -87,8 +87,8 @@ test("CLUSTER reference refresh recreates a missing view-only row", async () => 
     assert.match(refresh, /table\.addRow/u);
     assert.match(refresh, /rowLabel: descriptor\.label/u);
     assert.match(refresh, /property: propertyName/u);
-    assert.match(source, /\[control\]\[general\.measurementCoils\]/u);
-    assert.match(source, /replaceEditorData:afterSetData/u);
-    assert.match(source, /refreshReferenceViews:afterUpdate/u);
-    assert.match(source, /queueModelUpdate:afterReplaceData/u);
+    assert.match(source, /function activateDefaultReferenceView/u);
+    assert.match(source, /adapter\?\.activate\?\./u);
+    assert.match(source, /activateDefaultReferenceView\(\)/u);
+    assert.doesNotMatch(source, /\[control\]\[general\.measurementCoils\]/u);
 });

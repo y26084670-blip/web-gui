@@ -105,30 +105,24 @@ export function DataEditor(props) {
     ),
   ];
   const referenceEntries = referenceViewEntries(schema);
-  const measurementCoilsReference = "measurementCoils";
-  const hasMeasurementCoilsReference = referenceEntries.some(
-    ([propertyName]) => propertyName === measurementCoilsReference,
-  );
+  const defaultReferenceEntry =
+    schema.config.storage === STORAGE_TYPES.CLUSTER &&
+    referenceEntries.length === 1
+      ? referenceEntries[0]
+      : null;
 
-  function printMeasurementCoilsControl(stage, { rows, values } = {}) {
-    if (!hasMeasurementCoilsReference) return;
+  function activateDefaultReferenceView() {
+    if (!table || !defaultReferenceEntry) return;
 
-    const tableRows = table?.getRows?.() ?? [];
-    const tableRow = tableRows.find(
-      row => row.getData().property === measurementCoilsReference,
+    const [propertyName, property] = defaultReferenceEntry;
+    const row = table.getRows().find(
+      item => item.getData().property === propertyName,
     );
-    const materializedRow = rows?.find(
-      row => row.property === measurementCoilsReference,
-    );
+    const cell = row?.getCell("value");
+    if (!cell) return;
 
-    console.info("[control][general.measurementCoils]", stage, {
-      schemaId: schema.id,
-      referenceProperties: referenceEntries.map(([propertyName]) => propertyName),
-      computedValue: values?.[measurementCoilsReference],
-      materializedRow: materializedRow ?? null,
-      tableRow: tableRow?.getData?.() ?? null,
-      tableRowCount: tableRows.length,
-    });
+    const adapter = viewRegistry.get(property.view ?? VIEW_TYPES.TABLE);
+    adapter?.activate?.(cell, { property });
   }
 
   const mainViewPropertyName =
@@ -373,9 +367,8 @@ export function DataEditor(props) {
             baseModel: data,
             modelSnapshot: modelService.getModel(),
           });
-    printMeasurementCoilsControl("replaceEditorData:beforeSetData", { rows });
     await table.setData(rows);
-    printMeasurementCoilsControl("replaceEditorData:afterSetData", { rows });
+    activateDefaultReferenceView();
   }
 
   async function refreshReferenceViews() {
@@ -387,7 +380,6 @@ export function DataEditor(props) {
       baseModel,
       modelService.getModel(),
     );
-    printMeasurementCoilsControl("refreshReferenceViews:computed", { values });
 
     applyingModel = true;
     try {
@@ -417,8 +409,8 @@ export function DataEditor(props) {
     } finally {
       applyingModel = false;
     }
-    printMeasurementCoilsControl("refreshReferenceViews:afterUpdate", { values });
     detailRegion.refresh();
+    activateDefaultReferenceView();
   }
 
   function handleRowSelectionChanged(_data, rows) {
@@ -712,9 +704,8 @@ export function DataEditor(props) {
         if (hasGraphRegion) setSelectedGraphRecords([]);
 
         try {
-          printMeasurementCoilsControl("queueModelUpdate:beforeReplaceData", { rows });
           await table.replaceData(rows);
-          printMeasurementCoilsControl("queueModelUpdate:afterReplaceData", { rows });
+          activateDefaultReferenceView();
         } finally {
           applyingModel = false;
         }
