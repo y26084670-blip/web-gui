@@ -81,15 +81,20 @@ body,
 }
 
 .nested-summary {
-    margin-left: 6px;
-    color: #555;
-    font-size: 0.9em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  margin-left: 6px;
+  color: #555;
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Ячейка со сводкой является точкой активации связанного представления. */
 .tabulator-cell:has(.nested-summary) {
-    cursor: pointer;
+  cursor: pointer;
+}
+
+.app-container .tabulator,
+.app-container .tabulator .tabulator-tableholder {
+  background-color: #fafafa;
 }
