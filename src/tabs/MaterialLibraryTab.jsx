@@ -386,6 +386,12 @@ export function MaterialLibraryTab(props) {
       selectableRowsRangeMode: "click",
     });
 
+    table.on("tableBuilt", () => {
+      if (!disposed) {
+        setTableReady(true);
+      }
+    });
+
     table._gui = {
       schema: tableSchema,
       required: false,
@@ -872,7 +878,6 @@ export function MaterialLibraryTab(props) {
       schema.id,
       applyLibrarySnapshot,
     );
-    setTableReady(true);
   });
 
   createEffect(() => {

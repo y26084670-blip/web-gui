@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { HTC_PARAMETER_NAMES } from
@@ -51,4 +52,29 @@ test("HTC detail contract lists eighteen current scalar parameters", () => {
         detailSchema.views.recordsAsColumns.labels,
         ["Значение"],
     );
+});
+
+test("material library waits for Tabulator before its initial data load", () => {
+    const source = readFileSync(
+        new URL("../src/tabs/MaterialLibraryTab.jsx", import.meta.url),
+        "utf8",
+    );
+    const creationStart = source.indexOf("function createTable()");
+    const loadStart = source.indexOf("async function loadRecords");
+    const mountStart = source.indexOf("onMount(() =>");
+    const effectStart = source.indexOf("createEffect(() =>", mountStart);
+    const tableCreation = source.slice(creationStart, loadStart);
+    const mount = source.slice(mountStart, effectStart);
+
+    assert.ok(creationStart >= 0 && loadStart > creationStart);
+    assert.ok(mountStart >= 0 && effectStart > mountStart);
+    assert.ok(
+        tableCreation.indexOf("new Tabulator")
+            < tableCreation.indexOf('table.on("tableBuilt"'),
+    );
+    assert.match(
+        tableCreation,
+        /table\.on\("tableBuilt",[\s\S]*setTableReady\(true\)/,
+    );
+    assert.doesNotMatch(mount, /setTableReady\(true\)/);
 });
