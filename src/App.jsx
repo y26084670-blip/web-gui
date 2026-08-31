@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For } from "solid-js";
+import { createEffect, createMemo, createSignal, For } from "solid-js";
 
 import { Tasks } from "./tabs/Tasks.jsx";
 import { DataEditor } from "./components/editors/DataEditor.jsx";
@@ -8,6 +8,7 @@ import { materialTabRegistry } from "./services/materialTabRegistry";
 import { TaskInfoBar } from "./TaskInfoBar";
 import { SidePanel } from "./components/SidePanel";
 import { MaterialSelectionDialog } from "./components/materials/MaterialSelectionDialog.jsx";
+import { GeometryViewerWindow } from "./components/geometry/GeometryViewerWindow.jsx";
 import { TABS } from "./services/schemas/common/constants";
 import { selectionService } from "./services/selectionService";
 import { modelService } from "./services/modelService";
@@ -32,6 +33,8 @@ export default function App() {
   const [selectedDiagnostic, setSelectedDiagnostic] = createSignal(null);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
+  const [geometryViewerOpen, setGeometryViewerOpen] = createSignal(false);
+  let geometryViewerButton;
   let modelValidationRevision = 0;
 
   async function handleModelValidation() {
@@ -115,6 +118,23 @@ export default function App() {
     materialActionVisible()
     && Boolean(selectionService.loadedTaskHandle())
     && selectionContextService.selectedRows().length > 0;
+  const geometryModel = createMemo((previous) => {
+    const model = modelService.getModel();
+
+    if (
+      previous?.general === model.general
+      && previous?.elements === model.elements
+      && previous?.regions === model.regions
+    ) {
+      return previous;
+    }
+
+    return {
+      general: model.general,
+      elements: model.elements,
+      regions: model.regions,
+    };
+  });
 
   function handleMaterialSelectionOpen() {
     try {
@@ -181,6 +201,13 @@ export default function App() {
         onSave={handleSave}
         menuOpen={sidePanelOpen()}
         onMenuToggle={() => setSidePanelOpen((open) => !open)}
+        geometryViewerOpen={geometryViewerOpen()}
+        geometryViewerButtonRef={(element) => {
+          geometryViewerButton = element;
+        }}
+        onGeometryViewerToggle={() => {
+          setGeometryViewerOpen((open) => !open);
+        }}
       />
       <SidePanel
         open={sidePanelOpen()}
@@ -261,6 +288,14 @@ export default function App() {
         taskHandle={selectionService.loadedTaskHandle()}
         onCancel={() => setMaterialRequest(null)}
         onApply={handleMaterialSelectionApply}
+      />
+      <GeometryViewerWindow
+        open={geometryViewerOpen()}
+        model={geometryModel()}
+        onClose={() => {
+          setGeometryViewerOpen(false);
+          geometryViewerButton?.focus();
+        }}
       />
     </div>
   );

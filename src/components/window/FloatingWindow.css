@@ -1,0 +1,121 @@
+.floating-window-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 3200;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.floating-window {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
+    resize: both;
+    pointer-events: auto;
+    color: #edf2f7;
+    background: #1d2228;
+    border: 1px solid #66717d;
+    border-radius: 5px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, .7);
+}
+
+.floating-window.is-maximized,
+.floating-window.is-minimized {
+    resize: none;
+}
+
+.floating-window.is-minimized {
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+.floating-window-titlebar {
+    display: flex;
+    flex: 0 0 38px;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 0 5px 0 11px;
+    color: #f4f7fa;
+    background: #29313a;
+    border-bottom: 1px solid #515c68;
+    cursor: move;
+    touch-action: none;
+    user-select: none;
+}
+
+.floating-window-titlebar:focus-visible {
+    outline: 2px solid #8fc7ff;
+    outline-offset: -2px;
+}
+
+.floating-window-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: bold;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.floating-window-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 3px;
+}
+
+.floating-window-actions button {
+    display: grid;
+    width: 28px;
+    height: 27px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: #edf2f7;
+    background: transparent;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.floating-window-actions button:hover:not(:disabled) {
+    border-color: #66717d;
+    background: #3a444f;
+}
+
+.floating-window-actions button:focus-visible {
+    outline: 2px solid #8fc7ff;
+    outline-offset: 1px;
+}
+
+.floating-window-actions button:disabled {
+    color: #747e88;
+    cursor: default;
+}
+
+.floating-window-actions .floating-window-close:hover {
+    border-color: #9c4545;
+    background: #8c3535;
+}
+
+.floating-window-content {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.floating-window.is-minimized .floating-window-titlebar {
+    border-bottom: 0;
+}
+
+.floating-window.is-minimized .floating-window-content {
+    display: none;
+}

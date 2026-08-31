@@ -36,6 +36,29 @@
     gap: 8px;
 }
 
+.geometry-button {
+    flex: 0 0 auto;
+    min-width: 38px;
+    padding: 3px 8px;
+    border: 1px solid #77808a;
+    border-radius: 3px;
+    color: #17202a;
+    background: #dce7f3;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.geometry-button:hover:not(:disabled),
+.geometry-button[aria-pressed="true"] {
+    border-color: #466c91;
+    background: #bcd4ea;
+}
+
+.geometry-button:disabled {
+    opacity: .55;
+    cursor: default;
+}
+
 /* Модальное окно панели задания. */
 .modal-backdrop {
     position: fixed;

@@ -105,6 +105,22 @@ export function TaskInfoBar(props) {
 
       <div class="validation-controls">
         <button
+          ref={props.geometryViewerButtonRef}
+          class="geometry-button"
+          disabled={!props.path}
+          onClick={props.onGeometryViewerToggle}
+          title={props.geometryViewerOpen
+            ? "Закрыть 3D-просмотр геометрии"
+            : "Открыть 3D-просмотр геометрии"}
+          aria-label={props.geometryViewerOpen
+            ? "Закрыть 3D-просмотр геометрии"
+            : "Открыть 3D-просмотр геометрии"}
+          aria-pressed={props.geometryViewerOpen}
+        >
+          3D
+        </button>
+
+        <button
           class="validate-button"
           disabled={!props.path}
           onClick={props.onValidate}

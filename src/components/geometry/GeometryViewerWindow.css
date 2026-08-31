@@ -1,0 +1,237 @@
+.geometry-viewer-floating-window .floating-window-content {
+  background: #171d23;
+}
+
+.geometry-viewer-window {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  color: #e7edf3;
+  background: #171d23;
+}
+
+.geometry-viewer-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 7px;
+  overflow-x: auto;
+  border-bottom: 1px solid #4e5965;
+  background: #252d35;
+  scrollbar-width: thin;
+}
+
+.geometry-viewer-filter-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 7px 3px;
+  border: 1px solid #4e5965;
+  border-radius: 3px;
+}
+
+.geometry-viewer-filter-group legend {
+  padding: 0 3px;
+  color: #aeb9c4;
+  font-size: 10px;
+}
+
+.geometry-viewer-filter-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #e3e9ee;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.geometry-viewer-filter-group input {
+  margin: 0;
+}
+
+.geometry-viewer-mode-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+}
+
+.geometry-viewer-mode-group button,
+.geometry-viewer-fit {
+  min-height: 27px;
+  padding: 3px 8px;
+  border: 1px solid #56626e;
+  background: #303943;
+  color: #edf2f7;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.geometry-viewer-mode-group button:first-child {
+  border-radius: 3px 0 0 3px;
+}
+
+.geometry-viewer-mode-group button:last-child {
+  margin-left: -1px;
+  border-radius: 0 3px 3px 0;
+}
+
+.geometry-viewer-mode-group button:hover,
+.geometry-viewer-fit:hover {
+  background: #3b4651;
+}
+
+.geometry-viewer-mode-group button.active {
+  border-color: #70bd85;
+  background: #285b3a;
+  color: #f2fff5;
+}
+
+.geometry-viewer-mode-group button:focus-visible,
+.geometry-viewer-fit:focus-visible,
+.geometry-viewer-filter-group input:focus-visible {
+  outline: 2px solid #8fc7ff;
+  outline-offset: 1px;
+}
+
+.geometry-viewer-fit {
+  flex: 0 0 auto;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.geometry-viewer-canvas-region {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #141a20;
+}
+
+.three-geometry-viewport {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #141a20;
+}
+
+.three-geometry-viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.geometry-viewport-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  z-index: 2;
+  place-items: center;
+  padding: 18px;
+  color: #aeb9c4;
+  background: rgba(20, 26, 32, .78);
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.geometry-viewport-error,
+.geometry-viewer-error {
+  color: #ffb6b6;
+}
+
+.geometry-viewer-budget-warning {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 3;
+  max-width: min(440px, calc(100% - 16px));
+  box-sizing: border-box;
+  padding: 6px 9px;
+  border: 1px solid #a87932;
+  border-radius: 3px;
+  background: rgba(82, 57, 21, .94);
+  color: #ffe2a8;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.geometry-viewer-error {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-top: 1px solid #8e4747;
+  background: #492929;
+  font-size: 12px;
+}
+
+.geometry-viewer-summary {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 26px;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  overflow-x: auto;
+  border-top: 1px solid #46515c;
+  background: #222a32;
+  color: #bbc5ce;
+  font-size: 11px;
+  white-space: nowrap;
+  scrollbar-width: thin;
+}
+
+.geometry-viewer-skipped {
+  color: #ffd08a;
+}
+
+.geometry-viewer-diagnostics {
+  flex: 0 0 auto;
+  max-height: 120px;
+  overflow: auto;
+  border-top: 1px solid #46515c;
+  background: #20272e;
+  font-size: 11px;
+}
+
+.geometry-viewer-diagnostics summary {
+  padding: 5px 8px;
+  color: #d7dee5;
+  cursor: pointer;
+}
+
+.geometry-viewer-diagnostics ul {
+  margin: 0;
+  padding: 0 10px 7px 28px;
+}
+
+.geometry-viewer-diagnostics li {
+  margin: 2px 0;
+  color: #ffd08a;
+}
+
+.geometry-viewer-diagnostics li.is-error {
+  color: #ffaaaa;
+}
+
+@media (max-width: 700px) {
+  .geometry-viewer-toolbar {
+    align-items: stretch;
+  }
+
+  .geometry-viewer-summary {
+    gap: 8px;
+  }
+}
