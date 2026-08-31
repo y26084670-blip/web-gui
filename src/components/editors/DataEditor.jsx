@@ -370,12 +370,21 @@ export function DataEditor(props) {
         ));
       } else {
         const rows = table.getRows();
-        await Promise.all(referenceEntries.map(([propertyName]) => {
+        for (const [propertyName, descriptor] of
+          [...referenceEntries].reverse()) {
           const row = rows.find(item =>
             item.getData().property === propertyName
           );
-          return row?.update({ value: values[propertyName] });
-        }));
+          if (row) {
+            await row.update({ value: values[propertyName] });
+            continue;
+          }
+          await table.addRow({
+            rowLabel: descriptor.label,
+            property: propertyName,
+            value: values[propertyName],
+          }, true);
+        }
       }
     } finally {
       applyingModel = false;

@@ -10,9 +10,14 @@ const editorUrl = new URL(
     "../src/components/editors/DataEditor.jsx",
     import.meta.url,
 );
+const generatorCssUrl = new URL(
+    "../src/components/generator/TimeFunctionGenerator.css",
+    import.meta.url,
+);
 
 test("generator exposes preview, history context menu and explicit apply", async () => {
     const source = await readFile(componentUrl, "utf8");
+    assert.match(source, /time-generator-section-title">Формула</u);
     assert.match(source, /Генерировать/u);
     assert.match(source, /Применить/u);
     assert.match(source, /onContextMenu=\{openContextMenu\}/u);
@@ -29,5 +34,18 @@ test("DataEditor applies generated data without recording model history", async 
     assert.doesNotMatch(
         source.match(/async function applyGeneratedDependency[\s\S]*?\n  \}/u)?.[0] ?? "",
         /recordHistory:\s*true/u,
+    );
+});
+
+
+test("generator keeps its action row reachable when the panel is resized", async () => {
+    const styles = await readFile(generatorCssUrl, "utf8");
+    assert.match(
+        styles,
+        /\.time-generator-editor\s*\{[^}]*overflow-y:\s*auto;/u,
+    );
+    assert.match(
+        styles,
+        /\.time-generator-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;/u,
     );
 });

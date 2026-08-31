@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -67,8 +68,23 @@ test("cluster reference view appends one readonly presentation row", () => {
             modelSnapshot: { elements: [] },
         }),
         [
-            { property: "a", value: 1 },
             { rowLabel: "Катушки", property: "coils", value: [["C1"]] },
+            { property: "a", value: 1 },
         ],
     );
+});
+
+
+test("CLUSTER reference refresh recreates a missing view-only row", async () => {
+    const source = await readFile(
+        new URL("../src/components/editors/DataEditor.jsx", import.meta.url),
+        "utf8",
+    );
+    const refresh = source.match(
+        /async function refreshReferenceViews[\s\S]*?\n  function handleRowSelectionChanged/u,
+    )?.[0] ?? "";
+
+    assert.match(refresh, /table\.addRow/u);
+    assert.match(refresh, /rowLabel: descriptor\.label/u);
+    assert.match(refresh, /property: propertyName/u);
 });

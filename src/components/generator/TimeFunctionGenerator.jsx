@@ -319,19 +319,22 @@ export function TimeFunctionGenerator(props) {
         </section>
 
         <section class="time-generator-editor">
-          <Show when={descriptor.targets.length > 1}>
-            <label class="time-generator-target">
-              <span>Величина</span>
-              <select
-                value={target()}
-                onChange={(event) => setTarget(event.currentTarget.value)}
-              >
-                <For each={descriptor.targets}>
-                  {(item) => <option value={item.value}>{item.label}</option>}
-                </For>
-              </select>
-            </label>
-          </Show>
+          <div class="time-generator-editor-header">
+            <div class="time-generator-section-title">Формула</div>
+            <Show when={descriptor.targets.length > 1}>
+              <label class="time-generator-target">
+                <span>Величина</span>
+                <select
+                  value={target()}
+                  onChange={(event) => setTarget(event.currentTarget.value)}
+                >
+                  <For each={descriptor.targets}>
+                    {(item) => <option value={item.value}>{item.label}</option>}
+                  </For>
+                </select>
+              </label>
+            </Show>
+          </div>
 
           <textarea
             value={formula()}

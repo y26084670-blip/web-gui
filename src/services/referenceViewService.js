@@ -103,12 +103,14 @@ export function materializeReferenceViewRows({
         }));
     }
 
+    const referenceRows = entries.map(([propertyName, descriptor]) => ({
+        rowLabel: descriptor.label,
+        property: propertyName,
+        value: values[propertyName],
+    }));
+
     return [
+        ...referenceRows,
         ...rows,
-        ...entries.map(([propertyName, descriptor]) => ({
-            rowLabel: descriptor.label,
-            property: propertyName,
-            value: values[propertyName],
-        })),
     ];
 }
