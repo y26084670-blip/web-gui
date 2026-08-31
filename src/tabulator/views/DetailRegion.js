@@ -18,6 +18,7 @@ export class DetailRegion {
         this.titleElement = null;
         this.toolbarElement = null;
         this.hostElement = null;
+        this.fieldChangedHandler = null;
 
         this.view = null;
         this.key = null;
@@ -35,10 +36,15 @@ export class DetailRegion {
     }
 
     // Подключение к DOM-узлам, созданным вкладкой.
-    attach({ title, toolbar, host }) {
+    attach({ title, toolbar, host, onFieldChanged }) {
         this.titleElement = title;
         this.toolbarElement = toolbar;
         this.hostElement = host;
+        this.fieldChangedHandler =
+            typeof onFieldChanged === "function"
+                ? onFieldChanged
+                : null;
+        this.fieldChangedHandler?.(this.field);
 
         // Взаимодействие с таблицей деталей делает её активной.
         // this.hostElement?.addEventListener("mousedown", () => {
@@ -55,11 +61,18 @@ export class DetailRegion {
     showHint(text = "Щёлкните ячейку со сводкой массива, чтобы открыть его содержание") {
         this.clear();
 
-        this.field = null;
+        this.setField(null);
 
         if (this.titleElement) {
             this.titleElement.textContent = text;
         }
+    }
+
+    setField(field) {
+        if (this.field === field) return;
+
+        this.field = field;
+        this.fieldChangedHandler?.(field);
     }
 
     getField() {
@@ -150,7 +163,7 @@ export class DetailRegion {
         this.key = key;
         this.view = view;
         this.element = element;
-        this.field = field;
+        this.setField(field);
         this.setSourceCell(sourceCell, field);
         view.setComputedColumnsVisibility?.(
             viewSettingsService.computedColumnsMode(),
@@ -255,8 +268,9 @@ export class DetailRegion {
 
     destroy() {
         this.clear();
+        this.setField(null);
 
-        this.field = null;
+        this.fieldChangedHandler = null;
         this.titleElement = null;
         this.toolbarElement = null;
         this.hostElement = null;

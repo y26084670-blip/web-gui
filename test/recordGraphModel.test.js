@@ -4,6 +4,7 @@ import test from "node:test";
 import {
     recordGraphConfig,
     recordGraphDatasets,
+    recordGraphModeForProperty,
 } from "../src/services/graphs/recordGraphModel.js";
 
 const ampsSchema = {
@@ -82,6 +83,10 @@ test("selected amplitudes become one time-value dataset each", () => {
         recordGraphConfig(ampsSchema, records).options.scales.x.type,
         "linear",
     );
+    assert.equal(
+        recordGraphModeForProperty(ampsSchema, "impuls").value,
+        "amplitude",
+    );
 });
 
 test("trajectory graph defaults to displacement and exposes three axes", () => {
@@ -122,6 +127,11 @@ test("trajectory angle mode uses angle values and degree axis", () => {
         { x: 1, y: 2 },
     ]);
     assert.equal(config.options.scales.y.title.text, "Угол, град");
+    assert.equal(
+        recordGraphModeForProperty(movesSchema, "angle").value,
+        "angle",
+    );
+    assert.equal(recordGraphModeForProperty(movesSchema, "unknown"), null);
 });
 
 test("malformed record graph rows fail before Chart creation", () => {

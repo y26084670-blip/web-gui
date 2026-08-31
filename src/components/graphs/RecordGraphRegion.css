@@ -27,27 +27,6 @@
   font-weight: 600;
 }
 
-.record-graph-mode-switch {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.record-graph-mode-switch button {
-  min-width: 86px;
-  padding: 2px 8px;
-  border: 1px solid #777;
-  border-radius: 3px;
-  background: #eee;
-  color: #111;
-}
-
-.record-graph-mode-switch button.active {
-  border-color: #245f91;
-  background: #4d789e;
-  color: #fff;
-}
 
 .record-graph-region-host {
   display: grid;

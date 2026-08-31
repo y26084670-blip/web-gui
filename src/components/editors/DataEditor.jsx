@@ -58,7 +58,11 @@ import {
 import { RecordGraphRegion } from "../graphs/RecordGraphRegion.jsx";
 import { TimeFunctionGenerator } from "../generator/TimeFunctionGenerator.jsx";
 import { unsavedChangesService } from "../../services/unsavedChangesService.js";
-import { resizedEditorTableRatio } from "../../services/dataEditorLayout.js";
+import {
+  DATA_EDITOR_DETAIL_SPLIT_LIMITS,
+  resizedEditorLowerRatio,
+  resizedEditorTableRatio,
+} from "../../services/dataEditorLayout.js";
 import { applyGeneratedSeries } from "../../services/generator/timeFunctionModel.js";
 import {
   materializeReferenceViewRows,
@@ -92,7 +96,12 @@ export function DataEditor(props) {
   let mainRegionHost;
   let mainResizeCleanup = null;
   let mainRedrawFrame = 0;
+  let detailLayoutHost;
+  let detailResizeCleanup = null;
+  let detailRedrawFrame = 0;
   const [mainTableRatio, setMainTableRatio] = createSignal(0.65);
+  const [detailLowerRatio, setDetailLowerRatio] = createSignal(0.4);
+  const [detailGraphField, setDetailGraphField] = createSignal(null);
 
   const viewDependencies = [
     ...new Set(
@@ -110,6 +119,7 @@ export function DataEditor(props) {
     referenceEntries.length === 1
       ? referenceEntries[0]
       : null;
+  const hasCompactReferenceLayout = Boolean(defaultReferenceEntry);
 
   function activateDefaultReferenceView() {
     if (!table || !defaultReferenceEntry) return;
@@ -168,7 +178,7 @@ export function DataEditor(props) {
       layout: schema.config.stretchLastColumn
         ? "fitDataStretch"
         : "fitDataFill",
-      height: "100%",
+      ...(hasCompactReferenceLayout ? {} : { height: "100%" }),
       data: [],
       columns: TableBuilder.buildColumns(schema),
       selectableRows: true,
@@ -778,6 +788,82 @@ export function DataEditor(props) {
     scheduleMainLayoutRedraw();
   }
 
+  function scheduleDetailLayoutRedraw() {
+    cancelAnimationFrame(detailRedrawFrame);
+    detailRedrawFrame = requestAnimationFrame(() => {
+      detailRedrawFrame = 0;
+      table?.redraw?.(true);
+      mainView?.onVisible?.();
+      Promise.resolve(detailRegion.onVisible()).catch((error) => {
+        console.error(`${schema.id} detail resize error:`, error);
+      });
+    });
+  }
+
+  function stopDetailResize() {
+    detailResizeCleanup?.();
+    detailResizeCleanup = null;
+  }
+
+  function updateDetailLowerRatio(pointerY, bounds) {
+    setDetailLowerRatio(resizedEditorLowerRatio({
+      pointerY,
+      containerTop: bounds.top,
+      containerHeight: bounds.height,
+    }));
+    scheduleDetailLayoutRedraw();
+  }
+
+  function beginDetailResize(event) {
+    if (event.button !== 0 || !detailLayoutHost) return;
+    event.preventDefault();
+    event.stopPropagation();
+    stopDetailResize();
+
+    const bounds = detailLayoutHost.getBoundingClientRect();
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    const move = (moveEvent) => updateDetailLowerRatio(moveEvent.clientY, bounds);
+    const finish = () => stopDetailResize();
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+
+    detailResizeCleanup = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }
+
+  function handleDetailSplitterKey(event) {
+    if (
+      !detailLayoutHost ||
+      !["ArrowUp", "ArrowDown"].includes(event.key)
+    ) {
+      return;
+    }
+    event.preventDefault();
+
+    const bounds = detailLayoutHost.getBoundingClientRect();
+    const contentHeight = Math.max(
+      1,
+      bounds.height - DATA_EDITOR_DETAIL_SPLIT_LIMITS.splitterSize,
+    );
+    const mainHeight = contentHeight * (1 - detailLowerRatio());
+    const direction = event.key === "ArrowUp" ? -1 : 1;
+    const step = event.shiftKey ? 40 : 10;
+    updateDetailLowerRatio(
+      bounds.top + mainHeight + direction * step,
+      bounds,
+    );
+  }
+
   function applyComputedColumnsVisibility(mode) {
     if (!table) return;
 
@@ -833,6 +919,7 @@ export function DataEditor(props) {
         title: detailTitleDiv,
         toolbar: detailToolbarDiv,
         host: detailHostDiv,
+        onFieldChanged: setDetailGraphField,
       });
     }
   });
@@ -947,7 +1034,9 @@ export function DataEditor(props) {
 
   onCleanup(() => {
     stopMainResize();
+    stopDetailResize();
     cancelAnimationFrame(mainRedrawFrame);
+    cancelAnimationFrame(detailRedrawFrame);
   });
 
   // Направление BaseModel -> Tabulator. Собственные публикации редактора
@@ -1093,76 +1182,105 @@ export function DataEditor(props) {
       )}
 
       <div
-        ref={(el) => (mainRegionHost = el)}
+        ref={(el) => (detailLayoutHost = el)}
         classList={{
-          "data-editor-main": true,
-          "with-generator": hasGeneratorRegion,
+          "data-editor-content": true,
+          "with-detail-graph": hasGraphRegion,
         }}
       >
         <div
-          ref={(el) => (tableDiv = el)}
-          class="data-editor-main-table"
-          style={hasGeneratorRegion
-            ? { "flex-basis": `${mainTableRatio() * 100}%` }
-            : undefined}
-        />
-        {hasGeneratorRegion && (
-          <>
-            <div
-              class="data-editor-main-splitter"
-              role="separator"
-              aria-label="Изменить ширину основной таблицы"
-              aria-orientation="vertical"
-              tabIndex="0"
-              onPointerDown={beginMainResize}
-              onKeyDown={handleMainSplitterKey}
-            />
-            <section
-              class="data-editor-generator"
-              aria-label={generatorDescriptor.title}
-            >
-              <div class="data-editor-generator-title">
-                {generatorDescriptor.title}
-              </div>
-              <TimeFunctionGenerator
-                schema={schema}
-                onApply={applyGeneratedDependency}
-              />
-            </section>
-          </>
-        )}
-      </div>
-      {hasDetailRegion && (
-        <div
+          ref={(el) => (mainRegionHost = el)}
           classList={{
-            "data-editor-lower": true,
-            "with-graph": hasGraphRegion,
+            "data-editor-main": true,
+            "with-generator": hasGeneratorRegion,
+            "compact-reference": hasCompactReferenceLayout,
           }}
         >
-          <div class="detail-region data-editor-detail">
-            <div class="detail-region-header">
+          <div
+            ref={(el) => (tableDiv = el)}
+            class="data-editor-main-table"
+            style={hasGeneratorRegion
+              ? { "flex-basis": `${mainTableRatio() * 100}%` }
+              : undefined}
+          />
+          {hasGeneratorRegion && (
+            <>
               <div
-                class="detail-region-title"
-                ref={(el) => (detailTitleDiv = el)}
+                class="data-editor-main-splitter"
+                role="separator"
+                aria-label="Изменить ширину основной таблицы"
+                aria-orientation="vertical"
+                tabIndex="0"
+                onPointerDown={beginMainResize}
+                onKeyDown={handleMainSplitterKey}
               />
-              <div
-                class="detail-region-toolbar"
-                ref={(el) => (detailToolbarDiv = el)}
-              />
-            </div>
-            <div
-              class="detail-region-host"
-              ref={(el) => (detailHostDiv = el)}
-            />
-          </div>
-          {hasGraphRegion && (
-            <RecordGraphRegion
-              schema={schema}
-              records={selectedGraphRecords()}
-            />
+              <section
+                class="data-editor-generator"
+                aria-label={generatorDescriptor.title}
+              >
+                <div class="data-editor-generator-title">
+                  {generatorDescriptor.title}
+                </div>
+                <TimeFunctionGenerator
+                  schema={schema}
+                  onApply={applyGeneratedDependency}
+                />
+              </section>
+            </>
           )}
         </div>
-      )}
+        {hasGraphRegion && (
+          <div
+            class="data-editor-horizontal-splitter"
+            role="separator"
+            aria-label="Изменить высоту основной таблицы и области детализации"
+            aria-orientation="horizontal"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow={Math.round((1 - detailLowerRatio()) * 100)}
+            tabIndex="0"
+            title="Перетащите для изменения высоты таблицы и детализации"
+            onPointerDown={beginDetailResize}
+            onKeyDown={handleDetailSplitterKey}
+          />
+        )}
+        {hasDetailRegion && (
+          <div
+            classList={{
+              "data-editor-lower": true,
+              "with-graph": hasGraphRegion,
+              "compact-reference": hasCompactReferenceLayout,
+            }}
+            style={hasGraphRegion
+              ? { "flex-basis": `${detailLowerRatio() * 100}%` }
+              : undefined}
+          >
+            <div class="detail-region data-editor-detail">
+              <div class="detail-region-header">
+                <div
+                  class="detail-region-title"
+                  ref={(el) => (detailTitleDiv = el)}
+                />
+                <div
+                  class="detail-region-toolbar"
+                  ref={(el) => (detailToolbarDiv = el)}
+                />
+              </div>
+              <div
+                class="detail-region-host"
+                ref={(el) => (detailHostDiv = el)}
+              />
+            </div>
+            {hasGraphRegion && (
+              <RecordGraphRegion
+                schema={schema}
+                records={selectedGraphRecords()}
+                field={detailGraphField()}
+              />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

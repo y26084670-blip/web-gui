@@ -1,36 +1,50 @@
 import {
   createEffect,
   createSignal,
-  For,
   onCleanup,
   Show,
 } from "solid-js";
 
-import { recordGraphConfig } from "../../services/graphs/recordGraphModel.js";
+import {
+  recordGraphConfig,
+  recordGraphModeForProperty,
+} from "../../services/graphs/recordGraphModel.js";
 import "./RecordGraphRegion.css";
 
 export function RecordGraphRegion(props) {
   const descriptor = props.schema.views.graph;
-  const [mode, setMode] = createSignal(descriptor.defaultMode);
   const [graphError, setGraphError] = createSignal("");
   let canvas;
   let chart;
   let renderRevision = 0;
 
+  function currentMode() {
+    return recordGraphModeForProperty(props.schema, props.field);
+  }
+
+  function graphHint() {
+    if (!props.field) return "Откройте таблицу детализации";
+    if (!currentMode()) return "Для текущей таблицы график не предусмотрен";
+    if ((props.records?.length ?? 0) === 0) {
+      return "Выберите записи в основной таблице";
+    }
+    return "";
+  }
+
   createEffect(() => {
     const records = props.records ?? [];
-    const modeValue = mode();
+    const mode = currentMode();
     const revision = ++renderRevision;
     chart?.destroy();
     chart = null;
     setGraphError("");
-    if (!canvas || records.length === 0) return;
+    if (!canvas || records.length === 0 || !mode) return;
 
     void import("chart.js/auto").then(({ default: Chart }) => {
       if (revision !== renderRevision || !canvas) return;
       chart = new Chart(
         canvas,
-        recordGraphConfig(props.schema, records, modeValue),
+        recordGraphConfig(props.schema, records, mode.value),
       );
     }).catch((error) => {
       if (revision !== renderRevision) return;
@@ -51,34 +65,16 @@ export function RecordGraphRegion(props) {
       aria-label={descriptor.title}
     >
       <div class="record-graph-region-header">
-        <div class="record-graph-region-title">{descriptor.title}</div>
-        <Show when={descriptor.modes.length > 1}>
-          <div
-            class="record-graph-mode-switch"
-            role="group"
-            aria-label={descriptor.selectorLabel ?? "Режим графика"}
-          >
-            <span>{descriptor.selectorLabel ?? "Показ"}</span>
-            <For each={descriptor.modes}>
-              {(item) => (
-                <button
-                  type="button"
-                  classList={{ active: mode() === item.value }}
-                  aria-pressed={mode() === item.value}
-                  onClick={() => setMode(item.value)}
-                >
-                  {item.label}
-                </button>
-              )}
-            </For>
-          </div>
-        </Show>
+        <div class="record-graph-region-title">
+          {descriptor.title}
+          {currentMode()?.label ? ` — ${currentMode().label}` : ""}
+        </div>
       </div>
       <div class="record-graph-region-host">
         <canvas ref={(element) => (canvas = element)} />
-        <Show when={(props.records?.length ?? 0) === 0}>
+        <Show when={graphHint()}>
           <div class="record-graph-region-hint">
-            Выберите записи в таблице
+            {graphHint()}
           </div>
         </Show>
         <Show when={graphError()}>

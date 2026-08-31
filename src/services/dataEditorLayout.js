@@ -30,6 +30,34 @@ export function resizedEditorTableRatio({
     return tableWidth / contentWidth;
 }
 
+export const DATA_EDITOR_DETAIL_SPLIT_LIMITS = Object.freeze({
+    mainHeight: 220,
+    lowerHeight: 180,
+    splitterSize: 6,
+});
+
+export function resizedEditorLowerRatio({
+    pointerY,
+    containerTop,
+    containerHeight,
+    limits = DATA_EDITOR_DETAIL_SPLIT_LIMITS,
+}) {
+    const contentHeight = Math.max(
+        1,
+        containerHeight - limits.splitterSize,
+    );
+    const minimum = Math.min(limits.mainHeight, contentHeight);
+    const maximum = Math.max(
+        minimum,
+        contentHeight - limits.lowerHeight,
+    );
+    const mainHeight = clamp(
+        pointerY - containerTop,
+        minimum,
+        maximum,
+    );
+    return (contentHeight - mainHeight) / contentHeight;
+}
 
 export const TIME_GENERATOR_SPLIT_LIMITS = Object.freeze({
     graphHeight: 72,

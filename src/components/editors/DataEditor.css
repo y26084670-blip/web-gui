@@ -49,3 +49,47 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+
+.data-editor-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.data-editor-main.compact-reference {
+  flex: 0 0 auto;
+}
+
+.data-editor-main.compact-reference .data-editor-main-table {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.data-editor-content .data-editor-lower.compact-reference,
+.data-editor-content .data-editor-lower.with-graph {
+  margin-top: 0;
+}
+
+.data-editor-horizontal-splitter {
+  position: relative;
+  flex: 0 0 6px;
+  height: 6px;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.data-editor-horizontal-splitter::after {
+  position: absolute;
+  inset: 2px 0;
+  border-radius: 2px;
+  background: #777;
+  content: "";
+}
+
+.data-editor-horizontal-splitter:hover::after,
+.data-editor-horizontal-splitter:focus-visible::after {
+  background: #2563eb;
+}

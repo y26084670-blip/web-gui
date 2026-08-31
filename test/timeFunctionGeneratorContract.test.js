@@ -14,6 +14,18 @@ const generatorCssUrl = new URL(
     "../src/components/generator/TimeFunctionGenerator.css",
     import.meta.url,
 );
+const editorCssUrl = new URL(
+    "../src/components/editors/DataEditor.css",
+    import.meta.url,
+);
+const detailRegionUrl = new URL(
+    "../src/tabulator/views/DetailRegion.js",
+    import.meta.url,
+);
+const graphRegionUrl = new URL(
+    "../src/components/graphs/RecordGraphRegion.jsx",
+    import.meta.url,
+);
 
 test("generator exposes preview, history context menu and explicit apply", async () => {
     const source = await readFile(componentUrl, "utf8");
@@ -35,14 +47,29 @@ test("generator exposes preview, history context menu and explicit apply", async
     assert.match(source, /catch \(error\) \{\s*showError\(error\);/u);
 });
 
-test("DataEditor applies generated data without recording model history", async () => {
-    const source = await readFile(editorUrl, "utf8");
+test("DataEditor applies generated data and coordinates detail layouts", async () => {
+    const [source, styles, detailSource, graphSource] = await Promise.all([
+        readFile(editorUrl, "utf8"),
+        readFile(editorCssUrl, "utf8"),
+        readFile(detailRegionUrl, "utf8"),
+        readFile(graphRegionUrl, "utf8"),
+    ]);
     assert.match(source, /applyGeneratedDependency/u);
     assert.match(source, /publishTableChanged\(false\)/u);
     assert.doesNotMatch(
         source.match(/async function applyGeneratedDependency[\s\S]*?\n  \}/u)?.[0] ?? "",
         /recordHistory:\s*true/u,
     );
+    assert.match(source, /class="data-editor-horizontal-splitter"/u);
+    assert.match(source, /onFieldChanged:\s*setDetailGraphField/u);
+    assert.match(source, /field=\{detailGraphField\(\)\}/u);
+    assert.match(styles, /\.data-editor-main\.compact-reference/u);
+    assert.match(detailSource, /fieldChangedHandler\?\.\(field\)/u);
+    assert.match(
+        graphSource,
+        /recordGraphModeForProperty\(props\.schema, props\.field\)/u,
+    );
+    assert.doesNotMatch(graphSource, /record-graph-mode-switch/u);
 });
 
 

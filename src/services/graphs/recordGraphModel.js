@@ -23,6 +23,12 @@ export function recordGraphMode(schema, modeValue) {
     return mode;
 }
 
+export function recordGraphModeForProperty(schema, propertyName) {
+    return schema?.views?.graph?.modes?.find(
+        item => item.property === propertyName,
+    ) ?? null;
+}
+
 function recordCaption(descriptor, record, recordIndex) {
     const index = record?.rowLabel ?? recordIndex + 1;
     return `${descriptor.recordLabel} ${index}`;
