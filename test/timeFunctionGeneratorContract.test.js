@@ -26,6 +26,10 @@ const graphRegionUrl = new URL(
     "../src/components/graphs/RecordGraphRegion.jsx",
     import.meta.url,
 );
+const tableViewUrl = new URL(
+    "../src/tabulator/views/TableView.js",
+    import.meta.url,
+);
 
 test("generator exposes preview, history context menu and explicit apply", async () => {
     const source = await readFile(componentUrl, "utf8");
@@ -48,11 +52,18 @@ test("generator exposes preview, history context menu and explicit apply", async
 });
 
 test("DataEditor applies generated data and coordinates detail layouts", async () => {
-    const [source, styles, detailSource, graphSource] = await Promise.all([
+    const [
+        source,
+        styles,
+        detailSource,
+        graphSource,
+        tableViewSource,
+    ] = await Promise.all([
         readFile(editorUrl, "utf8"),
         readFile(editorCssUrl, "utf8"),
         readFile(detailRegionUrl, "utf8"),
         readFile(graphRegionUrl, "utf8"),
+        readFile(tableViewUrl, "utf8"),
     ]);
     assert.match(source, /applyGeneratedDependency/u);
     assert.match(source, /publishTableChanged\(false\)/u);
@@ -63,13 +74,21 @@ test("DataEditor applies generated data and coordinates detail layouts", async (
     assert.match(source, /class="data-editor-horizontal-splitter"/u);
     assert.match(source, /onFieldChanged:\s*setDetailGraphField/u);
     assert.match(source, /field=\{detailGraphField\(\)\}/u);
+    assert.match(source, /bottom:\s*"0"/u);
+    assert.match(source, /data-fill-height=/u);
     assert.match(styles, /\.data-editor-main\.compact-reference/u);
+    assert.match(
+        styles,
+        /\.data-editor-lower\.compact-reference\[data-fill-height="true"\]/u,
+    );
     assert.match(detailSource, /fieldChangedHandler\?\.\(field\)/u);
     assert.match(
         graphSource,
         /recordGraphModeForProperty\(props\.schema, props\.field\)/u,
     );
     assert.doesNotMatch(graphSource, /record-graph-mode-switch/u);
+    assert.match(tableViewSource, /fillsAvailableHeight\(\)/u);
+    assert.match(tableViewSource, /height !== this\.lastHeight/u);
 });
 
 

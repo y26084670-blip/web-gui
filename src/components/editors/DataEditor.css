@@ -57,6 +57,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  background: #fafafa;
 }
 
 .data-editor-main.compact-reference {
@@ -73,10 +74,35 @@
   margin-top: 0;
 }
 
+.data-editor-lower.compact-reference[data-fill-height="true"] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  max-height: none;
+}
+
+.data-editor-lower[data-fill-height="true"]
+  .data-editor-detail.detail-region {
+  height: 100%;
+  max-height: none;
+}
+
+.data-editor-lower.compact-reference[data-fill-height="true"]
+  .data-editor-detail.detail-region {
+  flex: 1 1 auto;
+}
+
+.data-editor-lower[data-fill-height="true"] .detail-region-host,
+.data-editor-lower[data-fill-height="true"] .nested-table-view {
+  height: 100%;
+  min-height: 0;
+}
+
 .data-editor-horizontal-splitter {
   position: relative;
   flex: 0 0 6px;
   height: 6px;
+  background: #fafafa;
   cursor: row-resize;
   touch-action: none;
 }

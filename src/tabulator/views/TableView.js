@@ -42,6 +42,7 @@ export class TableView {
         this.built = false;
         this.observer = null;
         this.lastWidth = 0;
+        this.lastHeight = 0;
         this.hidden = false;
         this.nextRowId = 0;
         this.applying = false;
@@ -174,8 +175,14 @@ export class TableView {
         };
     }
 
+    fillsAvailableHeight() {
+        return Boolean(
+            this.host?.closest?.('[data-fill-height="true"]')
+        );
+    }
+
     createOptions() {
-        const size = this.primary
+        const size = this.primary || this.fillsAvailableHeight()
             ? { height: "100%" }
             : { maxHeight: NESTED_TABLE_MAX_HEIGHT };
 
@@ -195,6 +202,7 @@ export class TableView {
     onTableBuilt() {
         this.built = true;
         this.lastWidth = this.host?.offsetWidth ?? 0;
+        this.lastHeight = this.host?.offsetHeight ?? 0;
         if (this.adjusted) {
             return;
         }
@@ -405,6 +413,7 @@ export class TableView {
         }
 
         const width = this.host.offsetWidth;
+        const height = this.host.offsetHeight;
 
         if (!width) {
             this.hidden = true;
@@ -419,10 +428,12 @@ export class TableView {
             this.hidden ||
             this.computedDirty ||
             bodyLost ||
-            width !== this.lastWidth;
+            width !== this.lastWidth ||
+            height !== this.lastHeight;
 
         this.hidden = false;
         this.lastWidth = width;
+        this.lastHeight = height;
         this.setComputedColumnsVisibility(
             this.computedColumnsMode,
         );
@@ -607,6 +618,7 @@ export class TableView {
         this.host = null;
         this.adjusted = false;
         this.lastWidth = 0;
+        this.lastHeight = 0;
         this.hidden = false;
         this.computedRows = [];
         this.computedSignature = null;

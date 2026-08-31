@@ -1106,7 +1106,7 @@ export function DataEditor(props) {
         width: "100%",
         position: "fixed",
         top: "90px",
-        bottom: "10px",
+        bottom: "0",
         left: "0",
         right: "0",
       }}
@@ -1246,6 +1246,11 @@ export function DataEditor(props) {
         )}
         {hasDetailRegion && (
           <div
+            data-fill-height={
+              hasCompactReferenceLayout || hasGraphRegion
+                ? "true"
+                : undefined
+            }
             classList={{
               "data-editor-lower": true,
               "with-graph": hasGraphRegion,
