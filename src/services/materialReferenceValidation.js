@@ -134,7 +134,7 @@ export function validateElementMaterialReferences(
         } else {
             message =
                 `Файл характеристики '${name}.txt' не найден `
-                + `в локальной или базовой библиотеке ${expected}`;
+                + `в библиотеке задания ${expected}`;
         }
 
         diagnostics.push(createError({
