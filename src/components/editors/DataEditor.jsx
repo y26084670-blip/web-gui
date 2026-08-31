@@ -1104,11 +1104,12 @@ export function DataEditor(props) {
         display: "flex",
         "flex-direction": "column",
         width: "100%",
-        position: "fixed",
-        top: "90px",
-        bottom: "0",
-        left: "0",
-        right: "0",
+        height: "100%",
+        position: "absolute",
+        inset: "0",
+        "min-height": "0",
+        overflow: "hidden",
+        "box-sizing": "border-box",
       }}
     >
       {hasMainToolbar && (

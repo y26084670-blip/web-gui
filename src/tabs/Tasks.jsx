@@ -212,10 +212,13 @@ export function Tasks(props) {
         display: "grid",
         "grid-template-columns": "500px 0.5fr 1fr",
         gap: "10px",
-        width: "98%",
-        position: "fixed",
-        top: "90px",
-        bottom: "10px",
+        width: "100%",
+        height: "100%",
+        position: "absolute",
+        inset: "0",
+        "min-height": "0",
+        overflow: "auto",
+        "box-sizing": "border-box",
       }}
     >
       <div

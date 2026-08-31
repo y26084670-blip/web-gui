@@ -74,7 +74,8 @@ test("DataEditor applies generated data and coordinates detail layouts", async (
     assert.match(source, /class="data-editor-horizontal-splitter"/u);
     assert.match(source, /onFieldChanged:\s*setDetailGraphField/u);
     assert.match(source, /field=\{detailGraphField\(\)\}/u);
-    assert.match(source, /bottom:\s*"0"/u);
+    assert.match(source, /position:\s*"absolute"/u);
+    assert.match(source, /inset:\s*"0"/u);
     assert.match(source, /data-fill-height=/u);
     assert.match(styles, /\.data-editor-main\.compact-reference/u);
     assert.match(
