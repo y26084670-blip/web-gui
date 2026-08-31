@@ -5,15 +5,25 @@
   min-width: 0;
   min-height: 0;
   gap: 6px;
+  overflow: hidden;
   padding: 6px;
   box-sizing: border-box;
   background: #20262d;
   color: #dce4ec;
 }
 
+.time-generator-layout {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .time-generator-graph {
   position: relative;
-  flex: 1 1 42%;
+  flex: 0 0 auto;
   min-height: 96px;
   border: 1px solid #59636d;
   background: #1b2026;
@@ -33,11 +43,31 @@
   pointer-events: none;
 }
 
+.time-generator-splitter {
+  position: relative;
+  flex: 0 0 6px;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.time-generator-splitter::after {
+  position: absolute;
+  inset: 2px 0;
+  border-radius: 2px;
+  background: #59636d;
+  content: "";
+}
+
+.time-generator-splitter:hover::after,
+.time-generator-splitter:focus-visible::after {
+  background: #e59a3a;
+}
+
 .time-generator-workspace {
   display: grid;
   grid-template-columns: minmax(180px, .8fr) minmax(260px, 1.2fr);
-  flex: 1 1 58%;
-  min-height: 220px;
+  flex: 1 1 auto;
+  min-height: 270px;
   gap: 6px;
   overflow: hidden;
 }
@@ -69,28 +99,34 @@
   font-weight: 600;
 }
 
+.time-generator-history-title {
+  display: flex;
+  align-items: center;
+}
+
 .time-generator-history select {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
   background: #f4f4f4;
   color: #111;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 14px;
 }
 
-.time-generator-history-hint,
-.time-generator-help {
+.time-generator-history-hint {
   font-size: 11px;
   color: #aeb9c3;
 }
 
 .time-generator-editor textarea {
   flex: 1 1 auto;
-  min-height: 72px;
+  min-height: 140px;
   resize: none;
   padding: 6px;
   box-sizing: border-box;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 12px;
+  font-size: 14px;
   background: #f7f7f7;
   color: #111;
 }
@@ -106,6 +142,7 @@
 .time-generator-target {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
   min-width: 0;
   font-size: 12px;
 }
@@ -113,6 +150,19 @@
 .time-generator-target select {
   flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
+}
+
+.time-generator.has-target-selector .time-generator-editor-header {
+  min-height: 28px;
+}
+
+.time-generator.has-target-selector .time-generator-history-title {
+  min-height: 28px;
+}
+
+.time-generator.has-target-selector .time-generator-history-hint {
+  min-height: 28px;
 }
 
 .time-generator-range {

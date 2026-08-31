@@ -24,6 +24,12 @@ test("generator exposes preview, history context menu and explicit apply", async
     assert.match(source, /saveFormulaHistory/u);
     assert.match(source, /loadFormulaHistory/u);
     assert.match(source, /setPreview\(\{/u);
+    assert.match(source, /role="separator"/u);
+    assert.match(source, /onPointerDown=\{beginGraphResize\}/u);
+    assert.match(source, /placeholder=\{FORMULA_PLACEHOLDER\}/u);
+    assert.match(source, /Зарезервированные имена функций и констант/u);
+    assert.doesNotMatch(source, /<span>Величина<\/span>/u);
+    assert.doesNotMatch(source, /class="time-generator-help"/u);
     assert.match(source, /catch \(error\) \{\s*showError\(error\);/u);
 });
 
@@ -48,4 +54,9 @@ test("generator keeps its action row reachable when the panel is resized", async
         styles,
         /\.time-generator-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;/u,
     );
+    assert.match(
+        styles,
+        /\.time-generator-splitter\s*\{[^}]*cursor:\s*row-resize;/u,
+    );
+    assert.match(styles, /\.time-generator-editor textarea\s*\{[^}]*font-size:\s*14px;/u);
 });

@@ -105,6 +105,31 @@ export function DataEditor(props) {
     ),
   ];
   const referenceEntries = referenceViewEntries(schema);
+  const measurementCoilsReference = "measurementCoils";
+  const hasMeasurementCoilsReference = referenceEntries.some(
+    ([propertyName]) => propertyName === measurementCoilsReference,
+  );
+
+  function printMeasurementCoilsControl(stage, { rows, values } = {}) {
+    if (!hasMeasurementCoilsReference) return;
+
+    const tableRows = table?.getRows?.() ?? [];
+    const tableRow = tableRows.find(
+      row => row.getData().property === measurementCoilsReference,
+    );
+    const materializedRow = rows?.find(
+      row => row.property === measurementCoilsReference,
+    );
+
+    console.info("[control][general.measurementCoils]", stage, {
+      schemaId: schema.id,
+      referenceProperties: referenceEntries.map(([propertyName]) => propertyName),
+      computedValue: values?.[measurementCoilsReference],
+      materializedRow: materializedRow ?? null,
+      tableRow: tableRow?.getData?.() ?? null,
+      tableRowCount: tableRows.length,
+    });
+  }
 
   const mainViewPropertyName =
     schema.views?.main?.property ?? null;
@@ -348,7 +373,9 @@ export function DataEditor(props) {
             baseModel: data,
             modelSnapshot: modelService.getModel(),
           });
+    printMeasurementCoilsControl("replaceEditorData:beforeSetData", { rows });
     await table.setData(rows);
+    printMeasurementCoilsControl("replaceEditorData:afterSetData", { rows });
   }
 
   async function refreshReferenceViews() {
@@ -360,6 +387,7 @@ export function DataEditor(props) {
       baseModel,
       modelService.getModel(),
     );
+    printMeasurementCoilsControl("refreshReferenceViews:computed", { values });
 
     applyingModel = true;
     try {
@@ -389,6 +417,7 @@ export function DataEditor(props) {
     } finally {
       applyingModel = false;
     }
+    printMeasurementCoilsControl("refreshReferenceViews:afterUpdate", { values });
     detailRegion.refresh();
   }
 
@@ -683,7 +712,9 @@ export function DataEditor(props) {
         if (hasGraphRegion) setSelectedGraphRecords([]);
 
         try {
+          printMeasurementCoilsControl("queueModelUpdate:beforeReplaceData", { rows });
           await table.replaceData(rows);
+          printMeasurementCoilsControl("queueModelUpdate:afterReplaceData", { rows });
         } finally {
           applyingModel = false;
         }

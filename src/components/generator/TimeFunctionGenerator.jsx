@@ -17,12 +17,29 @@ import {
   loadFormulaHistory,
   saveFormulaHistory,
 } from "../../services/generator/timeFunctionHistoryService.js";
+import {
+  resizedGeneratorGraphRatio,
+  TIME_GENERATOR_SPLIT_LIMITS,
+} from "../../services/dataEditorLayout.js";
 import { TIME_EXPRESSION_HELP } from "../../services/generator/timeFunctionExpression.js";
 import "./TimeFunctionGenerator.css";
 
 function errorText(error) {
   return error instanceof Error ? error.message : String(error);
 }
+
+const FORMULA_PLACEHOLDER = [
+  "Введите свои формулы зависимостей от времени t (сек).",
+  "Используйте промежуточные переменные.",
+  "Результатом считается последнее выражение (можно без присвоения).",
+  "Зарезервированные имена функций и констант:",
+  [...TIME_EXPRESSION_HELP.functions, ...TIME_EXPRESSION_HELP.constants, "^"].join(", "),
+  "Пример использования:",
+  "f=50.0",
+  "omega=2*pi*f",
+  "tau=1.1",
+  "res=exp(-2*t/tau)*sin(omega*t-pi/2)",
+].join("\n");
 
 function GeneratorPreviewGraph(props) {
   let canvas;
@@ -87,7 +104,10 @@ function GeneratorPreviewGraph(props) {
   });
 
   return (
-    <div class="time-generator-graph">
+    <div
+      class="time-generator-graph"
+      style={{ "flex-basis": `${Math.round((props.ratio ?? 0.42) * 10000) / 100}%` }}
+    >
       <canvas ref={(element) => (canvas = element)} />
       <Show when={(props.points?.length ?? 0) === 0}>
         <div class="time-generator-graph-hint">
@@ -111,8 +131,11 @@ export function TimeFunctionGenerator(props) {
   const [message, setMessage] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [contextMenu, setContextMenu] = createSignal(null);
+  const [graphRatio, setGraphRatio] = createSignal(0.42);
   let observedTaskHandle = null;
   let rangeTouched = false;
+  let layoutHost;
+  let graphResizeCleanup = null;
 
   function targetDefinition(value = target()) {
     return descriptor.targets.find(item => item.value === value);
@@ -148,11 +171,69 @@ export function TimeFunctionGenerator(props) {
     }
   });
 
+  function stopGraphResize() {
+    graphResizeCleanup?.();
+    graphResizeCleanup = null;
+  }
+
+  function updateGraphRatio(pointerY, bounds) {
+    setGraphRatio(resizedGeneratorGraphRatio({
+      pointerY,
+      containerTop: bounds.top,
+      containerHeight: bounds.height,
+    }));
+  }
+
+  function beginGraphResize(event) {
+    if (event.button !== 0 || !layoutHost) return;
+    event.preventDefault();
+    event.stopPropagation();
+    stopGraphResize();
+
+    const bounds = layoutHost.getBoundingClientRect();
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    const move = (moveEvent) => updateGraphRatio(moveEvent.clientY, bounds);
+    const stop = () => stopGraphResize();
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
+    window.addEventListener("pointercancel", stop, { once: true });
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+
+    graphResizeCleanup = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }
+
+  function handleGraphSplitterKeyDown(event) {
+    if (!layoutHost || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+
+    const bounds = layoutHost.getBoundingClientRect();
+    const contentHeight = Math.max(
+      1,
+      bounds.height - TIME_GENERATOR_SPLIT_LIMITS.splitterSize,
+    );
+    const direction = event.key === "ArrowUp" ? -1 : 1;
+    const step = event.shiftKey ? 40 : 10;
+    updateGraphRatio(
+      bounds.top + graphRatio() * contentHeight + direction * step,
+      bounds,
+    );
+  }
+
   onMount(() => {
     const close = () => setContextMenu(null);
     window.addEventListener("pointerdown", close);
     onCleanup(() => window.removeEventListener("pointerdown", close));
   });
+  onCleanup(stopGraphResize);
 
   function showError(error) {
     setMessage(errorText(error));
@@ -284,16 +365,34 @@ export function TimeFunctionGenerator(props) {
   }
 
   return (
-    <div class="time-generator">
-      <GeneratorPreviewGraph
-        points={preview()?.points ?? []}
-        label={preview()?.label ?? targetDefinition()?.label}
-        onError={showError}
-      />
+    <div class={`time-generator${descriptor.targets.length > 1 ? " has-target-selector" : ""}`}>
+      <div
+        class="time-generator-layout"
+        ref={(element) => (layoutHost = element)}
+      >
+        <GeneratorPreviewGraph
+          points={preview()?.points ?? []}
+          label={preview()?.label ?? targetDefinition()?.label}
+          ratio={graphRatio()}
+          onError={showError}
+        />
+        <div
+          class="time-generator-splitter"
+          role="separator"
+          aria-label="Изменить высоту графика и редактора формул"
+          aria-orientation="horizontal"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow={Math.round(graphRatio() * 100)}
+          tabIndex="0"
+          title="Перетащите для изменения высоты графика"
+          onPointerDown={beginGraphResize}
+          onKeyDown={handleGraphSplitterKeyDown}
+        />
 
-      <div class="time-generator-workspace">
+        <div class="time-generator-workspace">
         <section class="time-generator-history">
-          <div class="time-generator-section-title">
+          <div class="time-generator-section-title time-generator-history-title">
             История формул
           </div>
           <select
@@ -322,17 +421,18 @@ export function TimeFunctionGenerator(props) {
           <div class="time-generator-editor-header">
             <div class="time-generator-section-title">Формула</div>
             <Show when={descriptor.targets.length > 1}>
-              <label class="time-generator-target">
-                <span>Величина</span>
+              <div class="time-generator-target">
                 <select
                   value={target()}
+                  aria-label="Тип искомой величины"
+                  title="Выберите тип искомой величины"
                   onChange={(event) => setTarget(event.currentTarget.value)}
                 >
                   <For each={descriptor.targets}>
                     {(item) => <option value={item.value}>{item.label}</option>}
                   </For>
                 </select>
-              </label>
+              </div>
             </Show>
           </div>
 
@@ -340,14 +440,10 @@ export function TimeFunctionGenerator(props) {
             value={formula()}
             spellcheck={false}
             aria-label="Формула временной зависимости"
-            placeholder={"f=50\nomega=2*pi*f\nres=sin(omega*t)"}
+            placeholder={FORMULA_PLACEHOLDER}
             onInput={(event) => setFormula(event.currentTarget.value)}
           />
 
-          <div class="time-generator-help">
-            t — время, сек; константы: {TIME_EXPRESSION_HELP.constants.join(", ")};
-            степени задаются оператором ^
-          </div>
 
           <div class="time-generator-range">
             <label>
@@ -379,18 +475,21 @@ export function TimeFunctionGenerator(props) {
           <div class="time-generator-actions">
             <button
               disabled={!selectionService.loadedTaskHandle() || busy()}
+              title="Рассчитать значения и обновить график предпросмотра"
               onClick={handleGenerate}
             >
               Генерировать
             </button>
             <button
               disabled={!preview() || !selectionService.loadedTaskHandle() || busy()}
+              title="Применить рассчитанные значения к выбранной записи"
               onClick={handleApply}
             >
               Применить
             </button>
           </div>
         </section>
+        </div>
       </div>
 
       <Show when={contextMenu()}>
@@ -400,12 +499,17 @@ export function TimeFunctionGenerator(props) {
           style={{ left: `${contextMenu().x}px`, top: `${contextMenu().y}px` }}
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <button role="menuitem" onClick={menuAction(addCurrentFormula)}>
+          <button
+            role="menuitem"
+            title="Добавить текст из редактора в историю формул"
+            onClick={menuAction(addCurrentFormula)}
+          >
             Добавить текущую формулу
           </button>
           <button
             role="menuitem"
             disabled={selectedIndices().length === 0}
+            title="Поместить выбранную формулу в редактор"
             onClick={menuAction(insertSelectedFormula)}
           >
             Вставить выбранную формулу
@@ -414,15 +518,26 @@ export function TimeFunctionGenerator(props) {
           <button
             role="menuitem"
             disabled={selectedIndices().length === 0}
+            title="Удалить выделенные формулы из истории"
             onClick={menuAction(deleteSelectedFormulas)}
           >
             Удалить выделенные формулы
           </button>
           <hr />
-          <button role="menuitem" disabled={busy()} onClick={menuAction(saveHistory)}>
+          <button
+            role="menuitem"
+            disabled={busy()}
+            title="Сохранить историю формул в файл задания"
+            onClick={menuAction(saveHistory)}
+          >
             Сохранить список
           </button>
-          <button role="menuitem" disabled={busy()} onClick={menuAction(restoreHistory)}>
+          <button
+            role="menuitem"
+            disabled={busy()}
+            title="Восстановить историю формул из файла задания"
+            onClick={menuAction(restoreHistory)}
+          >
             Восстановить список
           </button>
         </div>
@@ -438,7 +553,9 @@ export function TimeFunctionGenerator(props) {
           >
             <div class="time-generator-dialog-title">Генерация не выполнена</div>
             <div class="time-generator-dialog-message">{message()}</div>
-            <button onClick={() => setMessage("")}>Закрыть</button>
+            <button title="Закрыть сообщение" onClick={() => setMessage("")}>
+              Закрыть
+            </button>
           </section>
         </div>
       </Show>
