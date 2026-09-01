@@ -8,6 +8,8 @@ import {
     expandElementSymmetry,
     expandRegionSymmetry,
 } from "../solver/symmetryExpansion.js";
+import { classifyGeometryMaterial }
+    from "./geometryMaterialStyle.js";
 
 const ELEMENT_GEO_TYPES = new Set([0, 1, 2, 3, 4]);
 const REGION_GEO_TYPES = new Set([0, 1, 2, 3]);
@@ -480,6 +482,7 @@ function elementPrimitive(record, recordIndex, general, remainingInstances) {
     return {
         primitive: {
             kind: "element-volume",
+            materialKind: classifyGeometryMaterial(record, general),
             source: source(ELEMENTS_SCHEMA_ID, recordIndex, record),
             vertices: flattenVertices(unpacked.vertices),
             indices: new Uint16Array(ELEMENT_INDICES),

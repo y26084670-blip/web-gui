@@ -3,6 +3,8 @@ import test from "node:test";
 
 import { buildGeometryScene }
     from "../src/services/visualization/geometrySceneModel.js";
+import { GEOMETRY_MATERIAL_KINDS }
+    from "../src/services/visualization/geometryMaterialStyle.js";
 
 function vector(values) {
     return values.map(value => [value]);
@@ -76,6 +78,10 @@ test("scene converts BaseModel arrays and preserves solver face topology", () =>
 
     const [volume, line] = scene.primitives;
     assert.equal(volume.kind, "element-volume");
+    assert.equal(
+        volume.materialKind,
+        GEOMETRY_MATERIAL_KINDS.NEUTRAL,
+    );
     assert.deepEqual(volume.source, {
         schemaId: "elements",
         recordIndex: 0,
@@ -103,6 +109,7 @@ test("scene converts BaseModel arrays and preserves solver face topology", () =>
     assert.equal(volume.instances[0].matrix instanceof Float64Array, true);
 
     assert.equal(line.kind, "region-line");
+    assert.equal(Object.hasOwn(line, "materialKind"), false);
     assert.deepEqual(line.source, {
         schemaId: "regions",
         recordIndex: 0,
@@ -123,6 +130,34 @@ test("scene converts BaseModel arrays and preserves solver face topology", () =>
         lines: 1,
         skipped: 0,
     });
+});
+
+test("scene carries element material categories from BaseModel properties", () => {
+    const scene = buildGeometryScene({
+        general: {
+            htcMu: false,
+            htcRo: true,
+        },
+        elements: [
+            element({ targ: 3, model: 2, xapName: "ignored", rv: 10 }),
+            element({ targ: 0, model: 2 }),
+            element({ targ: 0, model: 0, xapName: "Steel", rv: 10 }),
+        ],
+        regions: [region()],
+    });
+
+    assert.deepEqual(
+        scene.primitives.slice(0, 3).map(item => item.materialKind),
+        [
+            GEOMETRY_MATERIAL_KINDS.VIRTUAL,
+            GEOMETRY_MATERIAL_KINDS.HTSC_CURRENT,
+            GEOMETRY_MATERIAL_KINDS.FMM_CONDUCTIVE,
+        ],
+    );
+    assert.equal(
+        Object.hasOwn(scene.primitives[3], "materialKind"),
+        false,
+    );
 });
 
 test("general mirrors apply only to elements; regions use local copies", () => {

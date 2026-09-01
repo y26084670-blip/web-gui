@@ -38,6 +38,8 @@ test("geometry viewer builds a reactive scene in a modeless floating window", as
   assert.match(source, /role="toolbar"/u);
   assert.match(source, /role="dialog"/u);
   assert.match(source, /aria-modal="false"/u);
+  assert.match(source, /initialWidth=\{1220\}/u);
+  assert.match(source, /storageKey="web-gui:geometry-viewer-window:v2"/u);
 });
 
 test("toolbar uses the requested menus, dropdowns, and ordering", async () => {
@@ -52,7 +54,10 @@ test("toolbar uses the requested menus, dropdowns, and ordering", async () => {
 
   assert.match(source, /createSignal\("geometry"\)/u);
   assert.match(source, /<option value="geometry">Только геометрия<\/option>/u);
-  assert.match(source, /<option value="vertices">\+вершины<\/option>/u);
+  assert.match(
+    source,
+    /<option value="vertices">Геометрия \+ вершины<\/option>/u,
+  );
   assert.match(source, /createSignal\("solid"\)/u);
   assert.match(source, /<option value="solid">Сплошной<\/option>/u);
   assert.match(
@@ -181,7 +186,11 @@ test("Three viewport limits expansion and fixes reflected face winding", async (
 
   assert.match(source, /GEOMETRY_INSTANCE_BUDGET = 20_000/u);
   assert.match(source, /GEOMETRY_RENDER_OBJECT_BUDGET = 1_000/u);
-  assert.match(source, /renderedPrimitives >= objectBudget/u);
+  assert.match(
+    source,
+    /renderedPrimitives \+ objectCost > objectBudget/u,
+  );
+  assert.match(source, /renderedPrimitives \+= objectCost/u);
   assert.match(source, /matrix\.fromArray\(instance\.matrix\)/u);
   assert.match(source, /matrix\.determinant\(\) < 0/u);
   assert.match(source, /sourceIndices\[index \+ 2\]/u);
@@ -228,6 +237,32 @@ test("surface lighting preserves visibly flat faces", async () => {
   assert.doesNotMatch(source, /new THREE\.HemisphereLight/u);
 });
 
+test("material colors follow element properties and symmetry role", async () => {
+  const source = await readFile(viewportUrl, "utf8");
+
+  assert.match(source, /resolveGeometryMaterialStyle\(primitive\.materialKind, original\)/u);
+  assert.match(source, /const original = category === "base"/u);
+  assert.match(
+    source,
+    /primitive\.materialKind === GEOMETRY_MATERIAL_KINDS\.VIRTUAL/u,
+  );
+  assert.doesNotMatch(source, /category === "mirror"[\s\S]*?color:/u);
+});
+
+test("translucent surfaces and virtual volumes expose thin edges", async () => {
+  const source = await readFile(viewportUrl, "utf8");
+
+  assert.match(source, /function appendSurfaceEdges\(/u);
+  assert.match(
+    source,
+    /const showSurfaceEdges = mode === "translucent" \|\| virtual/u,
+  );
+  assert.match(source, /new THREE\.LineBasicMaterial\(\{[\s\S]*?color: style\.edgeColor/su);
+  assert.match(source, /linewidth:\s*1/u);
+  assert.match(source, /polygonOffset:\s*showSurfaceEdges/u);
+  assert.match(source, /appendSurfaceEdges\(/u);
+});
+
 test("axes use a separate bottom-left screen-space scene", async () => {
   const source = await readFile(viewportUrl, "utf8");
 
@@ -261,7 +296,11 @@ test("geometry viewer canvas, menus, and tooltip fill the resizable window", asy
   );
   assert.match(
     styles,
-    /\.geometry-viewer-menu-button,[\s\S]*?\.geometry-viewer-select,[\s\S]*?\.geometry-viewer-fit\s*\{[^}]*flex:\s*1 0 auto;/su,
+    /\.geometry-viewer-toolbar-controls\s*\{[^}]*display:\s*grid;[^}]*grid-auto-flow:\s*column;[^}]*grid-auto-columns:\s*1fr;[^}]*width:\s*max-content;[^}]*min-width:\s*100%;/su,
+  );
+  assert.match(
+    styles,
+    /\.geometry-viewer-menu-button,[\s\S]*?\.geometry-viewer-select,[\s\S]*?\.geometry-viewer-fit\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;/su,
   );
   assert.match(
     styles,

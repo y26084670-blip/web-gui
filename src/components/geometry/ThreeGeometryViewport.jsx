@@ -17,6 +17,10 @@ import {
   geometryHitInstance,
   vertexHitMetadata,
 } from "../../services/visualization/geometryPicking.js";
+import {
+  GEOMETRY_MATERIAL_KINDS,
+  geometryMaterialStyle as resolveGeometryMaterialStyle,
+} from "../../services/visualization/geometryMaterialStyle.js";
 
 export const GEOMETRY_INSTANCE_BUDGET = 20_000;
 export const GEOMETRY_RENDER_OBJECT_BUDGET = 1_000;
@@ -47,27 +51,30 @@ function instanceCategory(instance) {
 }
 
 function materialStyle(primitive, category, mode) {
-  const solid = mode === "solid";
-  const wireframe = mode === "wireframe";
-
-  if (category === "mirror") {
-    return {
-      color: wireframe ? 0xff9aa9 : 0xe76f86,
-      opacity: solid ? 1 : wireframe ? 0.82 : 0.38,
-    };
-  }
-
   const isElement = primitive.kind === "element-volume";
-  const baseColor = isElement ? 0x63a9ff : 0xffb65e;
-  const copyColor = isElement ? 0x8dc4ff : 0xffd08f;
+  const original = category === "base";
+  const palette = isElement
+    ? resolveGeometryMaterialStyle(primitive.materialKind, original)
+    : {
+        color: original ? 0xd99043 : 0xffb65e,
+        edgeColor: 0x754817,
+      };
+
   return {
-    color: category === "base" ? baseColor : copyColor,
-    opacity: solid
-      ? 1
-      : wireframe
-      ? category === "base" ? 0.96 : 0.72
-      : category === "base" ? 0.64 : 0.35,
+    ...palette,
+    opacity: mode === "translucent"
+      ? primitive.kind === "region-line" ? 0.68 : 0.42
+      : 1,
   };
+}
+
+function renderObjectCost(primitive, mode) {
+  if (primitive.kind === "region-line" || mode === "wireframe") return 1;
+
+  return mode === "translucent" ||
+    primitive.materialKind === GEOMETRY_MATERIAL_KINDS.VIRTUAL
+    ? 2
+    : 1;
 }
 
 function disposeMaterial(material) {
@@ -197,8 +204,38 @@ function mergedWireframeGeometry(THREE, primitive, instances) {
   return { geometry, vertexSpan };
 }
 
+function appendSurfaceEdges(
+  THREE,
+  surface,
+  primitive,
+  instances,
+  style,
+  mode,
+) {
+  const wireframe = mergedWireframeGeometry(THREE, primitive, instances);
+  if (!wireframe) return;
+
+  const translucent = mode === "translucent";
+  const edges = new THREE.LineSegments(
+    wireframe.geometry,
+    new THREE.LineBasicMaterial({
+      color: style.edgeColor,
+      depthTest: true,
+      depthWrite: false,
+      linewidth: 1,
+      opacity: translucent ? 0.78 : 1,
+      transparent: translucent,
+    }),
+  );
+  edges.name = "surface-edges";
+  edges.renderOrder = 2;
+  surface.add(edges);
+}
+
 function renderableFor(THREE, primitive, instances, category, mode) {
   const style = materialStyle(primitive, category, mode);
+  const virtual = primitive.materialKind === GEOMETRY_MATERIAL_KINDS.VIRTUAL;
+  const showSurfaceEdges = mode === "translucent" || virtual;
   let object;
   let pickKind;
   let pickSpan;
@@ -222,7 +259,7 @@ function renderableFor(THREE, primitive, instances, category, mode) {
     object = new THREE.LineSegments(
       wireframe.geometry,
       new THREE.LineBasicMaterial({
-        color: style.color,
+        color: virtual ? style.edgeColor : style.color,
         opacity: style.opacity,
         transparent: style.opacity < 1,
       }),
@@ -240,9 +277,22 @@ function renderableFor(THREE, primitive, instances, category, mode) {
         transparent: style.opacity < 1,
         depthWrite: mode !== "translucent",
         flatShading: true,
+        polygonOffset: showSurfaceEdges,
+        polygonOffsetFactor: showSurfaceEdges ? 1 : 0,
+        polygonOffsetUnits: showSurfaceEdges ? 1 : 0,
         side: THREE.DoubleSide,
       }),
     );
+    if (showSurfaceEdges) {
+      appendSurfaceEdges(
+        THREE,
+        object,
+        primitive,
+        instances,
+        style,
+        mode,
+      );
+    }
     pickKind = "mesh";
     pickSpan = Math.floor((primitive.indices?.length ?? 0) / 3);
   }
@@ -879,11 +929,12 @@ export function ThreeGeometryViewport(props) {
         const validInstances = categoryInstances.filter(
           (instance) => validMatrix(instance.matrix),
         );
+        const objectCost = renderObjectCost(primitive, mode);
         selectedInstances += categoryInstances.length;
         invalidInstances += categoryInstances.length - validInstances.length;
         if (
           remaining <= 0 ||
-          renderedPrimitives >= objectBudget ||
+          renderedPrimitives + objectCost > objectBudget ||
           validInstances.length === 0
         ) {
           continue;
@@ -901,7 +952,7 @@ export function ThreeGeometryViewport(props) {
         geometryRoot.add(object);
         geometryPickTargets.push(object);
         vertexBatches.push({ instances: accepted, primitive });
-        renderedPrimitives += 1;
+        renderedPrimitives += objectCost;
         renderedInstances += accepted.length;
         remaining -= accepted.length;
       }

@@ -202,8 +202,8 @@ export function GeometryViewerWindow(props) {
       title="3D-геометрия"
       onClose={props.onClose}
       class="geometry-viewer-floating-window"
-      storageKey="web-gui:geometry-viewer-window"
-      initialWidth={920}
+      storageKey="web-gui:geometry-viewer-window:v2"
+      initialWidth={1220}
       initialHeight={680}
       minWidth={520}
       minHeight={360}
@@ -220,87 +220,89 @@ export function GeometryViewerWindow(props) {
           aria-label="Управление 3D-окном"
           onScroll={updatePanelPosition}
         >
-          <button
-            type="button"
-            class="geometry-viewer-menu-button"
-            classList={{ active: openPanel() === "elements" }}
-            aria-expanded={openPanel() === "elements"}
-            aria-controls={OPTIONS_PANEL_ID}
-            aria-haspopup="dialog"
-            title={`Элементы: ${OBJECT_MODE_LABELS[elementsMode()]}`}
-            onClick={(event) => togglePanel("elements", event)}
-          >
-            Элементы
-          </button>
+          <div class="geometry-viewer-toolbar-controls">
+            <button
+              type="button"
+              class="geometry-viewer-menu-button"
+              classList={{ active: openPanel() === "elements" }}
+              aria-expanded={openPanel() === "elements"}
+              aria-controls={OPTIONS_PANEL_ID}
+              aria-haspopup="dialog"
+              title={`Элементы: ${OBJECT_MODE_LABELS[elementsMode()]}`}
+              onClick={(event) => togglePanel("elements", event)}
+            >
+              Элементы
+            </button>
 
-          <button
-            type="button"
-            class="geometry-viewer-menu-button"
-            classList={{ active: openPanel() === "regions" }}
-            aria-expanded={openPanel() === "regions"}
-            aria-controls={OPTIONS_PANEL_ID}
-            aria-haspopup="dialog"
-            title={`Области: ${OBJECT_MODE_LABELS[regionsMode()]}`}
-            onClick={(event) => togglePanel("regions", event)}
-          >
-            Области
-          </button>
+            <button
+              type="button"
+              class="geometry-viewer-menu-button"
+              classList={{ active: openPanel() === "regions" }}
+              aria-expanded={openPanel() === "regions"}
+              aria-controls={OPTIONS_PANEL_ID}
+              aria-haspopup="dialog"
+              title={`Области: ${OBJECT_MODE_LABELS[regionsMode()]}`}
+              onClick={(event) => togglePanel("regions", event)}
+            >
+              Области
+            </button>
 
-          <button
-            type="button"
-            class="geometry-viewer-menu-button"
-            classList={{ active: openPanel() === "symmetry" }}
-            aria-expanded={openPanel() === "symmetry"}
-            aria-controls={OPTIONS_PANEL_ID}
-            aria-haspopup="dialog"
-            title="Настроить показ образов симметрии"
-            onClick={(event) => togglePanel("symmetry", event)}
-          >
-            Симметрии
-          </button>
+            <button
+              type="button"
+              class="geometry-viewer-menu-button"
+              classList={{ active: openPanel() === "symmetry" }}
+              aria-expanded={openPanel() === "symmetry"}
+              aria-controls={OPTIONS_PANEL_ID}
+              aria-haspopup="dialog"
+              title="Настроить показ образов симметрии"
+              onClick={(event) => togglePanel("symmetry", event)}
+            >
+              Симметрии
+            </button>
 
-          <select
-            class="geometry-viewer-select"
-            value={detailMode()}
-            aria-label="Детализация геометрии"
-            title="Показ геометрии или геометрии с вершинами"
-            onChange={(event) => setDetailMode(event.currentTarget.value)}
-          >
-            <option value="geometry">Только геометрия</option>
-            <option value="vertices">+вершины</option>
-          </select>
+            <select
+              class="geometry-viewer-select"
+              value={detailMode()}
+              aria-label="Детализация геометрии"
+              title="Показ геометрии или геометрии с вершинами"
+              onChange={(event) => setDetailMode(event.currentTarget.value)}
+            >
+              <option value="geometry">Только геометрия</option>
+              <option value="vertices">Геометрия + вершины</option>
+            </select>
 
-          <select
-            class="geometry-viewer-select"
-            value={renderMode()}
-            aria-label="Режим представления"
-            title="Режим представления геометрии"
-            onChange={(event) => setRenderMode(event.currentTarget.value)}
-          >
-            <option value="solid">Сплошной</option>
-            <option value="translucent">Полупрозрачный</option>
-            <option value="wireframe">Каркас</option>
-          </select>
+            <select
+              class="geometry-viewer-select"
+              value={renderMode()}
+              aria-label="Режим представления"
+              title="Режим представления геометрии"
+              onChange={(event) => setRenderMode(event.currentTarget.value)}
+            >
+              <option value="solid">Сплошной</option>
+              <option value="translucent">Полупрозрачный</option>
+              <option value="wireframe">Каркас</option>
+            </select>
 
-          <button
-            type="button"
-            class="geometry-viewer-fit"
-            title="Вписать показанную геометрию в окно"
-            onClick={() => setFitRequest((value) => value + 1)}
-          >
-            Вписать всё
-          </button>
+            <button
+              type="button"
+              class="geometry-viewer-fit"
+              title="Вписать показанную геометрию в окно"
+              onClick={() => setFitRequest((value) => value + 1)}
+            >
+              Вписать всё
+            </button>
 
-          <select
-            class="geometry-viewer-select geometry-viewer-projection-select"
-            value={projection()}
-            aria-label="Тип проекции"
-            title="Тип проекции 3D-сцены"
-            onChange={(event) => setProjection(event.currentTarget.value)}
-          >
-            <option value="orthographic">Ортогональная</option>
-            <option value="perspective">Перспективная</option>
-          </select>
+            <select
+              class="geometry-viewer-select geometry-viewer-projection-select"
+              value={projection()}
+              aria-label="Тип проекции"
+              title="Тип проекции 3D-сцены"
+              onChange={(event) => setProjection(event.currentTarget.value)}
+            >
+              <option value="orthographic">Ортогональная</option>
+              <option value="perspective">Перспективная</option>
+            </select>
+          </div>
         </div>
 
         <Show when={openPanel()}>
