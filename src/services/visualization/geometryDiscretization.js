@@ -90,8 +90,10 @@ export function countElementDiscretization(counts, instanceCount = 1) {
 
     const [d1, d2, d3] = normalized;
     const metrics = {
-        // Each internal division reaches four of the six boundary faces.
-        lineSegments: 4 * ((d1 - 1) + (d2 - 1) + (d3 - 1)),
+        // The overlay includes the 12 main edges. Each internal division
+        // additionally reaches four of the six boundary faces.
+        lineSegments: 12
+            + 4 * ((d1 - 1) + (d2 - 1) + (d3 - 1)),
         points: safeProduct(normalized),
     };
 
@@ -123,7 +125,9 @@ export function countRegionDiscretization(
     const metrics = isLine
         ? { lineSegments: 0, points: d2 }
         : {
-            lineSegments: interiorRegionLineCount(d1)
+            // Four main boundaries share the discretization line layer.
+            lineSegments: 4
+                + interiorRegionLineCount(d1)
                 + interiorRegionLineCount(d2),
             points: safeProduct(normalized),
         };
@@ -301,8 +305,9 @@ function internalElementParameters(count) {
 }
 
 /**
- * Builds local-space lines on all six element faces and elementary-volume
- * centres. Every line is represented by two consecutive XYZ vertices.
+ * Builds local-space main edges and discretization lines on all six element
+ * faces, plus elementary-volume centres. Every line is represented by two
+ * consecutive XYZ vertices.
  */
 export function buildElementDiscretization(
     vertices,
@@ -334,6 +339,23 @@ export function buildElementDiscretization(
     const map = (u, v, w) => trilinearPoint(points, u, v, w);
 
     if (includeLines) {
+        // Main edges use the same overlay geometry/material as internal lines.
+        for (const v of [0, 1]) {
+            for (const w of [0, 1]) {
+                appendLine(lines, map(0, v, w), map(1, v, w));
+            }
+        }
+        for (const u of [0, 1]) {
+            for (const w of [0, 1]) {
+                appendLine(lines, map(u, 0, w), map(u, 1, w));
+            }
+        }
+        for (const u of [0, 1]) {
+            for (const v of [0, 1]) {
+                appendLine(lines, map(u, v, 0), map(u, v, 1));
+            }
+        }
+
         const p1 = internalElementParameters(d1);
         const p2 = internalElementParameters(d2);
         const p3 = internalElementParameters(d3);
@@ -406,8 +428,9 @@ function internalRegionParameters(count) {
 }
 
 /**
- * Builds a bilinear surface grid and its solver nodes. For a degenerate
- * region-line only the geometrically unique D2 nodes are returned.
+ * Builds a bilinear surface grid including its four main boundaries and its
+ * solver nodes. For a degenerate region-line only the geometrically unique D2
+ * nodes are returned.
  */
 export function buildRegionDiscretization(
     vertices,
@@ -468,6 +491,11 @@ export function buildRegionDiscretization(
         }
     } else {
         if (includeLines) {
+            appendLine(lines, map(0, 0), map(1, 0));
+            appendLine(lines, map(0, 1), map(1, 1));
+            appendLine(lines, map(0, 0), map(0, 1));
+            appendLine(lines, map(1, 0), map(1, 1));
+
             for (const u of internalRegionParameters(d1)) {
                 appendLine(lines, map(u, 0), map(u, 1));
             }

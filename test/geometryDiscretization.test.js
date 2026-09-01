@@ -54,17 +54,21 @@ test("discretization counts accept BaseModel matrix scalars and reject unsafe va
 
 test("preflight counts element faces and centres without allocating arrays", () => {
     assert.deepEqual(countElementDiscretization([[2], [3], [4]]), {
-        lineSegments: 24,
+        lineSegments: 36,
         points: 24,
     });
     assert.deepEqual(countElementDiscretization([2, 3, 4], 5), {
-        lineSegments: 120,
+        lineSegments: 180,
         points: 120,
+    });
+    assert.deepEqual(countElementDiscretization([1, 1, 1]), {
+        lineSegments: 12,
+        points: 1,
     });
     assert.equal(countElementDiscretization([2, 0, 4]), null);
 
     const accepted = preflightDiscretization({
-        lineSegments: 24,
+        lineSegments: 36,
         points: 24,
     });
     assert.equal(accepted.ok, true);
@@ -100,15 +104,29 @@ test("trilinear element mapping follows directions 1-2, 1-3 and 1-5", () => {
     assert.equal(trilinearElementPoint([], 0, 0, 0), null);
 });
 
-test("element overlay has only internal face lines and D3-fast centre order", () => {
+test("element overlay has 12 main edges, internal lines and D3-fast centre order", () => {
     const result = buildElementDiscretization(
         ELEMENT_VERTICES,
         [[2], [1], [2]],
     );
 
     assert.equal(result.ok, true);
-    assert.deepEqual(result.counts, { lineSegments: 8, points: 4 });
-    assert.equal(result.lines.length, 8 * 2 * 3);
+    assert.deepEqual(result.counts, { lineSegments: 20, points: 4 });
+    assert.equal(result.lines.length, 20 * 2 * 3);
+    assert.deepEqual(plain(result.lines.slice(0, 12 * 2 * 3)), [
+        0, 0, 0, 2, 0, 0,
+        0, 0, 4, 2, 0, 4,
+        0, 3, 0, 2, 3, 0,
+        0, 3, 4, 2, 3, 4,
+        0, 0, 0, 0, 3, 0,
+        0, 0, 4, 0, 3, 4,
+        2, 0, 0, 2, 3, 0,
+        2, 0, 4, 2, 3, 4,
+        0, 0, 0, 0, 0, 4,
+        0, 3, 0, 0, 3, 4,
+        2, 0, 0, 2, 0, 4,
+        2, 3, 0, 2, 3, 4,
+    ]);
     assert.deepEqual(plain(result.points), [
         0.5, 1.5, 1,
         0.5, 1.5, 3,
@@ -122,7 +140,7 @@ test("element overlay has only internal face lines and D3-fast centre order", ()
         { kind: "element-center", d1: 2, d2: 1, d3: 2 },
     ]);
 
-    for (let offset = 0; offset < result.lines.length; offset += 6) {
+    for (let offset = 12 * 2 * 3; offset < result.lines.length; offset += 6) {
         const start = plain(result.lines.slice(offset, offset + 3));
         const end = plain(result.lines.slice(offset + 3, offset + 6));
         const varyingAxes = start.filter((value, axis) => value !== end[axis]);
@@ -153,6 +171,17 @@ test("element build fails closed before excessive coordinate allocation", () => 
 });
 
 test("element line and point layers have independent budgets and allocation", () => {
+    const mainEdgesBlocked = buildElementDiscretization(
+        ELEMENT_VERTICES,
+        [1, 1, 1],
+        {
+            includePoints: false,
+            limits: { lineSegments: 11, points: 0 },
+        },
+    );
+    assert.equal(mainEdgesBlocked.reason, "budget-exceeded");
+    assert.deepEqual(mainEdgesBlocked.preflight.exceeded, ["lineSegments"]);
+
     const linesOnly = buildElementDiscretization(
         ELEMENT_VERTICES,
         [100, 100, 100],
@@ -160,10 +189,10 @@ test("element line and point layers have independent budgets and allocation", ()
     );
     assert.equal(linesOnly.ok, true);
     assert.deepEqual(linesOnly.counts, {
-        lineSegments: 1_188,
+        lineSegments: 1_200,
         points: 0,
     });
-    assert.equal(linesOnly.lines.length, 1_188 * 6);
+    assert.equal(linesOnly.lines.length, 1_200 * 6);
     assert.equal(linesOnly.points.length, 0);
     assert.deepEqual(linesOnly.pointMetadata, []);
 
@@ -193,14 +222,30 @@ test("bilinear region mapping and node parameters match solver rules", () => {
         bilinearRegionPoint(WARPED_REGION_VERTICES, 0.5, 0.5),
         [1, 1, 0.5],
     );
+    assert.deepEqual(countRegionDiscretization([3, 1]), {
+        lineSegments: 6,
+        points: 3,
+    });
+    assert.deepEqual(countRegionDiscretization([2, 2]), {
+        lineSegments: 4,
+        points: 4,
+    });
 
     const result = buildRegionDiscretization(
         WARPED_REGION_VERTICES,
         [[3], [1]],
     );
     assert.equal(result.ok, true);
-    assert.deepEqual(result.counts, { lineSegments: 2, points: 3 });
+    assert.deepEqual(result.counts, { lineSegments: 6, points: 3 });
     assert.deepEqual(plain(result.lines), [
+        0, 0, 0,
+        2, 0, 0,
+        0, 2, 0,
+        2, 2, 2,
+        0, 0, 0,
+        0, 2, 0,
+        2, 0, 0,
+        2, 2, 2,
         1, 0, 0,
         1, 2, 1,
         0, 1, 0,
@@ -221,13 +266,34 @@ test("bilinear region mapping and node parameters match solver rules", () => {
         WARPED_REGION_VERTICES,
         [2, 2],
     );
-    assert.equal(boundaryOnly.lines.length, 0);
+    assert.deepEqual(boundaryOnly.counts, { lineSegments: 4, points: 4 });
+    assert.deepEqual(plain(boundaryOnly.lines), [
+        0, 0, 0,
+        2, 0, 0,
+        0, 2, 0,
+        2, 2, 2,
+        0, 0, 0,
+        0, 2, 0,
+        2, 0, 0,
+        2, 2, 2,
+    ]);
     assert.deepEqual(plain(boundaryOnly.points), [
         0, 0, 0,
         0, 2, 0,
         2, 0, 0,
         2, 2, 2,
     ]);
+
+    const boundariesBlocked = buildRegionDiscretization(
+        WARPED_REGION_VERTICES,
+        [2, 2],
+        {
+            includePoints: false,
+            limits: { lineSegments: 3, points: 0 },
+        },
+    );
+    assert.equal(boundariesBlocked.reason, "budget-exceeded");
+    assert.deepEqual(boundariesBlocked.preflight.exceeded, ["lineSegments"]);
 });
 
 test("region-line ignores collapsed D1 and returns unique D2 nodes", () => {

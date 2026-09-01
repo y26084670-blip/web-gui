@@ -333,6 +333,10 @@ test("discretization helpers are lazy, bounded, and point-pickable", async () =>
     /if \(primitive\.discretization\) \{[\s\S]*?discretizationBatches\.push/u,
   );
   assert.match(source, /new THREE\.LineSegments\(/u);
+  assert.match(
+    source,
+    /function createDiscretizationLines[\s\S]*?new THREE\.LineBasicMaterial\(\{[\s\S]*?color:\s*0x72d5ff[\s\S]*?lines\.name = "geometry-discretization-lines"/u,
+  );
   assert.match(source, /geometry-discretization-lines/u);
   assert.match(source, /geometry-discretization-points/u);
   assert.match(source, /primitive\?\.controlVertices \?\? primitive\?\.vertices/u);

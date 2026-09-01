@@ -5,6 +5,7 @@ import test from "node:test";
 const appUrl = new URL("../src/App.jsx", import.meta.url);
 const taskInfoBarUrl = new URL("../src/TaskInfoBar.jsx", import.meta.url);
 const taskInfoBarStylesUrl = new URL("../src/TaskInfoBar.css", import.meta.url);
+const aboutIconUrl = new URL("../src/assets/zaica.BMP", import.meta.url);
 
 test("App hosts one global modeless geometry viewer", async () => {
     const source = await readFile(appUrl, "utf8");
@@ -38,15 +39,24 @@ test("task bar opens geometry viewer only for a loaded task", async () => {
 test("task bar exposes an always available modal about dialog", async () => {
     const source = await readFile(taskInfoBarUrl, "utf8");
     const styles = await readFile(taskInfoBarStylesUrl, "utf8");
+    const aboutIcon = await readFile(aboutIconUrl);
     const aboutButton = source.match(
         /<button\s+ref=\{\(el\) => \(aboutButton = el\)\}[\s\S]*?<\/button>/u,
     )?.[0] ?? "";
 
     assert.match(source, /const \[aboutOpen, setAboutOpen\] = createSignal\(false\)/u);
+    assert.match(source, /import aboutIconUrl from "\.\/assets\/zaica\.BMP";/u);
+    assert.equal(aboutIcon.subarray(0, 2).toString("ascii"), "BM");
     assert.match(aboutButton, /class="about-button"/u);
     assert.match(aboutButton, /title="О программе"/u);
     assert.match(aboutButton, /aria-label="О программе"/u);
+    assert.match(aboutButton, /aria-haspopup="dialog"/u);
     assert.match(aboutButton, /onClick=\{\(\) => setAboutOpen\(true\)\}/u);
+    assert.match(aboutButton, /class="about-button-image"/u);
+    assert.match(aboutButton, /src=\{aboutIconUrl\}/u);
+    assert.match(aboutButton, /alt=""/u);
+    assert.match(aboutButton, /aria-hidden="true"/u);
+    assert.doesNotMatch(aboutButton, />\s*\?\s*</u);
     assert.doesNotMatch(aboutButton, /disabled/u);
     assert.match(source, /class="about-dialog"/u);
     assert.match(source, /aboutDialog\.showModal\(\)/u);
@@ -62,7 +72,15 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(source, /class="about-curator-stack"/u);
     assert.match(
         styles,
-        /\.about-dialog\s*\{[^}]*background:\s*#20262d;[^}]*color:\s*#f0f4f7;/su,
+        /\.about-dialog\s*\{[^}]*width:\s*max-content;[^}]*max-width:\s*calc\(100vw - 48px\);[^}]*padding:\s*18px 20px;[^}]*background:\s*#20262d;[^}]*color:\s*#f0f4f7;/su,
+    );
+    assert.match(
+        styles,
+        /\.about-button\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;/su,
+    );
+    assert.match(
+        styles,
+        /\.about-button-image\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*object-fit:\s*contain;/su,
     );
     assert.match(
         styles,

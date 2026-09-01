@@ -6,6 +6,7 @@ import {
   getFileSystemAccessSupport,
   isFilePickerCancellation,
 } from "./services/fileSystemAccessSupport";
+import aboutIconUrl from "./assets/zaica.BMP";
 import "./TaskInfoBar.css";
 
 export function TaskInfoBar(props) {
@@ -163,7 +164,13 @@ export function TaskInfoBar(props) {
           aria-label="О программе"
           aria-haspopup="dialog"
         >
-          ?
+          <img
+            class="about-button-image"
+            src={aboutIconUrl}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
         </button>
       </div>
 
