@@ -42,22 +42,19 @@ test("geometry viewer builds a reactive scene in a modeless floating window", as
   assert.match(source, /storageKey="web-gui:geometry-viewer-window:v2"/u);
 });
 
-test("toolbar uses the requested menus, dropdowns, and ordering", async () => {
+test("toolbar exposes object, symmetry, and general option menus", async () => {
   const source = await readFile(windowUrl, "utf8");
 
   assert.match(source, />\s*Элементы\s*<\/button>/u);
   assert.match(source, />\s*Области\s*<\/button>/u);
   assert.match(source, />\s*Симметрии\s*<\/button>/u);
+  assert.match(source, />\s*Общие опции\s*<\/button>/u);
   assert.match(source, /aria-expanded=\{openPanel\(\) === "elements"\}/u);
   assert.match(source, /aria-expanded=\{openPanel\(\) === "regions"\}/u);
   assert.match(source, /aria-expanded=\{openPanel\(\) === "symmetry"\}/u);
+  assert.match(source, /aria-expanded=\{openPanel\(\) === "general"\}/u);
+  assert.match(source, /aria-label="Общие опции отображения"/u);
 
-  assert.match(source, /createSignal\("geometry"\)/u);
-  assert.match(source, /<option value="geometry">Только геометрия<\/option>/u);
-  assert.match(
-    source,
-    /<option value="vertices">Геометрия \+ вершины<\/option>/u,
-  );
   assert.match(source, /createSignal\("solid"\)/u);
   assert.match(source, /<option value="solid">Сплошной<\/option>/u);
   assert.match(
@@ -65,40 +62,37 @@ test("toolbar uses the requested menus, dropdowns, and ordering", async () => {
     /<option value="translucent">Полупрозрачный<\/option>/u,
   );
   assert.match(source, /<option value="wireframe">Каркас<\/option>/u);
-  assert.match(source, /createSignal\("orthographic"\)/u);
-  assert.match(
-    source,
-    /<option value="orthographic">Ортогональная<\/option>/u,
-  );
-  assert.match(
-    source,
-    /<option value="perspective">Перспективная<\/option>/u,
-  );
   assert.match(source, />\s*Вписать всё\s*<\/button>/u);
+  assert.doesNotMatch(source, /aria-label="Детализация геометрии"/u);
+  assert.doesNotMatch(source, /aria-label="Тип проекции"/u);
 
   assertAppearsAfter(
     source,
+    "aria-label=\"Общие опции отображения\"",
+    ">\n              Симметрии",
+  );
+  assertAppearsAfter(
+    source,
     "aria-label=\"Режим представления\"",
-    "aria-label=\"Детализация геометрии\"",
+    "aria-label=\"Общие опции отображения\"",
   );
   assertAppearsAfter(
     source,
     "geometry-viewer-fit",
     "aria-label=\"Режим представления\"",
-  );
-  assertAppearsAfter(
-    source,
-    "geometry-viewer-projection-select",
-    "geometry-viewer-fit",
   );
 
   assert.match(source, /mode=\{renderMode\(\)\}/u);
-  assert.match(source, /showVertices=\{detailMode\(\) === "vertices"\}/u);
-  assert.match(source, /projection=\{projection\(\)\}/u);
+  assert.match(source, /showEdges=\{showEdges\(\)\}/u);
+  assert.match(source, /showVertices=\{showVertices\(\)\}/u);
+  assert.match(
+    source,
+    /projection=\{orthographicView\(\) \? "orthographic" : "perspective"\}/u,
+  );
   assert.match(source, /filters=\{filters\(\)\}/u);
 });
 
-test("object modes are exclusive while symmetry filters are independent", async () => {
+test("object modes are exclusive while symmetry and general filters are independent", async () => {
   const source = await readFile(windowUrl, "utf8");
 
   assert.match(source, /createSignal\("all"\)/u);
@@ -120,13 +114,42 @@ test("object modes are exclusive while symmetry filters are independent", async 
 
   assert.equal(
     source.match(/type="checkbox"/gu)?.length,
-    4,
-    "each symmetry family must be independently switchable",
+    10,
+    "four symmetry and six general options must use checkboxes",
   );
   assert.match(source, /Локальная/u);
   assert.match(source, /Азимутальная/u);
   assert.match(source, /Периодическая/u);
   assert.match(source, /Зеркальная/u);
+
+  assert.match(
+    source,
+    /const \[orthographicView, setOrthographicView\] = createSignal\(true\)/u,
+  );
+  assert.match(
+    source,
+    /const \[showEdges, setShowEdges\] = createSignal\(true\)/u,
+  );
+  assert.match(
+    source,
+    /const \[showVertices, setShowVertices\] = createSignal\(false\)/u,
+  );
+  assert.match(source, /Ортогональный вид/u);
+  assert.match(source, /Рёбра/u);
+  assert.match(source, /Вершины/u);
+  assert.match(source, /Линии дискретизации/u);
+  assert.match(source, /Центры/u);
+  assert.match(source, /Заданные источники/u);
+  assert.match(
+    source,
+    /checked=\{renderMode\(\) === "wireframe" \|\| showEdges\(\)\}/u,
+  );
+  assert.match(source, /disabled=\{renderMode\(\) === "wireframe"\}/u);
+  assert.equal(
+    source.match(/title="Функция будет реализована позднее"/gu)?.length,
+    3,
+  );
+  assert.equal(source.match(/checked=\{false\} disabled/gu)?.length, 3);
 });
 
 test("diagnostics retain record numbers and concise reasons", async () => {
@@ -249,14 +272,12 @@ test("material colors follow element properties and symmetry role", async () => 
   assert.doesNotMatch(source, /category === "mirror"[\s\S]*?color:/u);
 });
 
-test("translucent surfaces and virtual volumes expose thin edges", async () => {
+test("surface edges are controlled independently and remain thin", async () => {
   const source = await readFile(viewportUrl, "utf8");
 
   assert.match(source, /function appendSurfaceEdges\(/u);
-  assert.match(
-    source,
-    /const showSurfaceEdges = mode === "translucent" \|\| virtual/u,
-  );
+  assert.match(source, /const showSurfaceEdges = showEdges === true/u);
+  assert.match(source, /renderObjectCost\(primitive, mode, showEdges\)/u);
   assert.match(source, /new THREE\.LineBasicMaterial\(\{[\s\S]*?color: style\.edgeColor/su);
   assert.match(source, /linewidth:\s*1/u);
   assert.match(source, /polygonOffset:\s*showSurfaceEdges/u);

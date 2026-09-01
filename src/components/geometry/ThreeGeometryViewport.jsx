@@ -68,13 +68,16 @@ function materialStyle(primitive, category, mode) {
   };
 }
 
-function renderObjectCost(primitive, mode) {
-  if (primitive.kind === "region-line" || mode === "wireframe") return 1;
+function renderObjectCost(primitive, mode, showEdges) {
+  if (
+    primitive.kind === "region-line" ||
+    mode === "wireframe" ||
+    !showEdges
+  ) {
+    return 1;
+  }
 
-  return mode === "translucent" ||
-    primitive.materialKind === GEOMETRY_MATERIAL_KINDS.VIRTUAL
-    ? 2
-    : 1;
+  return 2;
 }
 
 function disposeMaterial(material) {
@@ -232,10 +235,17 @@ function appendSurfaceEdges(
   surface.add(edges);
 }
 
-function renderableFor(THREE, primitive, instances, category, mode) {
+function renderableFor(
+  THREE,
+  primitive,
+  instances,
+  category,
+  mode,
+  showEdges,
+) {
   const style = materialStyle(primitive, category, mode);
   const virtual = primitive.materialKind === GEOMETRY_MATERIAL_KINDS.VIRTUAL;
-  const showSurfaceEdges = mode === "translucent" || virtual;
+  const showSurfaceEdges = showEdges === true;
   let object;
   let pickKind;
   let pickSpan;
@@ -871,7 +881,7 @@ export function ThreeGeometryViewport(props) {
     requestRender();
   };
 
-  const replaceGeometry = (sceneModel, filters, mode) => {
+  const replaceGeometry = (sceneModel, filters, mode, showEdges) => {
     if (!ready() || !THREE || !threeScene) return;
 
     if (geometryRoot) {
@@ -929,7 +939,7 @@ export function ThreeGeometryViewport(props) {
         const validInstances = categoryInstances.filter(
           (instance) => validMatrix(instance.matrix),
         );
-        const objectCost = renderObjectCost(primitive, mode);
+        const objectCost = renderObjectCost(primitive, mode, showEdges);
         selectedInstances += categoryInstances.length;
         invalidInstances += categoryInstances.length - validInstances.length;
         if (
@@ -947,6 +957,7 @@ export function ThreeGeometryViewport(props) {
           accepted,
           category,
           mode,
+          showEdges,
         );
         if (!object) continue;
         geometryRoot.add(object);
@@ -1099,10 +1110,11 @@ export function ThreeGeometryViewport(props) {
     const sceneModel = props.scene;
     const filters = props.filters;
     const mode = props.mode ?? "solid";
+    const showEdges = props.showEdges !== false;
     if (!ready()) return;
 
     try {
-      replaceGeometry(sceneModel, filters, mode);
+      replaceGeometry(sceneModel, filters, mode, showEdges);
     } catch (renderError) {
       reportError(renderError);
     }

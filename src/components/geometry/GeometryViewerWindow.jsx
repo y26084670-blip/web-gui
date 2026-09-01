@@ -86,9 +86,10 @@ export function GeometryViewerWindow(props) {
   const [sceneError, setSceneError] = createSignal("");
   const [viewportError, setViewportError] = createSignal("");
   const [fitRequest, setFitRequest] = createSignal(0);
-  const [projection, setProjection] = createSignal("orthographic");
   const [renderMode, setRenderMode] = createSignal("solid");
-  const [detailMode, setDetailMode] = createSignal("geometry");
+  const [orthographicView, setOrthographicView] = createSignal(true);
+  const [showEdges, setShowEdges] = createSignal(true);
+  const [showVertices, setShowVertices] = createSignal(false);
   const [elementsMode, setElementsMode] = createSignal("all");
   const [regionsMode, setRegionsMode] = createSignal("all");
   const [showLocalSymmetry, setShowLocalSymmetry] = createSignal(true);
@@ -260,16 +261,19 @@ export function GeometryViewerWindow(props) {
               Симметрии
             </button>
 
-            <select
-              class="geometry-viewer-select"
-              value={detailMode()}
-              aria-label="Детализация геометрии"
-              title="Показ геометрии или геометрии с вершинами"
-              onChange={(event) => setDetailMode(event.currentTarget.value)}
+            <button
+              type="button"
+              class="geometry-viewer-menu-button"
+              classList={{ active: openPanel() === "general" }}
+              aria-label="Общие опции отображения"
+              aria-expanded={openPanel() === "general"}
+              aria-controls={OPTIONS_PANEL_ID}
+              aria-haspopup="dialog"
+              title="Настроить общие опции отображения"
+              onClick={(event) => togglePanel("general", event)}
             >
-              <option value="geometry">Только геометрия</option>
-              <option value="vertices">Геометрия + вершины</option>
-            </select>
+              Общие опции
+            </button>
 
             <select
               class="geometry-viewer-select"
@@ -291,17 +295,6 @@ export function GeometryViewerWindow(props) {
             >
               Вписать всё
             </button>
-
-            <select
-              class="geometry-viewer-select geometry-viewer-projection-select"
-              value={projection()}
-              aria-label="Тип проекции"
-              title="Тип проекции 3D-сцены"
-              onChange={(event) => setProjection(event.currentTarget.value)}
-            >
-              <option value="orthographic">Ортогональная</option>
-              <option value="perspective">Перспективная</option>
-            </select>
           </div>
         </div>
 
@@ -315,9 +308,11 @@ export function GeometryViewerWindow(props) {
             class="geometry-viewer-options-panel"
             role="dialog"
             aria-modal="false"
-            aria-label={openPanel() === "symmetry"
-              ? "Показ симметрий"
-              : `Показ ${openPanel() === "elements" ? "элементов" : "областей"}`}
+            aria-label={openPanel() === "general"
+              ? "Общие опции отображения"
+              : openPanel() === "symmetry"
+                ? "Показ симметрий"
+                : `Показ ${openPanel() === "elements" ? "элементов" : "областей"}`}
             tabIndex="-1"
             style={{
               left: `${panelPosition().left}px`,
@@ -425,6 +420,63 @@ export function GeometryViewerWindow(props) {
                 Зеркальная
               </label>
             </Show>
+
+            <Show when={openPanel() === "general"}>
+              <div class="geometry-viewer-options-title">Общие опции</div>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={orthographicView()}
+                  onChange={(event) =>
+                    setOrthographicView(event.currentTarget.checked)}
+                />
+                Ортогональный вид
+              </label>
+              <label
+                classList={{ "is-disabled": renderMode() === "wireframe" }}
+                title={renderMode() === "wireframe"
+                  ? "Рёбра обязательны в режиме «Каркас»"
+                  : undefined}
+              >
+                <input
+                  type="checkbox"
+                  checked={renderMode() === "wireframe" || showEdges()}
+                  disabled={renderMode() === "wireframe"}
+                  onChange={(event) => setShowEdges(event.currentTarget.checked)}
+                />
+                Рёбра
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showVertices()}
+                  onChange={(event) =>
+                    setShowVertices(event.currentTarget.checked)}
+                />
+                Вершины
+              </label>
+              <label
+                class="is-disabled"
+                title="Функция будет реализована позднее"
+              >
+                <input type="checkbox" checked={false} disabled />
+                Линии дискретизации
+              </label>
+              <label
+                class="is-disabled"
+                title="Функция будет реализована позднее"
+              >
+                <input type="checkbox" checked={false} disabled />
+                Центры
+              </label>
+              <label
+                class="is-disabled"
+                title="Функция будет реализована позднее"
+              >
+                <input type="checkbox" checked={false} disabled />
+                Заданные источники
+              </label>
+            </Show>
           </div>
         </Show>
 
@@ -433,8 +485,9 @@ export function GeometryViewerWindow(props) {
             scene={sceneModel()}
             filters={filters()}
             mode={renderMode()}
-            showVertices={detailMode() === "vertices"}
-            projection={projection()}
+            showEdges={showEdges()}
+            showVertices={showVertices()}
+            projection={orthographicView() ? "orthographic" : "perspective"}
             fitRequest={fitRequest()}
             instanceBudget={GEOMETRY_INSTANCE_BUDGET}
             onRenderStats={setRenderStats}

@@ -111,6 +111,11 @@
   cursor: pointer;
 }
 
+.geometry-viewer-options-panel label.is-disabled {
+  color: #7f8a94;
+  cursor: not-allowed;
+}
+
 .geometry-viewer-options-panel input {
   margin: 0;
 }
