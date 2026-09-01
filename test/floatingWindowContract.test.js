@@ -38,6 +38,11 @@ test("floating window supports drag, viewport clamp, and persistence", async () 
     assert.match(source, /onKeyDown=\{handleTitleKeyDown\}/u);
     assert.match(source, /event\.target !== event\.currentTarget/u);
     assert.match(source, /function clampRect\(/u);
+    assert.match(source, /options\.positionHeight/u);
+    assert.match(
+        source,
+        /viewport\.height - positionHeight - margin/u,
+    );
     assert.match(source, /window\.addEventListener\("resize"/u);
     assert.match(source, /window\.localStorage\.getItem/u);
     assert.match(source, /window\.localStorage\.setItem/u);
@@ -50,6 +55,11 @@ test("floating window exposes minimize, maximize, and close actions", async () =
     const source = await readFile(componentUrl, "utf8");
 
     assert.match(source, /const toggleMinimized/u);
+    assert.match(source, /DEFAULT_MINIMIZED_HEIGHT = 40/u);
+    assert.match(source, /positionHeight: positionHeight\(\)/u);
+    assert.match(source, /setMinimized\(!minimized\(\)\)/u);
+    assert.match(source, /replaceRect\(rect\(\), true\)/u);
+    assert.match(source, /if \(wasDragging\) persistRect\(\)/u);
     assert.match(source, /const toggleMaximized/u);
     assert.match(source, /props\.onClose\?\.\(\)/u);
     assert.match(source, /Свернуть окно/u);

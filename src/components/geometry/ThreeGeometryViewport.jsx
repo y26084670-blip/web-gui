@@ -10,6 +10,13 @@ export const GEOMETRY_INSTANCE_BUDGET = 20_000;
 export const GEOMETRY_RENDER_OBJECT_BUDGET = 1_000;
 
 const INSTANCE_CATEGORIES = Object.freeze(["base", "copy", "mirror"]);
+const DEFAULT_PROJECTION = "orthographic";
+const PERSPECTIVE_FOV = 45;
+const CAMERA_FRAME_PADDING = 1.25;
+
+function normalizeProjection(value) {
+  return value === "perspective" ? "perspective" : DEFAULT_PROJECTION;
+}
 
 function instanceCategory(instance) {
   if (instance?.mirrorX || instance?.mirrorY) return "mirror";
@@ -190,28 +197,84 @@ function renderableFor(THREE, primitive, instances, category, mode) {
   return object;
 }
 
-function fitCameraToBounds(THREE, camera, controls, bounds) {
+function fitCameraToBounds(THREE, camera, controls, bounds, targetOverride) {
   if (!bounds || bounds.isEmpty()) return false;
 
   const sphere = bounds.getBoundingSphere(new THREE.Sphere());
-  const radius = Math.max(sphere.radius, 1e-6);
-  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
-  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
-  const distance = 1.25 * Math.max(
-    radius / Math.tan(verticalFov / 2),
-    radius / Math.tan(Math.max(horizontalFov, 1e-6) / 2),
+  const target = targetOverride?.clone?.() ?? sphere.center;
+  const radius = Math.max(
+    sphere.radius + sphere.center.distanceTo(target),
+    1e-6,
   );
+  let distance;
+
+  if (camera.isOrthographicCamera) {
+    const aspect = Math.max(
+      (camera.right - camera.left) / (camera.top - camera.bottom),
+      1e-6,
+    );
+    const halfHeight = CAMERA_FRAME_PADDING * radius * Math.max(1, 1 / aspect);
+    camera.left = -halfHeight * aspect;
+    camera.right = halfHeight * aspect;
+    camera.top = halfHeight;
+    camera.bottom = -halfHeight;
+    camera.zoom = 1;
+    distance = Math.max(radius * 3, 1);
+  } else {
+    const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+    const horizontalFov = 2 * Math.atan(
+      Math.tan(verticalFov / 2) * camera.aspect,
+    );
+    distance = CAMERA_FRAME_PADDING * Math.max(
+      radius / Math.tan(verticalFov / 2),
+      radius / Math.tan(Math.max(horizontalFov, 1e-6) / 2),
+    );
+  }
+
   const direction = camera.position.clone().sub(controls.target);
   if (direction.lengthSq() < 1e-12) direction.set(1, 1, 1);
   direction.normalize();
 
-  controls.target.copy(sphere.center);
-  camera.position.copy(sphere.center).addScaledVector(direction, distance);
+  controls.target.copy(target);
+  camera.position.copy(target).addScaledVector(direction, distance);
   camera.near = Math.max(radius / 10_000, 1e-5);
   camera.far = Math.max(distance + radius * 10, radius * 1_000, 1);
   camera.updateProjectionMatrix();
   controls.update();
   return true;
+}
+
+function createCamera(THREE, projection, aspect) {
+  const camera = projection === "perspective"
+    ? new THREE.PerspectiveCamera(
+      PERSPECTIVE_FOV,
+      aspect,
+      0.01,
+      1_000_000,
+    )
+    : new THREE.OrthographicCamera(
+      -aspect,
+      aspect,
+      1,
+      -1,
+      0.01,
+      1_000_000,
+    );
+
+  camera.position.set(1, 1, 1);
+  camera.up.set(0, 0, 1);
+  return camera;
+}
+
+function resizeCameraProjection(camera, aspect) {
+  if (camera.isOrthographicCamera) {
+    const halfHeight = Math.max((camera.top - camera.bottom) / 2, 1e-9);
+    camera.left = -halfHeight * aspect;
+    camera.right = halfHeight * aspect;
+  } else {
+    camera.aspect = aspect;
+  }
+  camera.updateProjectionMatrix();
 }
 
 export function ThreeGeometryViewport(props) {
@@ -227,6 +290,7 @@ export function ThreeGeometryViewport(props) {
   let renderFrame = 0;
   let disposed = false;
   let hasFramedGeometry = false;
+  let activeProjection = DEFAULT_PROJECTION;
   let THREE;
 
   const [ready, setReady] = createSignal(false);
@@ -253,8 +317,43 @@ export function ThreeGeometryViewport(props) {
     const width = Math.max(1, Math.floor(host.clientWidth));
     const height = Math.max(1, Math.floor(host.clientHeight));
     renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+    resizeCameraProjection(camera, width / height);
+    requestRender();
+  };
+
+  const switchProjection = (value) => {
+    const projection = normalizeProjection(value);
+    if (
+      !ready() ||
+      !THREE ||
+      !camera ||
+      !controls ||
+      projection === activeProjection
+    ) {
+      return;
+    }
+
+    const width = Math.max(1, Math.floor(host?.clientWidth ?? 1));
+    const height = Math.max(1, Math.floor(host?.clientHeight ?? 1));
+    const preservedTarget = controls.target.clone();
+    const nextCamera = createCamera(THREE, projection, width / height);
+    nextCamera.position.copy(camera.position);
+    nextCamera.up.copy(camera.up);
+    camera = nextCamera;
+    activeProjection = projection;
+    controls.object = camera;
+
+    if (currentBounds && !currentBounds.isEmpty()) {
+      fitCameraToBounds(
+        THREE,
+        camera,
+        controls,
+        currentBounds,
+        preservedTarget,
+      );
+    } else {
+      controls.update();
+    }
     requestRender();
   };
 
@@ -375,9 +474,8 @@ export function ThreeGeometryViewport(props) {
       THREE = threeModule;
       threeScene = new THREE.Scene();
       threeScene.background = new THREE.Color(0x141a20);
-      camera = new THREE.PerspectiveCamera(45, 1, 0.01, 1_000_000);
-      camera.position.set(1, 1, 1);
-      camera.up.set(0, 0, 1);
+      activeProjection = normalizeProjection(props.projection);
+      camera = createCamera(THREE, activeProjection, 1);
 
       renderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -418,9 +516,9 @@ export function ThreeGeometryViewport(props) {
 
       resizeObserver = new ResizeObserver(resizeRenderer);
       resizeObserver.observe(host);
+      resizeRenderer();
       setReady(true);
       setLoading(false);
-      resizeRenderer();
     }).catch((loadError) => {
       if (disposed) return;
       setLoading(false);
@@ -439,6 +537,11 @@ export function ThreeGeometryViewport(props) {
     } catch (renderError) {
       reportError(renderError);
     }
+  });
+
+  createEffect(() => {
+    const projection = props.projection;
+    if (ready()) switchProjection(projection);
   });
 
   createEffect(() => {

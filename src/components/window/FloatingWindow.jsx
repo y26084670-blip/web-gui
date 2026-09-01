@@ -13,6 +13,7 @@ const DEFAULT_WIDTH = 720;
 const DEFAULT_HEIGHT = 520;
 const DEFAULT_MIN_WIDTH = 360;
 const DEFAULT_MIN_HEIGHT = 240;
+const DEFAULT_MINIMIZED_HEIGHT = 40;
 const DEFAULT_STORAGE_KEY = "web-gui:floating-window";
 
 function finiteNumber(value, fallback) {
@@ -59,10 +60,19 @@ function clampRect(rect, options = {}) {
     minimumHeight,
     availableHeight,
   );
+  const positionHeight = clamp(
+    finiteNumber(options.positionHeight, height),
+    1,
+    availableHeight,
+  );
 
   return {
     x: clamp(finiteNumber(rect.x, margin), margin, viewport.width - width - margin),
-    y: clamp(finiteNumber(rect.y, margin), margin, viewport.height - height - margin),
+    y: clamp(
+      finiteNumber(rect.y, margin),
+      margin,
+      viewport.height - positionHeight - margin,
+    ),
     width,
     height,
   };
@@ -126,10 +136,20 @@ export function FloatingWindow(props) {
   const [minimized, setMinimized] = createSignal(false);
   const [maximized, setMaximized] = createSignal(false);
 
+  const positionHeight = () => {
+    if (!minimized()) return undefined;
+
+    const measured = windowElement?.getBoundingClientRect().height;
+    return Number.isFinite(measured) && measured > 0 && measured < rect().height
+      ? measured
+      : DEFAULT_MINIMIZED_HEIGHT;
+  };
+
   const rectOptions = (viewport) => ({
     viewport,
     minWidth: minWidth(),
     minHeight: minHeight(),
+    positionHeight: positionHeight(),
   });
 
   const persistRect = (value = rect()) => {
@@ -187,7 +207,12 @@ export function FloatingWindow(props) {
   };
 
   const finishPointerOperation = () => {
+    const wasDragging = Boolean(dragState);
     dragState = null;
+    if (minimized()) {
+      if (wasDragging) persistRect();
+      return;
+    }
     syncRectFromElement(true);
   };
 
@@ -274,10 +299,12 @@ export function FloatingWindow(props) {
 
   const toggleMinimized = () => {
     if (maximized()) return;
-    setMinimized((value) => !value);
+    setMinimized(!minimized());
+    replaceRect(rect(), true);
   };
 
   const toggleMaximized = () => {
+    const wasMinimized = minimized();
     setMinimized(false);
 
     if (maximized()) {
@@ -287,7 +314,7 @@ export function FloatingWindow(props) {
       return;
     }
 
-    syncRectFromElement(true);
+    if (!wasMinimized) syncRectFromElement(true);
     restoreRect = rect();
     setRect(maximizeRect());
     setMaximized(true);

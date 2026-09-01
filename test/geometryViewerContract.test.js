@@ -30,8 +30,17 @@ test("geometry viewer builds a reactive scene in a modeless floating window", as
   assert.match(source, /Зеркала/u);
   assert.match(source, /Поверхности/u);
   assert.match(source, /Каркас/u);
+  assert.match(source, /createSignal\("orthographic"\)/u);
+  assert.match(source, /Ортогональная/u);
+  assert.match(source, /Перспективная/u);
+  assert.match(source, /projection=\{projection\(\)\}/u);
   assert.match(source, /Вписать всё/u);
   assert.match(source, /Диагностика геометрии/u);
+  assert.match(source, /recordIndex \+ 1/u);
+  assert.match(source, /diagnostic\?\.schemaId === "elements"/u);
+  assert.match(source, /diagnostic\?\.schemaId === "regions"/u);
+  assert.match(source, /DIAGNOSTIC_REASONS/u);
+  assert.match(source, /title=\{diagnosticDetail\(diagnostic\)\}/u);
   assert.match(source, /setSceneModel\(null\)/u);
   assert.match(source, /role="toolbar"/u);
 });
@@ -52,6 +61,19 @@ test("Three viewport loads lazily and releases WebGL resources", async () => {
   assert.match(source, /renderer\?\.dispose\?\.\(\)/u);
   assert.match(source, /renderer\?\.forceContextLoss\?\.\(\)/u);
   assert.match(source, /geometry\?\.dispose\?\.\(\)/u);
+});
+
+test("Three viewport switches orthographic and perspective cameras", async () => {
+  const source = await readFile(viewportUrl, "utf8");
+
+  assert.match(source, /DEFAULT_PROJECTION = "orthographic"/u);
+  assert.match(source, /new THREE\.OrthographicCamera/u);
+  assert.match(source, /new THREE\.PerspectiveCamera/u);
+  assert.match(source, /camera\.isOrthographicCamera/u);
+  assert.match(source, /controls\.object = camera/u);
+  assert.match(source, /const preservedTarget = controls\.target\.clone\(\)/u);
+  assert.match(source, /switchProjection\(projection\)/u);
+  assert.match(source, /fitCameraToBounds\(THREE, camera, controls, currentBounds\)/u);
 });
 
 test("Three viewport limits expansion and fixes reflected face winding", async () => {
@@ -81,4 +103,16 @@ test("geometry viewer canvas fills the resizable window", async () => {
   );
   assert.match(styles, /\.three-geometry-viewport\s*\{[^}]*inset:\s*0;/su);
   assert.match(styles, /\.three-geometry-viewport canvas\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;/su);
+  assert.match(
+    styles,
+    /\.geometry-viewer-filter-group\s*\{[^}]*flex:\s*1 0 auto;[^}]*justify-content:\s*center;/su,
+  );
+  assert.match(
+    styles,
+    /\.geometry-viewer-mode-group\s*\{[^}]*flex:\s*1 0 auto;/su,
+  );
+  assert.match(
+    styles,
+    /\.geometry-viewer-fit\s*\{[^}]*flex:\s*1 0 auto;/su,
+  );
 });

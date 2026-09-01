@@ -32,9 +32,33 @@ const EMPTY_RENDER_STATS = Object.freeze({
   truncated: false,
 });
 
-function diagnosticMessage(diagnostic) {
+const DIAGNOSTIC_REASONS = Object.freeze({
+  "instance-budget-exceeded": "превышен лимит образов",
+  "invalid-geometry": "некорректная или вырожденная геометрия",
+  "invalid-symmetry": "некорректное число образов симметрии",
+  "invalid-transform": "некорректное преобразование",
+  "scene-conversion-failed": "ошибка преобразования геометрии",
+  "unsupported-geometry": "неизвестный тип геометрии",
+});
+
+function diagnosticDetail(diagnostic) {
   if (typeof diagnostic === "string") return diagnostic;
   return diagnostic?.message ?? diagnostic?.code ?? String(diagnostic);
+}
+
+function diagnosticMessage(diagnostic) {
+  const message = DIAGNOSTIC_REASONS[diagnostic?.code] ??
+    diagnosticDetail(diagnostic);
+  const recordIndex = Number(diagnostic?.recordIndex);
+  const sourceLabel = diagnostic?.schemaId === "elements"
+    ? "Элемент"
+    : diagnostic?.schemaId === "regions"
+      ? "Область"
+      : "";
+
+  return sourceLabel && Number.isInteger(recordIndex) && recordIndex >= 0
+    ? `${sourceLabel} №${recordIndex + 1} — ${message}`
+    : message;
 }
 
 function diagnosticLevel(diagnostic) {
@@ -47,6 +71,7 @@ export function GeometryViewerWindow(props) {
   const [sceneError, setSceneError] = createSignal("");
   const [viewportError, setViewportError] = createSignal("");
   const [fitRequest, setFitRequest] = createSignal(0);
+  const [projection, setProjection] = createSignal("orthographic");
   const [mode, setMode] = createSignal("surfaces");
   const [showElements, setShowElements] = createSignal(true);
   const [showRegions, setShowRegions] = createSignal(true);
@@ -156,6 +181,31 @@ export function GeometryViewerWindow(props) {
           </fieldset>
 
           <div
+            class="geometry-viewer-mode-group geometry-viewer-projection-group"
+            role="group"
+            aria-label="Тип проекции"
+          >
+            <button
+              type="button"
+              classList={{ active: projection() === "orthographic" }}
+              aria-pressed={projection() === "orthographic"}
+              title="Ортогональная проекция без перспективных искажений"
+              onClick={() => setProjection("orthographic")}
+            >
+              Ортогональная
+            </button>
+            <button
+              type="button"
+              classList={{ active: projection() === "perspective" }}
+              aria-pressed={projection() === "perspective"}
+              title="Перспективная проекция"
+              onClick={() => setProjection("perspective")}
+            >
+              Перспективная
+            </button>
+          </div>
+
+          <div
             class="geometry-viewer-mode-group"
             role="group"
             aria-label="Режим представления"
@@ -195,6 +245,7 @@ export function GeometryViewerWindow(props) {
             scene={sceneModel()}
             filters={filters()}
             mode={mode()}
+            projection={projection()}
             fitRequest={fitRequest()}
             instanceBudget={GEOMETRY_INSTANCE_BUDGET}
             onRenderStats={setRenderStats}
@@ -235,7 +286,10 @@ export function GeometryViewerWindow(props) {
             <ul>
               <For each={diagnostics()}>
                 {(diagnostic) => (
-                  <li class={`is-${diagnosticLevel(diagnostic)}`}>
+                  <li
+                    class={`is-${diagnosticLevel(diagnostic)}`}
+                    title={diagnosticDetail(diagnostic)}
+                  >
                     {diagnosticMessage(diagnostic)}
                   </li>
                 )}
