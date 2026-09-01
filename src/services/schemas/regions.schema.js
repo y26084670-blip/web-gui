@@ -258,10 +258,10 @@ export default createSchema({
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
             label: "Разбиение",
-            description: "Число интервалов разбиения по двум направлениям",
+            description: "Число узлов разбиения по двум направлениям",
             default: [1, 1],
             nColumns: 1,
-            columns: ["Число интервалов"],
+            columns: ["Число узлов"],
             rowsMutable: false,
             minItems: 2,
             maxItems: 2,
@@ -270,8 +270,9 @@ export default createSchema({
             summary: arraySummary,
             items: {
                 type: FIELD_TYPES.INTEGER,
-                description: "Число интервалов разбиения",
+                description: "Число узлов разбиения",
                 default: 1,
+                minimum: 1,
             },
         },
 

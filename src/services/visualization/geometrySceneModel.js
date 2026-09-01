@@ -8,6 +8,8 @@ import {
     expandElementSymmetry,
     expandRegionSymmetry,
 } from "../solver/symmetryExpansion.js";
+import { tessellateBilinearRegionSurface }
+    from "./geometryDiscretization.js";
 import { classifyGeometryMaterial }
     from "./geometryMaterialStyle.js";
 
@@ -21,6 +23,7 @@ const REGIONS_SCHEMA_ID = "regions";
 export const GEOMETRY_RECORD_INSTANCE_LIMIT = 20_000;
 export const GEOMETRY_SCENE_INSTANCE_LIMIT = 20_000;
 const MAX_FLOAT32_COORDINATE = 3.402823466e38;
+const MAX_UINT32 = 0xffff_ffff;
 
 // BaseModel -> solver-buffer shapes. These descriptors repeat the ARRAY shape
 // contract of elements/regions schemas without importing UI schema modules into
@@ -28,6 +31,7 @@ const MAX_FLOAT32_COORDINATE = 3.402823466e38;
 const SOLVER_ARRAY_SHAPES = Object.freeze({
     geo: Object.freeze({ nColumns: 3, order: "row" }),
     dr: Object.freeze({ nColumns: 1 }),
+    dp: Object.freeze({ nColumns: 1 }),
     symVi: Object.freeze({ nColumns: 1 }),
     symR0: Object.freeze({ nColumns: 1 }),
 });
@@ -41,11 +45,6 @@ const ELEMENT_INDICES = new Uint16Array([
     4, 5, 7, 4, 7, 6, // 5-6-8-7
     0, 1, 5, 0, 5, 4, // 1-2-6-5
     2, 6, 7, 2, 7, 3, // 3-7-8-4
-]);
-
-const REGION_SURFACE_INDICES = new Uint16Array([
-    0, 1, 2,
-    0, 2, 3,
 ]);
 
 const REGION_LINE_INDICES = new Uint16Array([0, 1]);
@@ -74,9 +73,40 @@ function normalizedRecord(record) {
         ...record,
         geo: flattenProperty(record, "geo"),
         dr: flattenProperty(record, "dr"),
+        dp: flattenProperty(record, "dp"),
         symVi: flattenProperty(record, "symVi"),
         symR0: flattenProperty(record, "symR0"),
     };
+}
+
+function discretizationDescriptor(kind, value, count) {
+    if (
+        !Array.isArray(value)
+        || value.length < count
+        || !value.slice(0, count).every(item =>
+            Number.isSafeInteger(item)
+            && item >= 1
+            && item <= MAX_UINT32
+        )
+    ) {
+        return null;
+    }
+
+    return {
+        kind,
+        counts: Uint32Array.from(value.slice(0, count)),
+    };
+}
+
+function invalidDiscretizationDiagnostic(schemaId, recordIndex) {
+    return diagnostic(
+        schemaId,
+        recordIndex,
+        "dp",
+        "invalid-discretization",
+        "Слой дискретизации недоступен: значения dp должны быть "
+            + "положительными целыми числами Uint32",
+    );
 }
 
 function isFiniteVector(value, length) {
@@ -408,6 +438,12 @@ function elementPrimitive(record, recordIndex, general, remainingInstances) {
         };
     }
 
+    const discretization = discretizationDescriptor(
+        "element-cells",
+        normalized.dp,
+        3,
+    );
+
     const unpacked = unpackKvVertices(normalized.geo, normalized.geoType);
 
     if (
@@ -480,10 +516,17 @@ function elementPrimitive(record, recordIndex, general, remainingInstances) {
     }
 
     return {
+        ...(!discretization && {
+            diagnostic: invalidDiscretizationDiagnostic(
+                ELEMENTS_SCHEMA_ID,
+                recordIndex,
+            ),
+        }),
         primitive: {
             kind: "element-volume",
             materialKind: classifyGeometryMaterial(record, general),
             source: source(ELEMENTS_SCHEMA_ID, recordIndex, record),
+            ...(discretization && { discretization }),
             vertices: flattenVertices(unpacked.vertices),
             indices: new Uint16Array(ELEMENT_INDICES),
             instances,
@@ -518,8 +561,14 @@ function regionPrimitive(record, recordIndex, remainingInstances) {
         };
     }
 
-    const unpacked = unpackTkVertices(normalized.geo, normalized.geoType);
     const isLine = normalized.geoType === 2;
+    const discretization = discretizationDescriptor(
+        isLine ? "region-line" : "region-grid",
+        normalized.dp,
+        2,
+    );
+
+    const unpacked = unpackTkVertices(normalized.geo, normalized.geoType);
 
     if (
         unpacked.err !== 0
@@ -586,18 +635,31 @@ function regionPrimitive(record, recordIndex, remainingInstances) {
         };
     }
 
+    const surface = isLine
+        ? null
+        : tessellateBilinearRegionSurface(unpacked.vertices);
     const vertices = isLine
-        ? [unpacked.vertices[0], unpacked.vertices[2]]
-        : unpacked.vertices;
+        ? flattenVertices([unpacked.vertices[0], unpacked.vertices[2]])
+        : surface.vertices;
 
     return {
+        ...(!discretization && {
+            diagnostic: invalidDiscretizationDiagnostic(
+                REGIONS_SCHEMA_ID,
+                recordIndex,
+            ),
+        }),
         primitive: {
             kind: isLine ? "region-line" : "region-surface",
             source: source(REGIONS_SCHEMA_ID, recordIndex, record),
-            vertices: flattenVertices(vertices),
+            ...(discretization && { discretization }),
+            ...(!isLine && {
+                controlVertices: flattenVertices(unpacked.vertices),
+            }),
+            vertices,
             indices: isLine
                 ? new Uint16Array(REGION_LINE_INDICES)
-                : new Uint16Array(REGION_SURFACE_INDICES),
+                : surface.indices,
             instances,
         },
     };
@@ -624,6 +686,9 @@ function appendRecords({
             ) {
                 primitives.push(result.primitive);
                 onPrimitive?.(result.primitive);
+                if (result.diagnostic) {
+                    diagnostics.push(result.diagnostic);
+                }
             }
             else if (result.primitive) {
                 skipped++;

@@ -11,10 +11,20 @@ import {
   primitiveVisible,
 } from "../../services/visualization/geometryRenderFilters.js";
 import {
+  DEFAULT_DISCRETIZATION_LIMITS,
+  buildElementDiscretization,
+  buildRegionDiscretization,
+  countElementDiscretization,
+  countRegionDiscretization,
+} from "../../services/visualization/geometryDiscretization.js";
+import {
+  findPointMetadataRange,
   findVertexMetadataRange,
+  formatDiscretizationPointTooltip,
   formatGeometryTooltip,
   formatVertexTooltip,
   geometryHitInstance,
+  pointHitMetadata,
   vertexHitMetadata,
 } from "../../services/visualization/geometryPicking.js";
 import {
@@ -24,6 +34,10 @@ import {
 
 export const GEOMETRY_INSTANCE_BUDGET = 20_000;
 export const GEOMETRY_RENDER_OBJECT_BUDGET = 1_000;
+export const GEOMETRY_DISCRETIZATION_SEGMENT_BUDGET =
+  DEFAULT_DISCRETIZATION_LIMITS.lineSegments;
+export const GEOMETRY_DISCRETIZATION_POINT_BUDGET =
+  DEFAULT_DISCRETIZATION_LIMITS.points;
 
 const INSTANCE_CATEGORIES = Object.freeze(["base", "copy", "mirror"]);
 const DEFAULT_PROJECTION = "orthographic";
@@ -32,6 +46,7 @@ const CAMERA_FRAME_PADDING = 1.25;
 const AXES_GIZMO_SIZE = 104;
 const AXES_GIZMO_MARGIN = 8;
 const VERTEX_POINT_SIZE = 9;
+const DISCRETIZATION_POINT_SIZE = 8;
 const PICK_INTERVAL_MS = 80;
 
 function normalizeProjection(value) {
@@ -163,7 +178,45 @@ function mergedGeometry(THREE, primitive, instances) {
   return geometry;
 }
 
-function mergedWireframeGeometry(THREE, primitive, instances) {
+function mergedRegionBoundaryGeometry(THREE, primitive, instances) {
+  const vertices = primitive.controlVertices;
+  if (!vertices || vertices.length !== 12) return null;
+
+  const order = [0, 1, 1, 2, 2, 3, 3, 0];
+  const sourcePositions = new Float64Array(order.length * 3);
+  for (let index = 0; index < order.length; index += 1) {
+    const sourceOffset = order[index] * 3;
+    const targetOffset = index * 3;
+    sourcePositions[targetOffset] = vertices[sourceOffset];
+    sourcePositions[targetOffset + 1] = vertices[sourceOffset + 1];
+    sourcePositions[targetOffset + 2] = vertices[sourceOffset + 2];
+  }
+
+  const positions = [];
+  appendTransformedPositions(
+    THREE,
+    sourcePositions,
+    instances,
+    positions,
+  );
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(positions), 3),
+  );
+  return { geometry, vertexSpan: order.length };
+}
+
+function mergedWireframeGeometry(
+  THREE,
+  primitive,
+  instances,
+  boundaryOnly = false,
+) {
+  if (boundaryOnly && primitive.kind === "region-surface") {
+    return mergedRegionBoundaryGeometry(THREE, primitive, instances);
+  }
+
   const sourceVertices = primitive.vertices ?? [];
   const sourceIndices = primitive.indices ?? [];
   if (sourceVertices.length === 0 || sourceIndices.length === 0) return null;
@@ -215,7 +268,12 @@ function appendSurfaceEdges(
   style,
   mode,
 ) {
-  const wireframe = mergedWireframeGeometry(THREE, primitive, instances);
+  const wireframe = mergedWireframeGeometry(
+    THREE,
+    primitive,
+    instances,
+    true,
+  );
   if (!wireframe) return;
 
   const translucent = mode === "translucent";
@@ -264,7 +322,12 @@ function renderableFor(
     pickKind = "lines";
     pickSpan = primitive.indices?.length ?? 0;
   } else if (mode === "wireframe") {
-    const wireframe = mergedWireframeGeometry(THREE, primitive, instances);
+    const wireframe = mergedWireframeGeometry(
+      THREE,
+      primitive,
+      instances,
+      true,
+    );
     if (!wireframe) return null;
     object = new THREE.LineSegments(
       wireframe.geometry,
@@ -319,12 +382,13 @@ function renderableFor(
     },
     primitiveKind: primitive.kind,
     source: primitive.source,
+    surfaceEdgesShown: showSurfaceEdges,
   };
   return object;
 }
 
 function appendVertexBatch(THREE, primitive, instances, positions, ranges) {
-  const sourceVertices = primitive.vertices ?? [];
+  const sourceVertices = primitive.controlVertices ?? primitive.vertices ?? [];
   const sourceVertexCount = Math.floor(sourceVertices.length / 3);
   if (sourceVertexCount === 0) return;
 
@@ -375,6 +439,160 @@ function createVertexPoints(THREE, positions) {
   );
   points.name = "geometry-vertices";
   points.renderOrder = 20;
+  return points;
+}
+
+function discretizationMetrics(primitive) {
+  const descriptor = primitive?.discretization;
+  const counts = descriptor?.counts;
+
+  if (descriptor?.kind === "element-cells") {
+    return countElementDiscretization(counts);
+  }
+  if (
+    descriptor?.kind === "region-grid" ||
+    descriptor?.kind === "region-line"
+  ) {
+    return countRegionDiscretization(counts, {
+      isLine: descriptor.kind === "region-line",
+    });
+  }
+  return null;
+}
+
+function buildDiscretizationLayer(primitive, layer, limit) {
+  const descriptor = primitive?.discretization;
+  const vertices = primitive?.controlVertices ?? primitive?.vertices;
+  const options = {
+    includeLines: layer === "lines",
+    includePoints: layer === "points",
+    limits: {
+      lineSegments: layer === "lines" ? limit : 0,
+      points: layer === "points" ? limit : 0,
+    },
+  };
+
+  if (descriptor?.kind === "element-cells") {
+    return buildElementDiscretization(
+      vertices,
+      descriptor.counts,
+      options,
+    );
+  }
+  if (
+    descriptor?.kind === "region-grid" ||
+    descriptor?.kind === "region-line"
+  ) {
+    return buildRegionDiscretization(
+      vertices,
+      descriptor.counts,
+      {
+        ...options,
+        isLine: descriptor.kind === "region-line",
+      },
+    );
+  }
+  return null;
+}
+
+function appendTransformedPositions(
+  THREE,
+  sourcePositions,
+  instances,
+  targetPositions,
+) {
+  const sourcePointCount = Math.floor((sourcePositions?.length ?? 0) / 3);
+  if (sourcePointCount === 0 || sourcePositions.length % 3 !== 0) return;
+
+  const matrix = new THREE.Matrix4();
+  const point = new THREE.Vector3();
+  for (const instance of instances) {
+    matrix.fromArray(instance.matrix);
+    for (let index = 0; index < sourcePointCount; index += 1) {
+      const offset = index * 3;
+      point.set(
+        sourcePositions[offset],
+        sourcePositions[offset + 1],
+        sourcePositions[offset + 2],
+      ).applyMatrix4(matrix);
+      targetPositions.push(point.x, point.y, point.z);
+    }
+  }
+}
+
+function appendDiscretizationPointBatch(
+  THREE,
+  primitive,
+  instances,
+  sourcePositions,
+  positions,
+  ranges,
+) {
+  const sourcePointCount = Math.floor(sourcePositions.length / 3);
+  if (sourcePointCount === 0) return;
+
+  const start = positions.length / 3;
+  appendTransformedPositions(
+    THREE,
+    sourcePositions,
+    instances,
+    positions,
+  );
+  ranges.push({
+    end: positions.length / 3,
+    grid: primitive.discretization,
+    instances,
+    source: primitive.source,
+    sourcePointCount,
+    start,
+  });
+}
+
+function createDiscretizationLines(THREE, positions) {
+  if (positions.length === 0) return null;
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(positions), 3),
+  );
+  geometry.computeBoundingSphere();
+  const lines = new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({
+      color: 0x72d5ff,
+      depthTest: true,
+      depthWrite: false,
+      opacity: 0.92,
+      transparent: true,
+    }),
+  );
+  lines.name = "geometry-discretization-lines";
+  lines.renderOrder = 12;
+  return lines;
+}
+
+function createDiscretizationPoints(THREE, positions) {
+  if (positions.length === 0) return null;
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(positions), 3),
+  );
+  geometry.computeBoundingSphere();
+  const points = new THREE.Points(
+    geometry,
+    new THREE.PointsMaterial({
+      color: 0xffcf59,
+      depthTest: true,
+      depthWrite: false,
+      size: DISCRETIZATION_POINT_SIZE,
+      sizeAttenuation: false,
+    }),
+  );
+  points.name = "geometry-discretization-points";
+  points.renderOrder = 21;
   return points;
 }
 
@@ -565,8 +783,16 @@ export function ThreeGeometryViewport(props) {
   let geometryRoot;
   let helperRoot;
   let vertexPoints;
+  let vertexWorldPositions = new Float64Array(0);
   let vertexBatches = [];
   let vertexRanges = [];
+  let discretizationLines;
+  let discretizationPoints;
+  let discretizationPointRanges = [];
+  let discretizationWorldPositions = new Float64Array(0);
+  let discretizationBatches = [];
+  let discretizationLineCache = new Map();
+  let discretizationPointCache = new Map();
   let geometryPickTargets = [];
   let currentBounds;
   let resizeObserver;
@@ -584,6 +810,26 @@ export function ThreeGeometryViewport(props) {
   let viewportWidth = 1;
   let viewportHeight = 1;
   let verticesVisible = false;
+  let discretizationLinesVisible = false;
+  let discretizationPointsVisible = false;
+  let discretizationLinesMaterialized = false;
+  let discretizationPointsMaterialized = false;
+  let activeRenderMode = "solid";
+  let baseRenderStats = {
+    budget: GEOMETRY_INSTANCE_BUDGET,
+    invalidInstances: 0,
+    objectBudget: GEOMETRY_RENDER_OBJECT_BUDGET,
+    renderedInstances: 0,
+    renderedPrimitives: 0,
+    selectedInstances: 0,
+    truncated: false,
+  };
+  let discretizationStats = {
+    lineSegments: 0,
+    linesTruncated: false,
+    points: 0,
+    pointsTruncated: false,
+  };
   let controlsInteracting = false;
   let contextLost = false;
   let disposed = false;
@@ -601,6 +847,23 @@ export function ThreeGeometryViewport(props) {
     const message = value instanceof Error ? value.message : String(value);
     setError(message);
     props.onError?.(message);
+  };
+
+  const publishRenderStats = () => {
+    const linesTruncated = discretizationLinesVisible &&
+      discretizationStats.linesTruncated;
+    const pointsTruncated = discretizationPointsVisible &&
+      discretizationStats.pointsTruncated;
+    props.onRenderStats?.({
+      ...baseRenderStats,
+      discretizationLineSegments: discretizationLinesVisible
+        ? discretizationStats.lineSegments
+        : 0,
+      discretizationPoints: discretizationPointsVisible
+        ? discretizationStats.points
+        : 0,
+      discretizationTruncated: linesTruncated || pointsTruncated,
+    });
   };
 
   const requestRender = () => {
@@ -674,17 +937,17 @@ export function ThreeGeometryViewport(props) {
     ),
   );
 
-  const pointCoordinates = (globalIndex) => {
-    const attribute = vertexPoints?.geometry?.getAttribute?.("position");
-    if (!attribute || globalIndex < 0 || globalIndex >= attribute.count) {
+  const float64PointCoordinates = (positions, globalIndex) => {
+    const offset = globalIndex * 3;
+    if (
+      !Number.isSafeInteger(globalIndex) ||
+      globalIndex < 0 ||
+      offset + 2 >= positions.length
+    ) {
       return null;
     }
 
-    return [
-      attribute.getX(globalIndex),
-      attribute.getY(globalIndex),
-      attribute.getZ(globalIndex),
-    ];
+    return positions.subarray(offset, offset + 3);
   };
 
   const showTooltip = (text, x, y) => {
@@ -747,20 +1010,58 @@ export function ThreeGeometryViewport(props) {
       geometryPickTargets,
       false,
     )[0] ?? null;
+    const discretizationHit =
+      discretizationPointsVisible && discretizationPoints
+        ? raycaster.intersectObject(discretizationPoints, false)[0] ?? null
+        : null;
     const vertexHit = verticesVisible && vertexPoints
       ? raycaster.intersectObject(vertexPoints, false)[0] ?? null
       : null;
+    const pointIsVisible = (hit) =>
+      activeRenderMode !== "solid" ||
+      !geometryHit ||
+      hit.distance <= geometryHit.distance + unitsPerPixel * 9;
+
+    if (
+      discretizationHit &&
+      Number.isSafeInteger(discretizationHit.index) &&
+      pointIsVisible(discretizationHit)
+    ) {
+      const range = findPointMetadataRange(
+        discretizationPointRanges,
+        discretizationHit.index,
+      );
+      const coordinates = float64PointCoordinates(
+        discretizationWorldPositions,
+        discretizationHit.index,
+      );
+      if (range && coordinates) {
+        const metadata = pointHitMetadata(range, discretizationHit.index);
+        if (metadata) {
+          showTooltip(
+            formatDiscretizationPointTooltip(
+              range.source,
+              metadata,
+              coordinates,
+            ),
+            x,
+            y,
+          );
+          return;
+        }
+      }
+    }
 
     if (
       vertexHit &&
       Number.isSafeInteger(vertexHit.index) &&
-      (
-        !geometryHit ||
-        vertexHit.distance <= geometryHit.distance + unitsPerPixel * 9
-      )
+      pointIsVisible(vertexHit)
     ) {
       const range = findVertexMetadataRange(vertexRanges, vertexHit.index);
-      const coordinates = pointCoordinates(vertexHit.index);
+      const coordinates = float64PointCoordinates(
+        vertexWorldPositions,
+        vertexHit.index,
+      );
       if (range && coordinates) {
         const metadata = vertexHitMetadata(range, vertexHit.index);
         if (metadata) {
@@ -838,11 +1139,175 @@ export function ThreeGeometryViewport(props) {
       );
     }
 
+    vertexWorldPositions = new Float64Array(positions);
     vertexPoints = createVertexPoints(THREE, positions);
     if (vertexPoints) {
       vertexPoints.visible = verticesVisible;
       helperRoot.add(vertexPoints);
     }
+  };
+
+  const updateSurfacePolygonOffset = () => {
+    const helperLinesShown = discretizationLinesVisible &&
+      Boolean(discretizationLines);
+    const helperPointsShown = discretizationPointsVisible &&
+      Boolean(discretizationPoints);
+    geometryRoot?.traverse?.((object) => {
+      if (!object?.isMesh) return;
+      const enabled = object.userData?.surfaceEdgesShown === true ||
+        helperLinesShown || helperPointsShown;
+      const materials = Array.isArray(object.material)
+        ? object.material
+        : [object.material];
+      for (const material of materials) {
+        if (!material) continue;
+        material.polygonOffset = enabled;
+        material.polygonOffsetFactor = enabled ? 1 : 0;
+        material.polygonOffsetUnits = enabled ? 1 : 0;
+      }
+    });
+  };
+
+  const layerInstanceCount = (instances, cost, remaining) => {
+    if (!Number.isSafeInteger(cost) || cost < 0) return 0;
+    if (cost === 0) return instances.length;
+    return Math.min(instances.length, Math.floor(remaining / cost));
+  };
+
+  const materializeDiscretizationLines = () => {
+    if (
+      !THREE ||
+      !helperRoot ||
+      discretizationLinesMaterialized
+    ) {
+      return;
+    }
+    discretizationLinesMaterialized = true;
+
+    const budget = Math.max(
+      0,
+      Math.floor(
+        props.discretizationSegmentBudget ??
+        GEOMETRY_DISCRETIZATION_SEGMENT_BUDGET,
+      ),
+    );
+    const positions = [];
+    let remaining = budget;
+    let truncated = false;
+
+    for (const batch of discretizationBatches) {
+      const metrics = discretizationMetrics(batch.primitive);
+      const cost = metrics?.lineSegments;
+      const acceptedCount = layerInstanceCount(
+        batch.instances,
+        cost,
+        remaining,
+      );
+      if (acceptedCount < batch.instances.length) truncated = true;
+      if (acceptedCount === 0 || cost === 0) continue;
+
+      let built = discretizationLineCache.get(batch.primitive);
+      if (!built) {
+        built = buildDiscretizationLayer(
+          batch.primitive,
+          "lines",
+          cost,
+        );
+        discretizationLineCache.set(batch.primitive, built);
+      }
+      if (!built?.ok) {
+        truncated = true;
+        continue;
+      }
+
+      appendTransformedPositions(
+        THREE,
+        built.lines,
+        batch.instances.slice(0, acceptedCount),
+        positions,
+      );
+      remaining -= cost * acceptedCount;
+    }
+
+    discretizationLines = createDiscretizationLines(THREE, positions);
+    if (discretizationLines) {
+      discretizationLines.visible = discretizationLinesVisible;
+      helperRoot.add(discretizationLines);
+    }
+    discretizationStats.lineSegments = positions.length / 6;
+    discretizationStats.linesTruncated = truncated;
+    updateSurfacePolygonOffset();
+    publishRenderStats();
+  };
+
+  const materializeDiscretizationPoints = () => {
+    if (
+      !THREE ||
+      !helperRoot ||
+      discretizationPointsMaterialized
+    ) {
+      return;
+    }
+    discretizationPointsMaterialized = true;
+
+    const budget = Math.max(
+      0,
+      Math.floor(
+        props.discretizationPointBudget ??
+        GEOMETRY_DISCRETIZATION_POINT_BUDGET,
+      ),
+    );
+    const positions = [];
+    discretizationPointRanges = [];
+    let remaining = budget;
+    let truncated = false;
+
+    for (const batch of discretizationBatches) {
+      const metrics = discretizationMetrics(batch.primitive);
+      const cost = metrics?.points;
+      const acceptedCount = layerInstanceCount(
+        batch.instances,
+        cost,
+        remaining,
+      );
+      if (acceptedCount < batch.instances.length) truncated = true;
+      if (acceptedCount === 0 || cost === 0) continue;
+
+      let built = discretizationPointCache.get(batch.primitive);
+      if (!built) {
+        built = buildDiscretizationLayer(
+          batch.primitive,
+          "points",
+          cost,
+        );
+        discretizationPointCache.set(batch.primitive, built);
+      }
+      if (!built?.ok) {
+        truncated = true;
+        continue;
+      }
+
+      appendDiscretizationPointBatch(
+        THREE,
+        batch.primitive,
+        batch.instances.slice(0, acceptedCount),
+        built.points,
+        positions,
+        discretizationPointRanges,
+      );
+      remaining -= cost * acceptedCount;
+    }
+
+    discretizationWorldPositions = new Float64Array(positions);
+    discretizationPoints = createDiscretizationPoints(THREE, positions);
+    if (discretizationPoints) {
+      discretizationPoints.visible = discretizationPointsVisible;
+      helperRoot.add(discretizationPoints);
+    }
+    discretizationStats.points = positions.length / 3;
+    discretizationStats.pointsTruncated = truncated;
+    updateSurfacePolygonOffset();
+    publishRenderStats();
   };
 
   const switchProjection = (value) => {
@@ -883,6 +1348,7 @@ export function ThreeGeometryViewport(props) {
 
   const replaceGeometry = (sceneModel, filters, mode, showEdges) => {
     if (!ready() || !THREE || !threeScene) return;
+    activeRenderMode = mode;
 
     if (geometryRoot) {
       threeScene.remove(geometryRoot);
@@ -902,6 +1368,22 @@ export function ThreeGeometryViewport(props) {
     vertexBatches = [];
     vertexRanges = [];
     vertexPoints = null;
+    vertexWorldPositions = new Float64Array(0);
+    discretizationBatches = [];
+    discretizationLines = null;
+    discretizationPoints = null;
+    discretizationPointRanges = [];
+    discretizationWorldPositions = new Float64Array(0);
+    discretizationLineCache = new Map();
+    discretizationPointCache = new Map();
+    discretizationLinesMaterialized = false;
+    discretizationPointsMaterialized = false;
+    discretizationStats = {
+      lineSegments: 0,
+      linesTruncated: false,
+      points: 0,
+      pointsTruncated: false,
+    };
     clearHoverTooltip();
 
     const budget = Math.max(
@@ -963,13 +1445,14 @@ export function ThreeGeometryViewport(props) {
         geometryRoot.add(object);
         geometryPickTargets.push(object);
         vertexBatches.push({ instances: accepted, primitive });
+        if (primitive.discretization) {
+          discretizationBatches.push({ instances: accepted, primitive });
+        }
         renderedPrimitives += objectCost;
         renderedInstances += accepted.length;
         remaining -= accepted.length;
       }
     }
-
-    if (verticesVisible) materializeVertexPoints();
 
     currentBounds = new THREE.Box3().setFromObject(geometryRoot);
     if (!currentBounds.isEmpty()) {
@@ -982,7 +1465,7 @@ export function ThreeGeometryViewport(props) {
     }
 
     const truncated = selectedInstances - invalidInstances > renderedInstances;
-    const stats = {
+    baseRenderStats = {
       budget,
       objectBudget,
       invalidInstances,
@@ -992,7 +1475,10 @@ export function ThreeGeometryViewport(props) {
       truncated,
     };
     setRenderedCount(renderedInstances);
-    props.onRenderStats?.(stats);
+    if (verticesVisible) materializeVertexPoints();
+    if (discretizationLinesVisible) materializeDiscretizationLines();
+    if (discretizationPointsVisible) materializeDiscretizationPoints();
+    publishRenderStats();
     if (!contextLost) {
       setError("");
       props.onError?.("");
@@ -1103,6 +1589,42 @@ export function ThreeGeometryViewport(props) {
     if (verticesVisible && !vertexPoints) materializeVertexPoints();
     if (vertexPoints) vertexPoints.visible = verticesVisible;
     clearHoverTooltip();
+    requestRender();
+  });
+
+  createEffect(() => {
+    discretizationLinesVisible = props.showDiscretizationLines === true;
+    if (!ready()) return;
+    if (
+      discretizationLinesVisible &&
+      !discretizationLinesMaterialized
+    ) {
+      materializeDiscretizationLines();
+    }
+    if (discretizationLines) {
+      discretizationLines.visible = discretizationLinesVisible;
+    }
+    updateSurfacePolygonOffset();
+    clearHoverTooltip();
+    publishRenderStats();
+    requestRender();
+  });
+
+  createEffect(() => {
+    discretizationPointsVisible = props.showCentersAndNodes === true;
+    if (!ready()) return;
+    if (
+      discretizationPointsVisible &&
+      !discretizationPointsMaterialized
+    ) {
+      materializeDiscretizationPoints();
+    }
+    if (discretizationPoints) {
+      discretizationPoints.visible = discretizationPointsVisible;
+    }
+    updateSurfacePolygonOffset();
+    clearHoverTooltip();
+    publishRenderStats();
     requestRender();
   });
 

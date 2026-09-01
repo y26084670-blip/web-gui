@@ -59,6 +59,75 @@
     cursor: default;
 }
 
+.about-button {
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid #77808a;
+    border-radius: 50%;
+    color: #17202a;
+    background: #dce7f3;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 24px;
+    cursor: pointer;
+}
+
+.about-button:hover,
+.about-button:focus-visible {
+    border-color: #466c91;
+    background: #bcd4ea;
+}
+
+.about-dialog {
+    width: min(520px, calc(100vw - 48px));
+    margin: auto;
+    padding: 22px;
+    border: 1px solid #77808a;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+    background: white;
+    color: #17202a;
+}
+
+.about-dialog[open] {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.about-dialog::backdrop {
+    background: rgba(0, 0, 0, .42);
+}
+
+.about-title {
+    margin: 0;
+    font-size: 20px;
+}
+
+.about-description {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    text-align: center;
+}
+
+.about-credits {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.about-close-button {
+    padding: 4px 16px;
+    cursor: pointer;
+}
+
 /* Модальное окно панели задания. */
 .modal-backdrop {
     position: fixed;

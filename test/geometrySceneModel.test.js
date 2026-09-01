@@ -28,6 +28,7 @@ function element(overrides = {}) {
         geoType: 2,
         geo: geometryRows([2, 3, 4], 8),
         dr: vector([0, 0, 0]),
+        dp: vector([2, 3, 4]),
         symVi: vector([0, 0, 0]),
         symR0: vector([0, 0, 0]),
         symYl: 0,
@@ -48,6 +49,7 @@ function region(overrides = {}) {
         geoType: 2,
         geo: geometryRows([1, 2, 3, 4, 5, 6], 4),
         dr: vector([0, 0, 0]),
+        dp: vector([1, 5]),
         symVi: vector([0, 0, 0]),
         symR0: vector([0, 0, 0]),
         symYl: 0,
@@ -87,6 +89,11 @@ test("scene converts BaseModel arrays and preserves solver face topology", () =>
         recordIndex: 0,
         name: "KV 1",
     });
+    assert.equal(volume.discretization.counts instanceof Uint32Array, true);
+    assert.deepEqual(volume.discretization, {
+        kind: "element-cells",
+        counts: new Uint32Array([2, 3, 4]),
+    });
     assert.equal(volume.vertices instanceof Float64Array, true);
     assert.deepEqual(plain(volume.vertices), [
         0, 3, 0,
@@ -114,6 +121,10 @@ test("scene converts BaseModel arrays and preserves solver face topology", () =>
         schemaId: "regions",
         recordIndex: 0,
         name: "TK 1",
+    });
+    assert.deepEqual(line.discretization, {
+        kind: "region-line",
+        counts: new Uint32Array([1, 5]),
     });
     assert.deepEqual(plain(line.vertices), [1, 2, 3, 4, 5, 6]);
     assert.deepEqual(plain(line.indices), [0, 1]);
@@ -208,7 +219,7 @@ test("general mirrors apply only to elements; regions use local copies", () => {
     });
 });
 
-test("surface regions use a two-triangle quad without dp expansion", () => {
+test("surface regions use bilinear tessellation and compact dp metadata", () => {
     const scene = buildGeometryScene({
         regions: [region({
             geoType: 3,
@@ -220,15 +231,89 @@ test("surface regions use a two-triangle quad without dp expansion", () => {
     const [surface] = scene.primitives;
 
     assert.equal(surface.kind, "region-surface");
-    assert.deepEqual(plain(surface.vertices), [
+    assert.deepEqual(surface.discretization, {
+        kind: "region-grid",
+        counts: new Uint32Array([20, 30]),
+    });
+    assert.equal(surface.vertices instanceof Float64Array, true);
+    assert.equal(surface.indices instanceof Uint32Array, true);
+    assert.deepEqual(plain(surface.controlVertices), [
         0, 0, 0,
         0, 0, 3,
         0, 2, 3,
         0, 2, 0,
     ]);
-    assert.deepEqual(plain(surface.indices), [0, 1, 2, 0, 2, 3]);
+    assert.equal(surface.vertices.length > 4 * 3, true);
+    assert.equal(surface.indices.length > 2 * 3, true);
+    assert.deepEqual(plain(surface.vertices.slice(0, 3)), [0, 0, 0]);
+    assert.deepEqual(plain(surface.vertices.slice(-3)), [0, 2, 3]);
     assert.equal(surface.instances.length, 3);
-    assert.equal(scene.counts.triangles, 6);
+    assert.equal(
+        scene.counts.triangles,
+        surface.indices.length / 3 * surface.instances.length,
+    );
+});
+
+test("non-planar region quads retain their bilinear surface", () => {
+    const scene = buildGeometryScene({
+        regions: [region({
+            geoType: 0,
+            geo: [
+                [0, 0, 0],
+                [1, 0, 0],
+                [1, 1, 1],
+                [0, 1, 0],
+            ],
+            dp: vector([3, 4]),
+        })],
+    });
+    const [surface] = scene.primitives;
+    const points = Array.from(
+        { length: surface.vertices.length / 3 },
+        (_, index) => plain(surface.vertices.slice(index * 3, index * 3 + 3)),
+    );
+
+    assert.equal(points.some(point =>
+        point[0] > 0
+        && point[0] < 1
+        && point[1] > 0
+        && point[1] < 1
+        && point[2] > 0
+        && point[2] < 1
+    ), true);
+});
+
+test("invalid discretization hides only its overlay, not base geometry", () => {
+    const scene = buildGeometryScene({
+        elements: [
+            element({ dp: vector([1.5, 2, 3]) }),
+            element({ dp: vector([1, 2, 0x1_0000_0000]) }),
+            element({ dp: vector([0, 0, 0]) }),
+        ],
+        regions: [
+            region({ dp: vector([0, 2]) }),
+            region({ dp: vector([1, Number.NaN]) }),
+        ],
+    });
+
+    assert.equal(scene.primitives.length, 5);
+    assert.equal(
+        scene.primitives.every(item => !Object.hasOwn(item, "discretization")),
+        true,
+    );
+    assert.equal(scene.counts.elements, 3);
+    assert.equal(scene.counts.regions, 2);
+    assert.equal(scene.counts.skipped, 0);
+    assert.deepEqual(
+        scene.diagnostics.map(item => [item.property, item.code]),
+        [
+            ["dp", "invalid-discretization"],
+            ["dp", "invalid-discretization"],
+            ["dp", "invalid-discretization"],
+            ["dp", "invalid-discretization"],
+            ["dp", "invalid-discretization"],
+        ],
+    );
 });
 
 test("bad records are skipped with diagnostics instead of throwing", () => {

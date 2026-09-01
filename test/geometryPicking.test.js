@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    findPointMetadataRange,
     findVertexMetadataRange,
+    formatDiscretizationPointTooltip,
     formatGeometryTooltip,
     formatSymmetryInstance,
     formatVertexTooltip,
     geometryHitInstance,
+    pointHitMetadata,
     vertexHitMetadata,
 } from "../src/services/visualization/geometryPicking.js";
 
@@ -142,6 +145,155 @@ test("vertex metadata resolves both image and source vertex", () => {
     assert.equal(vertexHitMetadata(null, 20), null);
 });
 
+test("element point metadata resolves instances and D3-fastest cell indices", () => {
+    const instances = [{ as: 0 }, { as: 1 }];
+    const range = {
+        start: 10,
+        end: 34,
+        sourcePointCount: 12,
+        instances,
+        grid: { kind: "element-cells", counts: [2, 2, 3] },
+    };
+
+    assert.deepEqual(pointHitMetadata(range, 10), {
+        instance: instances[0],
+        pointIndex: 0,
+        gridKind: "element-cells",
+        d1Index: 0,
+        d2Index: 0,
+        d3Index: 0,
+    });
+    assert.deepEqual(pointHitMetadata(range, 21), {
+        instance: instances[0],
+        pointIndex: 11,
+        gridKind: "element-cells",
+        d1Index: 1,
+        d2Index: 1,
+        d3Index: 2,
+    });
+    assert.deepEqual(pointHitMetadata(range, 27), {
+        instance: instances[1],
+        pointIndex: 5,
+        gridKind: "element-cells",
+        d1Index: 0,
+        d2Index: 1,
+        d3Index: 2,
+    });
+    assert.equal(pointHitMetadata(range, 34), null);
+});
+
+test("region point metadata uses D2-fastest ordering", () => {
+    const instance = { ls: 0 };
+    const range = {
+        start: 4,
+        end: 10,
+        sourcePointCount: 6,
+        instances: [instance],
+        grid: { kind: "region-grid", counts: new Uint16Array([2, 3]) },
+    };
+
+    assert.deepEqual(pointHitMetadata(range, 8), {
+        instance,
+        pointIndex: 4,
+        gridKind: "region-grid",
+        d1Index: 1,
+        d2Index: 1,
+    });
+});
+
+test("line region point metadata keeps unique D2 nodes and collapsed D1 range", () => {
+    const instances = [{ ps: 0 }, { ps: 1 }];
+    const range = {
+        start: 6,
+        end: 12,
+        sourcePointCount: 3,
+        instances,
+        grid: { kind: "region-line", counts: [4, 3] },
+    };
+
+    assert.deepEqual(pointHitMetadata(range, 11), {
+        instance: instances[1],
+        pointIndex: 2,
+        gridKind: "region-line",
+        d2Index: 2,
+        collapsedD1Count: 4,
+    });
+});
+
+test("point metadata rejects inconsistent grids and ranges", () => {
+    const base = {
+        start: 0,
+        end: 6,
+        sourcePointCount: 6,
+        instances: [{}],
+    };
+
+    assert.equal(pointHitMetadata(null, 0), null);
+    assert.equal(pointHitMetadata(base, 0), null);
+    assert.equal(pointHitMetadata({
+        ...base,
+        grid: { kind: "element-cells", counts: [2, 2, 2] },
+    }, 0), null);
+    assert.equal(pointHitMetadata({
+        ...base,
+        grid: { kind: "region-grid", counts: [2, 0] },
+    }, 0), null);
+    assert.equal(pointHitMetadata({
+        ...base,
+        grid: { kind: "region-line", counts: [2, 5] },
+    }, 0), null);
+});
+
+test("discretization point tooltip formats element centers and symmetry", () => {
+    assert.equal(
+        formatDiscretizationPointTooltip(
+            { schemaId: "elements", recordIndex: 3 },
+            {
+                instance: { as: 1, mirrorX: 1 },
+                pointIndex: 8,
+                gridKind: "element-cells",
+                d1Index: 1,
+                d2Index: 0,
+                d3Index: 2,
+            },
+            new Float64Array([1.23456789, -0, 0.000000012345]),
+        ),
+        "Элемент №4 [AS=2 EX], центр ЭО (D1=2; D2=1; D3=3) — "
+            + "X=1.234568; Y=0; Z=1.2345e-8",
+    );
+});
+
+test("discretization point tooltip formats region and line nodes", () => {
+    assert.equal(
+        formatDiscretizationPointTooltip(
+            { schemaId: "regions", recordIndex: 1 },
+            {
+                instance: { ls: 1 },
+                pointIndex: 2,
+                gridKind: "region-line",
+                d2Index: 2,
+                collapsedD1Count: 4,
+            },
+            new Float64Array([1, 2, 3]),
+        ),
+        "Область №2 [LS=2], узел (D1=1…4; D2=3) — X=1; Y=2; Z=3",
+    );
+    assert.equal(
+        formatDiscretizationPointTooltip(
+            { schemaId: "regions", recordIndex: 0 },
+            {
+                instance: {},
+                pointIndex: 0,
+                gridKind: "region-line",
+                d2Index: 0,
+                collapsedD1Count: 1,
+            },
+            [Number.NaN, Number.POSITIVE_INFINITY, -9.87654e-15],
+        ),
+        "Область №1, узел (D1=1; D2=1) — X=—; Y=—; Z=-9.87654e-15",
+    );
+});
+
 test("metadata range lookup uses half-open boundaries", () => {
     const ranges = [
         { start: 0, end: 8, source: "first" },
@@ -157,6 +309,7 @@ test("metadata range lookup uses half-open boundaries", () => {
     assert.equal(findVertexMetadataRange(ranges, 19), null);
     assert.equal(findVertexMetadataRange(ranges, 20), ranges[2]);
     assert.equal(findVertexMetadataRange(ranges, 24), null);
+    assert.equal(findPointMetadataRange(ranges, 8), ranges[1]);
 });
 
 test("metadata range lookup rejects invalid input", () => {

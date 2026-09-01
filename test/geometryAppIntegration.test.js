@@ -33,3 +33,24 @@ test("task bar opens geometry viewer only for a loaded task", async () => {
     assert.match(source, /aria-pressed=\{props\.geometryViewerOpen\}/u);
     assert.match(source, /Закрыть 3D-просмотр геометрии/u);
 });
+
+test("task bar exposes an always available modal about dialog", async () => {
+    const source = await readFile(taskInfoBarUrl, "utf8");
+    const aboutButton = source.match(
+        /<button\s+ref=\{\(el\) => \(aboutButton = el\)\}[\s\S]*?<\/button>/u,
+    )?.[0] ?? "";
+
+    assert.match(source, /const \[aboutOpen, setAboutOpen\] = createSignal\(false\)/u);
+    assert.match(aboutButton, /class="about-button"/u);
+    assert.match(aboutButton, /title="О программе"/u);
+    assert.match(aboutButton, /aria-label="О программе"/u);
+    assert.match(aboutButton, /onClick=\{\(\) => setAboutOpen\(true\)\}/u);
+    assert.doesNotMatch(aboutButton, /disabled/u);
+    assert.match(source, /class="about-dialog"/u);
+    assert.match(source, /aboutDialog\.showModal\(\)/u);
+    assert.match(source, /aboutButton\?\.focus\(\)/u);
+    assert.match(source, /onClick=\{\(\) => setAboutOpen\(false\)\}/u);
+    assert.match(source, /Программа предназначена для подготовки, проверки и сохранения/u);
+    assert.match(source, /Разработчик: ChatGPT 5\.6 Sol/u);
+    assert.match(source, /Куратор: Кулаев Ю\./u);
+});

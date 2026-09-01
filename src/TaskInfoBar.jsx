@@ -10,9 +10,13 @@ import "./TaskInfoBar.css";
 
 export function TaskInfoBar(props) {
   const [browseNotice, setBrowseNotice] = createSignal("");
+  const [aboutOpen, setAboutOpen] = createSignal(false);
 
   let noticeDialog;
   let noticeButton;
+  let aboutDialog;
+  let aboutButton;
+  let aboutCloseButton;
 
   const displayPath = () =>
     props.path ?? "Задание для редактирования не загружено";
@@ -28,6 +32,18 @@ export function TaskInfoBar(props) {
       }
     } else if (noticeDialog.open) {
       noticeDialog.close();
+    }
+  });
+
+  createEffect(() => {
+    if (!aboutDialog) return;
+    if (aboutOpen()) {
+      if (!aboutDialog.open) {
+        aboutDialog.showModal();
+        aboutCloseButton?.focus();
+      }
+    } else if (aboutDialog.open) {
+      aboutDialog.close();
     }
   });
 
@@ -138,6 +154,17 @@ export function TaskInfoBar(props) {
         >
           💾
         </button>
+
+        <button
+          ref={(el) => (aboutButton = el)}
+          class="about-button"
+          onClick={() => setAboutOpen(true)}
+          title="О программе"
+          aria-label="О программе"
+          aria-haspopup="dialog"
+        >
+          ?
+        </button>
       </div>
 
       <dialog
@@ -150,6 +177,34 @@ export function TaskInfoBar(props) {
           class="validate-button"
           ref={(el) => (noticeButton = el)}
           onClick={() => setBrowseNotice("")}
+        >
+          Закрыть
+        </button>
+      </dialog>
+
+      <dialog
+        class="about-dialog"
+        ref={(el) => (aboutDialog = el)}
+        aria-labelledby="about-dialog-title"
+        onClose={() => {
+          setAboutOpen(false);
+          aboutButton?.focus();
+        }}
+      >
+        <h2 id="about-dialog-title" class="about-title">О программе</h2>
+        <p class="about-description">
+          Программа предназначена для подготовки, проверки и сохранения
+          исходных данных расчётных задач Clark, включая геометрию, параметры
+          модели и характеристики материалов.
+        </p>
+        <div class="about-credits">
+          <div>Разработчик: ChatGPT 5.6 Sol</div>
+          <div>Куратор: Кулаев Ю.</div>
+        </div>
+        <button
+          ref={(el) => (aboutCloseButton = el)}
+          class="about-close-button"
+          onClick={() => setAboutOpen(false)}
         >
           Закрыть
         </button>

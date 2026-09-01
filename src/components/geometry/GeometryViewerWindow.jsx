@@ -27,6 +27,9 @@ const EMPTY_COUNTS = Object.freeze({
 });
 
 const EMPTY_RENDER_STATS = Object.freeze({
+  discretizationLineSegments: 0,
+  discretizationPoints: 0,
+  discretizationTruncated: false,
   renderedInstances: 0,
   renderedPrimitives: 0,
   selectedInstances: 0,
@@ -36,6 +39,7 @@ const EMPTY_RENDER_STATS = Object.freeze({
 const DIAGNOSTIC_REASONS = Object.freeze({
   "instance-budget-exceeded": "превышен лимит образов",
   "invalid-geometry": "некорректная или вырожденная геометрия",
+  "invalid-discretization": "слой дискретизации недоступен",
   "invalid-symmetry": "некорректное число образов симметрии",
   "invalid-transform": "некорректное преобразование",
   "scene-conversion-failed": "ошибка преобразования геометрии",
@@ -90,6 +94,9 @@ export function GeometryViewerWindow(props) {
   const [orthographicView, setOrthographicView] = createSignal(true);
   const [showEdges, setShowEdges] = createSignal(true);
   const [showVertices, setShowVertices] = createSignal(false);
+  const [showDiscretizationLines, setShowDiscretizationLines] =
+    createSignal(false);
+  const [showCentersAndNodes, setShowCentersAndNodes] = createSignal(false);
   const [elementsMode, setElementsMode] = createSignal("all");
   const [regionsMode, setRegionsMode] = createSignal("all");
   const [showLocalSymmetry, setShowLocalSymmetry] = createSignal(true);
@@ -119,6 +126,23 @@ export function GeometryViewerWindow(props) {
 
   const counts = () => sceneModel()?.counts ?? EMPTY_COUNTS;
   const diagnostics = () => sceneModel()?.diagnostics ?? [];
+  const budgetWarning = () => {
+    const stats = renderStats();
+    const messages = [];
+    if (stats.truncated) {
+      messages.push(
+        `Показаны первые ${stats.renderedInstances} экземпляров из ` +
+        `${stats.selectedInstances}. Измените режимы показа.`,
+      );
+    }
+    if (stats.discretizationTruncated) {
+      messages.push(
+        "Часть линий дискретизации или точек скрыта из-за ограничения " +
+        "объёма 3D-сцены.",
+      );
+    }
+    return messages.join(" ");
+  };
 
   const updatePanelPosition = () => {
     if (!openPanel() || !viewerElement || !activePanelButton) return;
@@ -455,19 +479,23 @@ export function GeometryViewerWindow(props) {
                 />
                 Вершины
               </label>
-              <label
-                class="is-disabled"
-                title="Функция будет реализована позднее"
-              >
-                <input type="checkbox" checked={false} disabled />
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showDiscretizationLines()}
+                  onChange={(event) =>
+                    setShowDiscretizationLines(event.currentTarget.checked)}
+                />
                 Линии дискретизации
               </label>
-              <label
-                class="is-disabled"
-                title="Функция будет реализована позднее"
-              >
-                <input type="checkbox" checked={false} disabled />
-                Центры
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showCentersAndNodes()}
+                  onChange={(event) =>
+                    setShowCentersAndNodes(event.currentTarget.checked)}
+                />
+                Центры и узлы
               </label>
               <label
                 class="is-disabled"
@@ -487,17 +515,20 @@ export function GeometryViewerWindow(props) {
             mode={renderMode()}
             showEdges={showEdges()}
             showVertices={showVertices()}
+            showDiscretizationLines={showDiscretizationLines()}
+            showCentersAndNodes={showCentersAndNodes()}
             projection={orthographicView() ? "orthographic" : "perspective"}
             fitRequest={fitRequest()}
             instanceBudget={GEOMETRY_INSTANCE_BUDGET}
             onRenderStats={setRenderStats}
             onError={setViewportError}
           />
-          <Show when={renderStats().truncated}>
-            <div class="geometry-viewer-budget-warning" role="status">
-              Показаны первые {renderStats().renderedInstances} экземпляров из
-              {" "}{renderStats().selectedInstances}. Измените режимы показа.
-            </div>
+          <Show when={budgetWarning()} keyed>
+            {(warning) => (
+              <div class="geometry-viewer-budget-warning" role="status">
+                {warning}
+              </div>
+            )}
           </Show>
         </div>
 

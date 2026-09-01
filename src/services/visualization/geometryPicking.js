@@ -103,6 +103,160 @@ export function formatVertexTooltip(
     return `${prefix}, вершина №${vertex} — ${formattedCoordinates}`;
 }
 
+function positiveSafeInteger(value) {
+    return Number.isSafeInteger(value) && value > 0;
+}
+
+function gridCounts(grid, expectedLength) {
+    const counts = grid?.counts;
+    if (
+        !counts
+        || typeof counts.length !== "number"
+        || counts.length !== expectedLength
+    ) {
+        return null;
+    }
+
+    const normalized = Array.from(counts);
+    return normalized.every(positiveSafeInteger) ? normalized : null;
+}
+
+function gridPointMetadata(grid, pointIndex, sourcePointCount) {
+    if (!Number.isSafeInteger(pointIndex) || pointIndex < 0) return null;
+
+    if (grid?.kind === "element-cells") {
+        const counts = gridCounts(grid, 3);
+        if (!counts) return null;
+        const [d1Count, d2Count, d3Count] = counts;
+        const expectedCount = d1Count * d2Count * d3Count;
+        if (
+            !Number.isSafeInteger(expectedCount)
+            || sourcePointCount !== expectedCount
+            || pointIndex >= expectedCount
+        ) {
+            return null;
+        }
+
+        const d3Index = pointIndex % d3Count;
+        const d12Index = Math.floor(pointIndex / d3Count);
+        return {
+            gridKind: grid.kind,
+            d1Index: Math.floor(d12Index / d2Count),
+            d2Index: d12Index % d2Count,
+            d3Index,
+        };
+    }
+
+    if (grid?.kind === "region-grid") {
+        const counts = gridCounts(grid, 2);
+        if (!counts) return null;
+        const [d1Count, d2Count] = counts;
+        const expectedCount = d1Count * d2Count;
+        if (
+            !Number.isSafeInteger(expectedCount)
+            || sourcePointCount !== expectedCount
+            || pointIndex >= expectedCount
+        ) {
+            return null;
+        }
+
+        return {
+            gridKind: grid.kind,
+            d1Index: Math.floor(pointIndex / d2Count),
+            d2Index: pointIndex % d2Count,
+        };
+    }
+
+    if (grid?.kind === "region-line") {
+        const counts = gridCounts(grid, 2);
+        if (!counts) return null;
+        const [collapsedD1Count, d2Count] = counts;
+        if (sourcePointCount !== d2Count || pointIndex >= d2Count) return null;
+
+        return {
+            gridKind: grid.kind,
+            d2Index: pointIndex,
+            collapsedD1Count,
+        };
+    }
+
+    return null;
+}
+
+/**
+ * Resolves a point from a combined position buffer. Element points use
+ * D1/D2/D3 order with D3 changing fastest. Region points use D1/D2 order
+ * with D2 changing fastest. A line region stores only the unique D2 points
+ * and reports how many coincident D1 positions were collapsed.
+ */
+export function pointHitMetadata(range, globalIndex) {
+    if (
+        !range
+        || !Number.isSafeInteger(globalIndex)
+        || globalIndex < range.start
+        || globalIndex >= range.end
+        || !positiveSafeInteger(range.sourcePointCount)
+        || !Array.isArray(range.instances)
+    ) {
+        return null;
+    }
+
+    const localIndex = globalIndex - range.start;
+    const instanceIndex = Math.floor(localIndex / range.sourcePointCount);
+    const instance = range.instances[instanceIndex];
+    if (!instance) return null;
+
+    const pointIndex = localIndex % range.sourcePointCount;
+    const gridMetadata = gridPointMetadata(
+        range.grid,
+        pointIndex,
+        range.sourcePointCount,
+    );
+    if (!gridMetadata) return null;
+
+    return { instance, pointIndex, ...gridMetadata };
+}
+
+function formatGridIndices(metadata) {
+    if (metadata?.gridKind === "element-cells") {
+        return `D1=${oneBasedIndex(metadata.d1Index)}; `
+            + `D2=${oneBasedIndex(metadata.d2Index)}; `
+            + `D3=${oneBasedIndex(metadata.d3Index)}`;
+    }
+
+    if (metadata?.gridKind === "region-grid") {
+        return `D1=${oneBasedIndex(metadata.d1Index)}; `
+            + `D2=${oneBasedIndex(metadata.d2Index)}`;
+    }
+
+    if (metadata?.gridKind === "region-line") {
+        const collapsedD1Count = metadata.collapsedD1Count;
+        const d1 = positiveSafeInteger(collapsedD1Count)
+            ? (collapsedD1Count === 1 ? "1" : `1…${collapsedD1Count}`)
+            : "?";
+        return `D1=${d1}; D2=${oneBasedIndex(metadata.d2Index)}`;
+    }
+
+    return "";
+}
+
+/**
+ * Formats an element elementary-volume center or a region discretization
+ * node. Coordinates are expected to be precomputed in Float64 precision.
+ */
+export function formatDiscretizationPointTooltip(source, metadata, coordinates) {
+    const prefix = sourceIdentity(source, metadata?.instance);
+    const pointLabel = source?.schemaId === "elements" ? "центр ЭО" : "узел";
+    const gridIndices = formatGridIndices(metadata);
+    const formattedCoordinates = COORDINATE_NAMES.map(
+        (name, index) => `${name}=${formatCoordinate(coordinates?.[index])}`,
+    ).join("; ");
+
+    return `${prefix}, ${pointLabel}`
+        + (gridIndices ? ` (${gridIndices})` : "")
+        + ` — ${formattedCoordinates}`;
+}
+
 export function geometryHitInstance(hit) {
     const pick = hit?.object?.userData?.pick;
     const instances = pick?.instances;
@@ -184,3 +338,8 @@ export function findVertexMetadataRange(ranges, globalIndex) {
 
     return null;
 }
+
+// Both vertex and discretization point buffers use the same half-open range
+// lookup contract. Keep the existing export and provide a semantically named
+// entry point for point buffers.
+export const findPointMetadataRange = findVertexMetadataRange;

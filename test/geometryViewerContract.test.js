@@ -87,6 +87,14 @@ test("toolbar exposes object, symmetry, and general option menus", async () => {
   assert.match(source, /showVertices=\{showVertices\(\)\}/u);
   assert.match(
     source,
+    /showDiscretizationLines=\{showDiscretizationLines\(\)\}/u,
+  );
+  assert.match(
+    source,
+    /showCentersAndNodes=\{showCentersAndNodes\(\)\}/u,
+  );
+  assert.match(
+    source,
     /projection=\{orthographicView\(\) \? "orthographic" : "perspective"\}/u,
   );
   assert.match(source, /filters=\{filters\(\)\}/u);
@@ -134,11 +142,19 @@ test("object modes are exclusive while symmetry and general filters are independ
     source,
     /const \[showVertices, setShowVertices\] = createSignal\(false\)/u,
   );
+  assert.match(
+    source,
+    /const \[showDiscretizationLines, setShowDiscretizationLines\][\s\S]*?createSignal\(false\)/u,
+  );
+  assert.match(
+    source,
+    /const \[showCentersAndNodes, setShowCentersAndNodes\] = createSignal\(false\)/u,
+  );
   assert.match(source, /Ортогональный вид/u);
   assert.match(source, /Рёбра/u);
   assert.match(source, /Вершины/u);
   assert.match(source, /Линии дискретизации/u);
-  assert.match(source, /Центры/u);
+  assert.match(source, /Центры и узлы/u);
   assert.match(source, /Заданные источники/u);
   assert.match(
     source,
@@ -147,9 +163,14 @@ test("object modes are exclusive while symmetry and general filters are independ
   assert.match(source, /disabled=\{renderMode\(\) === "wireframe"\}/u);
   assert.equal(
     source.match(/title="Функция будет реализована позднее"/gu)?.length,
-    3,
+    1,
   );
-  assert.equal(source.match(/checked=\{false\} disabled/gu)?.length, 3);
+  assert.equal(source.match(/checked=\{false\} disabled/gu)?.length, 1);
+  assert.match(
+    source,
+    /checked=\{showDiscretizationLines\(\)\}/u,
+  );
+  assert.match(source, /checked=\{showCentersAndNodes\(\)\}/u);
 });
 
 test("diagnostics retain record numbers and concise reasons", async () => {
@@ -248,6 +269,50 @@ test("vertices and geometry expose hover picking metadata", async () => {
   assert.match(source, /class="geometry-viewport-tooltip"/u);
 });
 
+test("discretization helpers are lazy, bounded, and point-pickable", async () => {
+  const source = await readFile(viewportUrl, "utf8");
+
+  assert.match(source, /buildElementDiscretization/u);
+  assert.match(source, /buildRegionDiscretization/u);
+  assert.match(source, /countElementDiscretization/u);
+  assert.match(source, /countRegionDiscretization/u);
+  assert.match(
+    source,
+    /GEOMETRY_DISCRETIZATION_SEGMENT_BUDGET =[\s\S]*?lineSegments/u,
+  );
+  assert.match(
+    source,
+    /GEOMETRY_DISCRETIZATION_POINT_BUDGET =[\s\S]*?points/u,
+  );
+  assert.match(source, /includeLines: layer === "lines"/u);
+  assert.match(source, /includePoints: layer === "points"/u);
+  assert.match(source, /materializeDiscretizationLines/u);
+  assert.match(source, /materializeDiscretizationPoints/u);
+  assert.match(
+    source,
+    /if \(primitive\.discretization\) \{[\s\S]*?discretizationBatches\.push/u,
+  );
+  assert.match(source, /new THREE\.LineSegments\(/u);
+  assert.match(source, /geometry-discretization-lines/u);
+  assert.match(source, /geometry-discretization-points/u);
+  assert.match(source, /primitive\?\.controlVertices \?\? primitive\?\.vertices/u);
+  assert.match(source, /findPointMetadataRange/u);
+  assert.match(source, /pointHitMetadata/u);
+  assert.match(source, /formatDiscretizationPointTooltip/u);
+  assert.match(source, /discretizationWorldPositions/u);
+  assert.match(source, /new Float64Array\(positions\)/u);
+  assert.match(source, /discretizationTruncated/u);
+  assert.match(source, /helperPointsShown/u);
+  assert.match(
+    source,
+    /surfaceEdgesShown === true \|\|[\s\S]*?helperLinesShown \|\| helperPointsShown/u,
+  );
+  assert.doesNotMatch(
+    source,
+    /geometryPickTargets\.push\(discretizationLines\)/u,
+  );
+});
+
 test("surface lighting preserves visibly flat faces", async () => {
   const source = await readFile(viewportUrl, "utf8");
 
@@ -282,6 +347,13 @@ test("surface edges are controlled independently and remain thin", async () => {
   assert.match(source, /linewidth:\s*1/u);
   assert.match(source, /polygonOffset:\s*showSurfaceEdges/u);
   assert.match(source, /appendSurfaceEdges\(/u);
+  assert.match(source, /mergedRegionBoundaryGeometry/u);
+  assert.match(source, /primitive\.controlVertices/u);
+  assert.equal(
+    source.match(/mergedWireframeGeometry\([\s\S]*?true,[\s\S]*?\);/gu)?.length,
+    2,
+    "surface edges and wireframe mode must both avoid render-tessellation edges",
+  );
 });
 
 test("axes use a separate bottom-left screen-space scene", async () => {

@@ -27,3 +27,13 @@ test("element material name is changed only through material selection", async (
     const elements = await readFile(elementsUrl, "utf8");
     assert.match(elements, /xapName: \{[\s\S]*?readonly: true,/u);
 });
+
+test("region discretization is expressed as positive node counts", async () => {
+    const regions = await readFile(regionsUrl, "utf8");
+    const dp = regions.match(/dp: \{[\s\S]*?\n        \},/u)?.[0] ?? "";
+
+    assert.match(dp, /description: "Число узлов разбиения/u);
+    assert.match(dp, /columns: \["Число узлов"\]/u);
+    assert.match(dp, /items: \{[\s\S]*?minimum: 1,/u);
+    assert.doesNotMatch(dp, /Число интервалов/u);
+});
