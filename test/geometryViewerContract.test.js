@@ -202,6 +202,11 @@ test("vertices and geometry expose hover picking metadata", async () => {
   assert.match(source, /findVertexMetadataRange\(/u);
   assert.match(source, /formatGeometryTooltip\(/u);
   assert.match(source, /formatVertexTooltip\(/u);
+  assert.match(source, /geometryHitInstance\(/u);
+  assert.match(source, /vertexHitMetadata\(/u);
+  assert.match(source, /instances,\s*kind:\s*pickKind,\s*span:\s*pickSpan/su);
+  assert.match(source, /mergedWireframeGeometry\(/u);
+  assert.match(source, /pickSpan = wireframe\.vertexSpan/u);
   assert.match(source, /pickFrame = requestAnimationFrame/u);
   assert.match(source, /PICK_INTERVAL_MS = 80/u);
   assert.match(source, /controlsInteracting/u);
@@ -209,6 +214,18 @@ test("vertices and geometry expose hover picking metadata", async () => {
   assert.match(source, /vertexBatches/u);
   assert.match(source, /showVertices/u);
   assert.match(source, /class="geometry-viewport-tooltip"/u);
+});
+
+test("surface lighting preserves visibly flat faces", async () => {
+  const source = await readFile(viewportUrl, "utf8");
+
+  assert.match(source, /new THREE\.MeshLambertMaterial/u);
+  assert.match(source, /flatShading:\s*true/u);
+  assert.match(source, /new THREE\.AmbientLight\(0xffffff, 1\.25\)/u);
+  assert.match(source, /new THREE\.DirectionalLight\(0xffffff, 0\.55\)/u);
+  assert.doesNotMatch(source, /new THREE\.MeshStandardMaterial/u);
+  assert.doesNotMatch(source, /geometry\.computeVertexNormals\(\)/u);
+  assert.doesNotMatch(source, /new THREE\.HemisphereLight/u);
 });
 
 test("axes use a separate bottom-left screen-space scene", async () => {

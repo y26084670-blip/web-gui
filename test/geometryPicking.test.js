@@ -4,7 +4,10 @@ import test from "node:test";
 import {
     findVertexMetadataRange,
     formatGeometryTooltip,
+    formatSymmetryInstance,
     formatVertexTooltip,
+    geometryHitInstance,
+    vertexHitMetadata,
 } from "../src/services/visualization/geometryPicking.js";
 
 test("geometry tooltip uses one-based source numbers and optional names", () => {
@@ -64,6 +67,79 @@ test("vertex tooltip supports regions, extreme and invalid coordinates", () => {
         ),
         "Элемент №1, вершина №? — X=—; Y=—; Z=—",
     );
+});
+
+test("symmetry labels use compact one-based image numbers", () => {
+    assert.equal(formatSymmetryInstance(null), "");
+    assert.equal(
+        formatSymmetryInstance({
+            as: 1,
+            ps: 2,
+            ls: 3,
+            mirrorX: 1,
+            mirrorY: 1,
+        }),
+        "[AS=2 PS=3 LS=4 EX EY]",
+    );
+    assert.equal(
+        formatGeometryTooltip(
+            { schemaId: "elements", recordIndex: 1, name: "KV 2" },
+            { as: 1, ps: 0, ls: 0, mirrorX: 1, mirrorY: 0 },
+        ),
+        "Элемент №2 [AS=2 EX] — KV 2",
+    );
+    assert.equal(
+        formatVertexTooltip(
+            { schemaId: "regions", recordIndex: 0 },
+            1,
+            [1, 2, 3],
+            { ls: 1 },
+        ),
+        "Область №1 [LS=2], вершина №2 — X=1; Y=2; Z=3",
+    );
+});
+
+test("geometry hit resolves the accepted symmetry instance by its span", () => {
+    const instances = [
+        { ls: 0 },
+        { ls: 1 },
+        { ls: 2 },
+    ];
+    const mesh = {
+        object: { userData: { pick: { instances, kind: "mesh", span: 12 } } },
+    };
+    assert.equal(geometryHitInstance({ ...mesh, faceIndex: 0 }), instances[0]);
+    assert.equal(geometryHitInstance({ ...mesh, faceIndex: 23 }), instances[1]);
+    assert.equal(geometryHitInstance({ ...mesh, faceIndex: 24 }), instances[2]);
+
+    const lines = {
+        object: { userData: { pick: { instances, kind: "lines", span: 24 } } },
+    };
+    assert.equal(geometryHitInstance({ ...lines, index: 46 }), instances[1]);
+    assert.equal(geometryHitInstance({ ...lines, index: 48 }), instances[2]);
+    assert.equal(geometryHitInstance({ ...lines, index: 72 }), null);
+    assert.equal(geometryHitInstance({ object: {} }), null);
+});
+
+test("vertex metadata resolves both image and source vertex", () => {
+    const instances = [{ as: 0 }, { as: 1 }];
+    const range = {
+        start: 20,
+        end: 36,
+        sourceVertexCount: 8,
+        instances,
+    };
+
+    assert.deepEqual(vertexHitMetadata(range, 20), {
+        instance: instances[0],
+        vertexIndex: 0,
+    });
+    assert.deepEqual(vertexHitMetadata(range, 35), {
+        instance: instances[1],
+        vertexIndex: 7,
+    });
+    assert.equal(vertexHitMetadata(range, 36), null);
+    assert.equal(vertexHitMetadata(null, 20), null);
 });
 
 test("metadata range lookup uses half-open boundaries", () => {

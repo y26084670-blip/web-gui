@@ -14,6 +14,8 @@ import {
   findVertexMetadataRange,
   formatGeometryTooltip,
   formatVertexTooltip,
+  geometryHitInstance,
+  vertexHitMetadata,
 } from "../../services/visualization/geometryPicking.js";
 
 export const GEOMETRY_INSTANCE_BUDGET = 20_000;
@@ -151,13 +153,58 @@ function mergedGeometry(THREE, primitive, instances) {
   return geometry;
 }
 
-function renderableFor(THREE, primitive, instances, category, mode) {
-  const geometry = mergedGeometry(THREE, primitive, instances);
-  if (!geometry) return null;
+function mergedWireframeGeometry(THREE, primitive, instances) {
+  const sourceVertices = primitive.vertices ?? [];
+  const sourceIndices = primitive.indices ?? [];
+  if (sourceVertices.length === 0 || sourceIndices.length === 0) return null;
 
+  const sourceGeometry = new THREE.BufferGeometry();
+  sourceGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(sourceVertices), 3),
+  );
+  sourceGeometry.setIndex(Array.from(sourceIndices));
+  const sourceEdges = new THREE.EdgesGeometry(sourceGeometry);
+  sourceGeometry.dispose();
+
+  const sourcePositions = sourceEdges.getAttribute("position");
+  const vertexSpan = sourcePositions?.count ?? 0;
+  if (vertexSpan === 0) {
+    sourceEdges.dispose();
+    return null;
+  }
+
+  const positions = new Float32Array(
+    sourcePositions.array.length * instances.length,
+  );
+  const matrix = new THREE.Matrix4();
+  const vertex = new THREE.Vector3();
+  instances.forEach((instance, instanceIndex) => {
+    matrix.fromArray(instance.matrix);
+    const targetOffset = instanceIndex * sourcePositions.array.length;
+    for (let index = 0; index < vertexSpan; index += 1) {
+      vertex.fromBufferAttribute(sourcePositions, index).applyMatrix4(matrix);
+      const offset = targetOffset + index * 3;
+      positions[offset] = vertex.x;
+      positions[offset + 1] = vertex.y;
+      positions[offset + 2] = vertex.z;
+    }
+  });
+  sourceEdges.dispose();
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  return { geometry, vertexSpan };
+}
+
+function renderableFor(THREE, primitive, instances, category, mode) {
   const style = materialStyle(primitive, category, mode);
   let object;
+  let pickKind;
+  let pickSpan;
   if (primitive.kind === "region-line") {
+    const geometry = mergedGeometry(THREE, primitive, instances);
+    if (!geometry) return null;
     object = new THREE.LineSegments(
       geometry,
       new THREE.LineBasicMaterial({
@@ -167,31 +214,37 @@ function renderableFor(THREE, primitive, instances, category, mode) {
         transparent: style.opacity < 1,
       }),
     );
+    pickKind = "lines";
+    pickSpan = primitive.indices?.length ?? 0;
   } else if (mode === "wireframe") {
-    const edgeGeometry = new THREE.EdgesGeometry(geometry);
-    geometry.dispose();
+    const wireframe = mergedWireframeGeometry(THREE, primitive, instances);
+    if (!wireframe) return null;
     object = new THREE.LineSegments(
-      edgeGeometry,
+      wireframe.geometry,
       new THREE.LineBasicMaterial({
         color: style.color,
         opacity: style.opacity,
         transparent: style.opacity < 1,
       }),
     );
+    pickKind = "lines";
+    pickSpan = wireframe.vertexSpan;
   } else {
-    geometry.computeVertexNormals();
+    const geometry = mergedGeometry(THREE, primitive, instances);
+    if (!geometry) return null;
     object = new THREE.Mesh(
       geometry,
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshLambertMaterial({
         color: style.color,
         opacity: style.opacity,
         transparent: style.opacity < 1,
         depthWrite: mode !== "translucent",
-        metalness: 0.05,
-        roughness: 0.78,
+        flatShading: true,
         side: THREE.DoubleSide,
       }),
     );
+    pickKind = "mesh";
+    pickSpan = Math.floor((primitive.indices?.length ?? 0) / 3);
   }
 
   object.name = `${primitive.source?.schemaId ?? "geometry"}:` +
@@ -199,6 +252,11 @@ function renderableFor(THREE, primitive, instances, category, mode) {
   object.userData = {
     category,
     instanceCount: instances.length,
+    pick: {
+      instances,
+      kind: pickKind,
+      span: pickSpan,
+    },
     primitiveKind: primitive.kind,
     source: primitive.source,
   };
@@ -229,6 +287,7 @@ function appendVertexBatch(THREE, primitive, instances, positions, ranges) {
 
   ranges.push({
     end: positions.length / 3,
+    instances,
     source: primitive.source,
     sourceVertexCount,
     start,
@@ -643,20 +702,29 @@ export function ThreeGeometryViewport(props) {
       const range = findVertexMetadataRange(vertexRanges, vertexHit.index);
       const coordinates = pointCoordinates(vertexHit.index);
       if (range && coordinates) {
-        const localIndex = vertexHit.index - range.start;
-        const vertexIndex = localIndex % range.sourceVertexCount;
-        showTooltip(
-          formatVertexTooltip(range.source, vertexIndex, coordinates),
-          x,
-          y,
-        );
-        return;
+        const metadata = vertexHitMetadata(range, vertexHit.index);
+        if (metadata) {
+          showTooltip(
+            formatVertexTooltip(
+              range.source,
+              metadata.vertexIndex,
+              coordinates,
+              metadata.instance,
+            ),
+            x,
+            y,
+          );
+          return;
+        }
       }
     }
 
     if (geometryHit?.object?.userData?.source) {
       showTooltip(
-        formatGeometryTooltip(geometryHit.object.userData.source),
+        formatGeometryTooltip(
+          geometryHit.object.userData.source,
+          geometryHitInstance(geometryHit),
+        ),
         x,
         y,
       );
@@ -929,8 +997,8 @@ export function ThreeGeometryViewport(props) {
       renderer.domElement.addEventListener("pointermove", handlePointerMove);
       renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
 
-      threeScene.add(new THREE.HemisphereLight(0xffffff, 0x283441, 1.7));
-      const light = new THREE.DirectionalLight(0xffffff, 1.35);
+      threeScene.add(new THREE.AmbientLight(0xffffff, 1.25));
+      const light = new THREE.DirectionalLight(0xffffff, 0.55);
       light.position.set(1, -1, 2);
       threeScene.add(light);
 
