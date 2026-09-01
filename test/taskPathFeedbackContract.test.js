@@ -42,12 +42,13 @@ test("loaded path is announced and softly highlighted once", async () => {
 
     assert.match(
         styles,
-        /\.task-info-path-value\s*\{[^}]*animation:\s*task-path-attention 1s ease-out;/su,
+        /\.task-info-path-value\s*\{[^}]*animation:\s*task-path-attention 3s ease-in-out;/su,
     );
     assert.match(
         keyframes,
-        /background-color:[^;]+;[\s\S]*box-shadow:[^;]+;[\s\S]*background-color:[^;]+;[\s\S]*box-shadow:[^;]+;/u,
+        /0%,\s*100%\s*\{[^}]*color:\s*#000;[^}]*background-color:\s*transparent;[^}]*\}\s*50%\s*\{[^}]*color:\s*#b00020;[^}]*background-color:\s*rgba\(255, 235, 59, \.72\);/su,
     );
+    assert.doesNotMatch(keyframes, /rgba\(144, 211, 156/u);
     assert.doesNotMatch(styles, /animation:[^;]*(?:infinite|transform)/u);
     assert.doesNotMatch(keyframes, /transform\s*:/u);
     assert.match(
