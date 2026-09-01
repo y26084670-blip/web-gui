@@ -36,6 +36,7 @@ export function ValidationIndicator(props) {
   }
 
   function handleDiagnosticSelect(diagnostic) {
+    setPopupOpen(false);
     props.onDiagnosticSelect?.(diagnostic);
   }
 

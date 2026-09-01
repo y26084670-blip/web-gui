@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { validateKvVertices }
+import {
+    unpackKvVertices,
+    validateKvVertices,
+    validateKvVerticesDetailed,
+}
     from "../src/services/solver/geometryKv.js";
 
 const EPS = 0.001;
@@ -21,6 +25,25 @@ function validVertices() {
 
 test("KV validator accepts a valid hexahedron", () => {
     assert.equal(validateKvVertices(validVertices()), true);
+
+    assert.deepEqual(
+        validateKvVerticesDetailed(validVertices()),
+        {
+            valid: true,
+            malformed: false,
+            checks: {
+                edge13: true,
+                edge57: true,
+                edge15: true,
+                edge37: true,
+                edge26: true,
+                parallel13And24: true,
+                parallel57And68: true,
+                parallelConnectingEdges: true,
+                positiveVolume: true,
+            },
+        },
+    );
 });
 
 test("KV validator keeps strict thresholds for all required edges", () => {
@@ -73,6 +96,12 @@ test("KV validator keeps strict thresholds for all required edges", () => {
     ];
 
     for (const { edge, make } of cases) {
+        assert.equal(
+            validateKvVerticesDetailed(make(0.5 * EPS))
+                .checks[`edge${edge}`],
+            false,
+            edge,
+        );
         assert.equal(validateKvVertices(make(0.5 * EPS)), false, edge);
         assert.equal(validateKvVertices(make(EPS)), false, edge);
         assert.equal(validateKvVertices(make(2 * EPS)), true, edge);
@@ -127,9 +156,21 @@ test("KV validator keeps strict thresholds for every parallel check", () => {
     ];
 
     for (const { group, make } of cases) {
+        const check = group === "13 ∥ 24"
+            ? "parallel13And24"
+            : group === "57 ∥ 68"
+                ? "parallel57And68"
+                : "parallelConnectingEdges";
+
         assert.equal(
             validateKvVertices(make(0.5 * EPS ** 2)),
             true,
+            group,
+        );
+        assert.equal(
+            validateKvVerticesDetailed(make(2 * EPS ** 2))
+                .checks[check],
+            false,
             group,
         );
         assert.equal(validateKvVertices(make(EPS ** 2)), false, group);
@@ -144,6 +185,10 @@ test("KV validator requires a positive vertex orientation", () => {
         vertices[index][0] = -1;
     }
 
+    const validation = validateKvVerticesDetailed(vertices);
+
+    assert.equal(validation.valid, false);
+    assert.equal(validation.checks.positiveVolume, false);
     assert.equal(validateKvVertices(vertices), false);
 });
 
@@ -190,4 +235,68 @@ test("KV validator rejects malformed and non-finite vertices", () => {
     const sparseVertex = validVertices();
     sparseVertex[0] = new Array(3);
     assert.equal(validateKvVertices(sparseVertex), false);
+
+    assert.equal(
+        validateKvVerticesDetailed(sparseVertex).malformed,
+        true,
+    );
+});
+
+test("KV unpack keeps solver error flags while constructing vertices", () => {
+    const cases = [
+        { geoType: 2, valid: [2, 3, 4], invalid: [0, 3, 4] },
+        { geoType: 3, valid: [2, 3, 4, 2, 3], invalid: [0, 3, 4, 2, 3] },
+        { geoType: 4, valid: [3, 2, 0, 4, 2, 1, 1], invalid: [0, 2, 0, 4, 2, 1, 1] },
+    ];
+
+    for (const { geoType, valid, invalid } of cases) {
+        const validResult = unpackKvVertices(valid, geoType);
+        const invalidResult = unpackKvVertices(invalid, geoType);
+
+        assert.equal(validResult.err, 0, `valid geoType ${geoType}`);
+        assert.equal(invalidResult.err, 1, `invalid geoType ${geoType}`);
+        assert.equal(validResult.vertices.length, 8);
+        assert.equal(invalidResult.vertices.length, 8);
+    }
+});
+
+test("KV validator can inspect every supported unpacked geometry type", () => {
+    const cases = [
+        {
+            geoType: 0,
+            geo: validVertices().flat(),
+            expected: true,
+        },
+        {
+            geoType: 1,
+            geo: [0, 1, 1, 1, 1, 2, 0, 2, 30],
+            expected: true,
+        },
+        { geoType: 2, geo: [2, 3, 4], expected: true },
+        { geoType: 3, geo: [2, 3, 4, 2, 3], expected: true },
+    ];
+
+    for (const { geoType, geo, expected } of cases) {
+        const unpacked = unpackKvVertices(geo, geoType);
+
+        assert.equal(unpacked.err, 0, `geoType ${geoType}`);
+        assert.equal(
+            validateKvVerticesDetailed(unpacked.vertices).valid,
+            expected,
+            `geoType ${geoType}`,
+        );
+    }
+
+    const pyramid = unpackKvVertices(
+        [3, 2, 0, 4, 2, 1, 1],
+        4,
+    );
+    const pyramidValidation = validateKvVerticesDetailed(
+        pyramid.vertices,
+    );
+
+    assert.equal(pyramid.err, 0);
+    assert.equal(pyramidValidation.valid, false);
+    assert.equal(pyramidValidation.checks.edge26, false);
+    assert.equal(pyramidValidation.checks.positiveVolume, false);
 });

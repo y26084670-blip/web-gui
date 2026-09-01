@@ -113,6 +113,11 @@ test("scene converts BaseModel arrays and preserves solver face topology", () =>
         0, 1, 5, 0, 5, 4,
         2, 6, 7, 2, 7, 3,
     ]);
+    assert.deepEqual(plain(volume.edgeIndices), [
+        0, 1, 2, 3, 4, 5, 6, 7,
+        0, 2, 1, 3, 4, 6, 5, 7,
+        0, 4, 1, 5, 2, 6, 3, 7,
+    ]);
     assert.equal(volume.instances[0].matrix instanceof Float64Array, true);
 
     assert.equal(line.kind, "region-line");
@@ -128,6 +133,7 @@ test("scene converts BaseModel arrays and preserves solver face topology", () =>
     });
     assert.deepEqual(plain(line.vertices), [1, 2, 3, 4, 5, 6]);
     assert.deepEqual(plain(line.indices), [0, 1]);
+    assert.deepEqual(plain(line.edgeIndices), [0, 1]);
 
     assert.deepEqual(plain(scene.bounds.min), [1, 0, 0]);
     assert.deepEqual(plain(scene.bounds.max), [12, 5, 6]);
@@ -237,6 +243,9 @@ test("surface regions use bilinear tessellation and compact dp metadata", () => 
     });
     assert.equal(surface.vertices instanceof Float64Array, true);
     assert.equal(surface.indices instanceof Uint32Array, true);
+    assert.deepEqual(plain(surface.edgeIndices), [
+        0, 1, 1, 2, 2, 3, 3, 0,
+    ]);
     assert.deepEqual(plain(surface.controlVertices), [
         0, 0, 0,
         0, 0, 3,
@@ -327,8 +336,8 @@ test("bad records are skipped with diagnostics instead of throwing", () => {
         ],
         regions: [
             region({
-                geoType: 1,
-                geo: geometryRows([0, 0, 0, 0], 4),
+                geoType: 0,
+                geo: geometryRows([Number.NaN], 4),
             }),
             region({ symVi: vector([Number.POSITIVE_INFINITY, 0, 0]) }),
         ],
@@ -362,7 +371,7 @@ test("bad records are skipped with diagnostics instead of throwing", () => {
     });
 });
 
-test("zero-volume elements and zero-length regions are invalid", () => {
+test("degenerate objects remain in the detached scene model", () => {
     const scene = buildGeometryScene({
         elements: [element({
             geo: geometryRows([0, 2, 3], 8),
@@ -372,15 +381,44 @@ test("zero-volume elements and zero-length regions are invalid", () => {
         })],
     });
 
-    assert.deepEqual(scene.primitives, []);
-    assert.deepEqual(
-        scene.diagnostics.map(item => item.code),
-        ["invalid-geometry", "invalid-geometry"],
-    );
-    assert.equal(scene.counts.skipped, 2);
+    assert.equal(scene.primitives.length, 2);
+    assert.equal(scene.primitives[0].kind, "element-volume");
+    assert.equal(scene.primitives[1].kind, "region-line");
+    assert.deepEqual(scene.diagnostics, []);
+    assert.deepEqual(plain(scene.bounds.min), [0, 0, 0]);
+    assert.deepEqual(plain(scene.bounds.max), [1, 2, 3]);
+    assert.deepEqual(scene.counts, {
+        elements: 1,
+        regions: 1,
+        primitives: 2,
+        instances: 2,
+        vertices: 10,
+        triangles: 12,
+        lines: 1,
+        skipped: 0,
+    });
 });
 
-test("large translated direct geometry keeps a stable volume check", () => {
+test("all supported types enter the scene after finite unpacking", () => {
+    const scene = buildGeometryScene({
+        elements: [0, 1, 2, 3, 4].map(geoType => element({
+            geoType,
+            geo: geometryRows([], 8),
+        })),
+        regions: [0, 1, 2, 3].map(geoType => region({
+            geoType,
+            geo: geometryRows([], 4),
+        })),
+    });
+
+    assert.equal(scene.primitives.length, 9);
+    assert.deepEqual(scene.diagnostics, []);
+    assert.equal(scene.counts.elements, 5);
+    assert.equal(scene.counts.regions, 4);
+    assert.equal(scene.counts.skipped, 0);
+});
+
+test("large translated direct geometry stays representable", () => {
     const offset = [1e14, 3e14, -2e14];
     const vertices = [
         [0, 1, 0], [1, 1, 0], [0, 1, 1], [1, 1, 1],

@@ -309,6 +309,28 @@ test("vertices and geometry expose hover picking metadata", async () => {
   assert.match(source, /class="geometry-viewport-tooltip"/u);
 });
 
+test("degenerate geometry falls back to pickable topology lines or points", async () => {
+  const source = await readFile(viewportUrl, "utf8");
+
+  assert.match(source, /function primitiveRenderShape\(/u);
+  assert.match(source, /hasNonzeroTriangle\(primitive\)/u);
+  assert.match(source, /primitive\.edgeIndices/u);
+  assert.match(source, /function mergedTopologyLineGeometry\(/u);
+  assert.match(source, /function mergedDegeneratePointGeometry\(/u);
+  assert.match(source, /renderShape === "line"/u);
+  assert.match(source, /renderShape === "point"/u);
+  assert.match(source, /new THREE\.PointsMaterial\(\{/u);
+  assert.match(source, /size:\s*DEGENERATE_POINT_SIZE/u);
+  assert.match(source, /sizeAttenuation:\s*false/u);
+  assert.match(source, /pickKind = "points"/u);
+  assert.match(source, /pickKind = "lines"/u);
+  assert.match(source, /renderShape,/u);
+  assert.match(
+    source,
+    /if \(sphere\.radius === 0\) distance = Math\.max\(distance, 1\)/u,
+  );
+});
+
 test("discretization helpers are lazy, bounded, and point-pickable", async () => {
   const source = await readFile(viewportUrl, "utf8");
 
@@ -385,7 +407,10 @@ test("surface edges are controlled independently and remain thin", async () => {
   const source = await readFile(viewportUrl, "utf8");
 
   assert.match(source, /function appendSurfaceEdges\(/u);
-  assert.match(source, /const showSurfaceEdges = showEdges === true/u);
+  assert.match(
+    source,
+    /const showSurfaceEdges = renderShape === "surface" && showEdges === true/u,
+  );
   assert.match(source, /renderObjectCost\(primitive, mode, showEdges\)/u);
   assert.match(source, /new THREE\.LineBasicMaterial\(\{[\s\S]*?color: style\.edgeColor/su);
   assert.match(source, /linewidth:\s*1/u);

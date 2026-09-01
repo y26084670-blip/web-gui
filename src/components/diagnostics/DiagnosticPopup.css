@@ -43,14 +43,6 @@
     cursor: default;
 }
 
-.diagnostic-item-selectable {
-    cursor: pointer;
-}
-
-.diagnostic-item-selectable:hover {
-    background: #f8f8f8;
-}
-
 .level-error {
     color: red;
 }
@@ -96,4 +88,24 @@
 
 .diagnostic-source span {
     margin-right: 10px;
+}
+
+.diagnostic-navigation-link {
+    margin: 0 10px 0 0;
+    padding: 0;
+    border: 0;
+    color: #165d9c;
+    background: transparent;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.diagnostic-navigation-link:hover {
+    color: #0b3f70;
+}
+
+.diagnostic-navigation-link:focus-visible {
+    outline: 2px solid #2676bb;
+    outline-offset: 2px;
 }

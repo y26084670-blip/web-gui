@@ -39,7 +39,7 @@ const EMPTY_RENDER_STATS = Object.freeze({
 
 const DIAGNOSTIC_REASONS = Object.freeze({
   "instance-budget-exceeded": "превышен лимит образов",
-  "invalid-geometry": "некорректная или вырожденная геометрия",
+  "invalid-geometry": "неполные или нечисловые координаты геометрии",
   "invalid-discretization": "слой дискретизации недоступен",
   "invalid-symmetry": "некорректное число образов симметрии",
   "invalid-transform": "некорректное преобразование",

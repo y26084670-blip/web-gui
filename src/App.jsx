@@ -30,7 +30,7 @@ import "./App.css";
 
 export default function App() {
   const [activeTab, setActiveTab] = createSignal(TABS.TASKS.id);
-  const [selectedDiagnostic, setSelectedDiagnostic] = createSignal(null);
+  const [diagnosticTarget, setDiagnosticTarget] = createSignal(null);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
   const [geometryViewerOpen, setGeometryViewerOpen] = createSignal(false);
@@ -39,6 +39,7 @@ export default function App() {
   const [selectedGeometryRegionIndices, setSelectedGeometryRegionIndices] =
     createSignal([]);
   let geometryViewerButton;
+  let diagnosticTargetSequence = 0;
   let modelValidationRevision = 0;
   let observedGeometryTaskHandle;
 
@@ -67,9 +68,20 @@ export default function App() {
 
   function handleDiagnosticSelect(diagnostic) {
     const tabId = diagnostic?.tab?.id;
-    if (!tabId) return;
+    if (
+      !tabId
+      || diagnostic?.row === undefined
+      || diagnostic?.row === null
+    ) {
+      return;
+    }
 
-    setSelectedDiagnostic(diagnostic);
+    setDiagnosticTarget({
+      sequence: ++diagnosticTargetSequence,
+      tabId,
+      row: diagnostic.row,
+      property: diagnostic.property,
+    });
     setActiveTab(tabId);
   }
 
@@ -92,6 +104,7 @@ export default function App() {
           schema={schema}
           active={props.active}
           computedColumnsMode={props.computedColumnsMode}
+          diagnosticTarget={props.diagnosticTarget}
           onRecordSelectionChange={handleGeometryRecordSelectionChange}
         />
       ),
@@ -315,10 +328,10 @@ export default function App() {
               style={{
                 display: activeTab() === tab.id ? "block" : "none",
               }}
-              selectedDiagnostic={selectedDiagnostic()}
             >
               <Component
                 active={activeTab() === tab.id}
+                diagnosticTarget={diagnosticTarget()}
                 computedColumnsMode={
                   viewSettingsService.computedColumnsMode()
                 }

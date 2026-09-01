@@ -1,6 +1,9 @@
 import { createError } from "../../common/createDiagnostic.js";
 import { TABS } from "../../../../services/schemas/common/constants.js";
-import { validateKvVertices }
+import {
+    unpackKvVertices,
+    validateKvVerticesDetailed,
+}
     from "../../../../services/solver/geometryKv.js";
 import { validateElementMaterialReferences }
     from "../../../../services/materialReferenceValidation.js";
@@ -24,6 +27,50 @@ const FIXED_ARRAY_SHAPES = Object.freeze([
 
 const VALID_TARG = new Set([0, 1, 2, 3]);
 const VALID_MODEL = new Set([0, 1, 2]);
+const VALID_GEO_TYPE = new Set([0, 1, 2, 3, 4]);
+
+const GEOMETRY_CHECK_DIAGNOSTICS = Object.freeze([
+    ["edge13", "Длина ребра 13 не превышает 0,001 мм"],
+    ["edge57", "Длина ребра 57 не превышает 0,001 мм"],
+    ["edge15", "Длина ребра 15 не превышает 0,001 мм"],
+    ["edge37", "Длина ребра 37 не превышает 0,001 мм"],
+    ["edge26", "Длина ребра 26 не превышает 0,001 мм"],
+    [
+        "parallel13And24",
+        "Рёбра 13 и 24 не параллельны с заданной точностью",
+    ],
+    [
+        "parallel57And68",
+        "Рёбра 57 и 68 не параллельны с заданной точностью",
+    ],
+    [
+        "parallelConnectingEdges",
+        "Рёбра 15, 26, 37 и 48 не параллельны с заданной точностью",
+    ],
+    [
+        "positiveVolume",
+        "Ориентированный объём не превышает 0,000000001 мм³",
+    ],
+]);
+
+const UNPACK_DIAGNOSTICS = Object.freeze({
+    1: Object.freeze({
+        1: "Параметры сектора не задают поддерживаемую конфигурацию граней",
+        2: "Параметры радиального сектора имеют недопустимый порядок координат",
+        21: "В осевом секторе x4 не меньше x2",
+        22: "В осевом секторе r1 больше r4",
+        23: "В осевом секторе r2 больше r3",
+    }),
+    2: Object.freeze({
+        1: "Прямоугольная призма содержит неположительный размер Lx, Ly или Lz",
+    }),
+    3: Object.freeze({
+        1: "Усечённая пирамида содержит неположительный размер Hx, Ly, Lz, Ly2 или Lz2",
+    }),
+    4: Object.freeze({
+        1: "Пирамида содержит неположительный размер L15, L37 или DY",
+    }),
+});
 
 export function elementsValidator(
     service,
@@ -68,26 +115,50 @@ function validateArrayShapes(elements, diagnostics) {
 function validateGeometry(elements, diagnostics) {
     elements.forEach((record, index) => {
         if (
-            record?.geoType !== 0
+            !VALID_GEO_TYPE.has(record?.geoType)
             || !hasCompleteShape(record?.geo, GEO_SHAPE)
-            || validateKvVertices(record.geo)
         ) {
             return;
         }
 
-        diagnostics.push(
-            createError({
-                tab: TABS.ELEMENTS,
-                row: index + 1,
-                property: "geo",
-                message:
-                    "Вершины должны задавать корректный объёмный шестигранник: "
-                    + "рёбра 13, 57, 15, 37 и 26 не вырождены; "
-                    + "13 ∥ 24, 15 ∥ 26 ∥ 37 ∥ 48 и 57 ∥ 68; "
-                    + "нумерация вершин задаёт положительную ориентацию объёма",
-            })
+        const unpacked = unpackKvVertices(
+            record.geo.flat(),
+            record.geoType,
         );
+
+        const unpackMessage =
+            UNPACK_DIAGNOSTICS[record.geoType]?.[unpacked.err];
+        if (unpackMessage) {
+            pushGeometryError(diagnostics, index, unpackMessage);
+        }
+
+        const validation = validateKvVerticesDetailed(unpacked.vertices);
+        if (validation.malformed) {
+            pushGeometryError(
+                diagnostics,
+                index,
+                "После распаковки геометрия содержит некорректные координаты",
+            );
+            return;
+        }
+
+        for (const [check, message] of GEOMETRY_CHECK_DIAGNOSTICS) {
+            if (!validation.checks[check]) {
+                pushGeometryError(diagnostics, index, message);
+            }
+        }
     });
+}
+
+function pushGeometryError(diagnostics, index, message) {
+    diagnostics.push(
+        createError({
+            tab: TABS.ELEMENTS,
+            row: index + 1,
+            property: "geo",
+            message,
+        })
+    );
 }
 
 function validateRecordOrder(elements, diagnostics) {

@@ -1,8 +1,5 @@
 import { toStorage } from "../model/arrayShape.js";
-import {
-    unpackKvVertices,
-    validateKvVertices,
-} from "../solver/geometryKv.js";
+import { unpackKvVertices } from "../solver/geometryKv.js";
 import { unpackTkVertices } from "../solver/geometryTk.js";
 import {
     expandElementSymmetry,
@@ -47,6 +44,18 @@ const ELEMENT_INDICES = new Uint16Array([
     2, 6, 7, 2, 7, 3, // 3-7-8-4
 ]);
 
+// Explicit main-edge topology is retained in the Scene DTO. Besides avoiding
+// the angle-based heuristics of Three.EdgesGeometry, it gives collapsed
+// geometry a deterministic line fallback even when the regular edge overlay
+// is disabled.
+const ELEMENT_EDGE_INDICES = new Uint16Array([
+    0, 1, 2, 3, 4, 5, 6, 7, // 1-2, 3-4, 5-6, 7-8
+    0, 2, 1, 3, 4, 6, 5, 7, // 1-3, 2-4, 5-7, 6-8
+    0, 4, 1, 5, 2, 6, 3, 7, // 1-5, 2-6, 3-7, 4-8
+]);
+const REGION_EDGE_INDICES = new Uint16Array([
+    0, 1, 1, 2, 2, 3, 3, 0,
+]);
 const REGION_LINE_INDICES = new Uint16Array([0, 1]);
 
 function diagnostic(schemaId, recordIndex, property, code, message) {
@@ -191,69 +200,6 @@ function finiteVertices(vertices, expectedCount) {
             && vertex.length === 3
             && vertex.every(Number.isFinite)
         );
-}
-
-function cross(left, right) {
-    return [
-        left[1] * right[2] - left[2] * right[1],
-        left[2] * right[0] - left[0] * right[2],
-        left[0] * right[1] - left[1] * right[0],
-    ];
-}
-
-function subtract(left, right) {
-    return [
-        left[0] - right[0],
-        left[1] - right[1],
-        left[2] - right[2],
-    ];
-}
-
-function dot(left, right) {
-    return left[0] * right[0]
-        + left[1] * right[1]
-        + left[2] * right[2];
-}
-
-function elementHasPositiveVolume(vertices) {
-    let sixVolumes = 0;
-    const anchor = vertices[0];
-
-    for (let index = 0; index < ELEMENT_INDICES.length; index += 3) {
-        const first = subtract(
-            vertices[ELEMENT_INDICES[index]],
-            anchor,
-        );
-        const second = subtract(
-            vertices[ELEMENT_INDICES[index + 1]],
-            anchor,
-        );
-        const third = subtract(
-            vertices[ELEMENT_INDICES[index + 2]],
-            anchor,
-        );
-        sixVolumes += dot(first, cross(second, third));
-    }
-
-    return sixVolumes > 0;
-}
-
-function regionHasMeasure(vertices, isLine) {
-    if (isLine) {
-        const direction = subtract(vertices[2], vertices[0]);
-        return dot(direction, direction) > 0;
-    }
-
-    const first = cross(
-        subtract(vertices[1], vertices[0]),
-        subtract(vertices[2], vertices[0]),
-    );
-    const second = cross(
-        subtract(vertices[2], vertices[0]),
-        subtract(vertices[3], vertices[0]),
-    );
-
-    return dot(first, first) + dot(second, second) > 0;
 }
 
 function source(schemaId, recordIndex, record) {
@@ -446,15 +392,7 @@ function elementPrimitive(record, recordIndex, general, remainingInstances) {
 
     const unpacked = unpackKvVertices(normalized.geo, normalized.geoType);
 
-    if (
-        unpacked.err !== 0
-        || !finiteVertices(unpacked.vertices, 8)
-        || !elementHasPositiveVolume(unpacked.vertices)
-        || (
-            normalized.geoType === 0
-            && !validateKvVertices(unpacked.vertices)
-        )
-    ) {
+    if (!finiteVertices(unpacked.vertices, 8)) {
         return {
             diagnostic: diagnostic(
                 ELEMENTS_SCHEMA_ID,
@@ -529,6 +467,7 @@ function elementPrimitive(record, recordIndex, general, remainingInstances) {
             ...(discretization && { discretization }),
             vertices: flattenVertices(unpacked.vertices),
             indices: new Uint16Array(ELEMENT_INDICES),
+            edgeIndices: new Uint16Array(ELEMENT_EDGE_INDICES),
             instances,
         },
     };
@@ -570,11 +509,7 @@ function regionPrimitive(record, recordIndex, remainingInstances) {
 
     const unpacked = unpackTkVertices(normalized.geo, normalized.geoType);
 
-    if (
-        unpacked.err !== 0
-        || !finiteVertices(unpacked.vertices, 4)
-        || !regionHasMeasure(unpacked.vertices, isLine)
-    ) {
+    if (!finiteVertices(unpacked.vertices, 4)) {
         return {
             diagnostic: diagnostic(
                 REGIONS_SCHEMA_ID,
@@ -660,6 +595,9 @@ function regionPrimitive(record, recordIndex, remainingInstances) {
             indices: isLine
                 ? new Uint16Array(REGION_LINE_INDICES)
                 : surface.indices,
+            edgeIndices: isLine
+                ? new Uint16Array(REGION_LINE_INDICES)
+                : new Uint16Array(REGION_EDGE_INDICES),
             instances,
         },
     };

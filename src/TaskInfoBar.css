@@ -131,6 +131,13 @@
     white-space: nowrap;
 }
 
+.about-separator {
+    align-self: stretch;
+    height: 0;
+    margin: 0 6px;
+    border-top: 1px dashed rgba(240, 244, 247, .38);
+}
+
 .about-credits {
     align-self: stretch;
     display: flex;
@@ -144,12 +151,13 @@
     align-self: center;
     display: grid;
     grid-template-columns: max-content;
-    gap: 14px;
+    gap: 4px;
 }
 
 .about-close-button {
     box-sizing: border-box;
     width: 100%;
+    margin-top: 8px;
     padding: 4px 16px;
     border: 1px solid #7f8d99;
     border-radius: 3px;

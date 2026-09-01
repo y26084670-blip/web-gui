@@ -21,6 +21,18 @@ function vector(rows) {
     return Array.from({ length: rows }, () => [0]);
 }
 
+function parameterGeo(values) {
+    const flat = new Array(24).fill(0);
+    values.forEach((value, index) => {
+        flat[index] = value;
+    });
+
+    return Array.from(
+        { length: 8 },
+        (_, index) => flat.slice(3 * index, 3 * index + 3),
+    );
+}
+
 function element({
     geoType = 0,
     geo = validVertices(),
@@ -70,25 +82,88 @@ test("elements reports invalid direct vertices at their record row", () => {
     assert.equal(diagnostics[0].tab.id, "elements");
     assert.equal(diagnostics[0].row, 2);
     assert.equal(diagnostics[0].property, "geo");
-    assert.match(
+    assert.equal(
         diagnostics[0].message,
-        /корректный объёмный шестигранник/,
+        "Рёбра 13 и 24 не параллельны с заданной точностью",
     );
 });
 
-test("elements does not validate constructed geometry types", () => {
-    for (const geoType of [1, 2, 3, 4]) {
+test("elements validates every geometry type after unpack", () => {
+    const validCases = [
+        [1, [0, 1, 1, 1, 1, 2, 0, 2, 30]],
+        [2, [2, 3, 4]],
+        [3, [2, 3, 4, 2, 3]],
+    ];
+
+    for (const [geoType, parameters] of validCases) {
         assert.deepEqual(
             validate([
                 element({
                     geoType,
-                    geo: invalidVertices(),
+                    geo: parameterGeo(parameters),
                 }),
             ]),
             [],
             `geoType ${geoType}`,
         );
     }
+
+    for (const [geoType, parameters] of [
+        [1, [0, 1, 1, 1, 1, 2, 0, 2, 0]],
+        [2, [0, 3, 4]],
+        [3, [0, 3, 4, 2, 3]],
+        [4, [3, 2, 0, 4, 2, 1, 1]],
+    ]) {
+        assert.notDeepEqual(
+            validate([
+                element({
+                    geoType,
+                    geo: parameterGeo(parameters),
+                }),
+            ]),
+            [],
+            `geoType ${geoType}`,
+        );
+    }
+});
+
+test("elements reports every failed solver geometry flag separately", () => {
+    const diagnostics = validate([
+        element({
+            geoType: 4,
+            geo: parameterGeo([3, 2, 0, 4, 2, 1, 1]),
+        }),
+    ]);
+
+    assert.deepEqual(
+        diagnostics.map(({ message }) => message),
+        [
+            "Длина ребра 26 не превышает 0,001 мм",
+            "Ориентированный объём не превышает 0,000000001 мм³",
+        ],
+    );
+    assert.equal(diagnostics.every(item => item.row === 1), true);
+    assert.equal(
+        diagnostics.every(item => item.property === "geo"),
+        true,
+    );
+});
+
+test("elements reports unpack errors without suppressing flag details", () => {
+    const diagnostics = validate([
+        element({
+            geoType: 2,
+            geo: parameterGeo([0, 3, 4]),
+        }),
+    ]);
+
+    assert.deepEqual(
+        diagnostics.map(({ message }) => message),
+        [
+            "Прямоугольная призма содержит неположительный размер Lx, Ly или Lz",
+            "Ориентированный объём не превышает 0,000000001 мм³",
+        ],
+    );
 });
 
 test("elements does not duplicate an incomplete geo shape error", () => {

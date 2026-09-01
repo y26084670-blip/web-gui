@@ -56,12 +56,24 @@ export const KV_GEO_LENGTH = 24;   // zeros(REAL, 3 * 8)
 //
 // Нумерация вершин повторяет solver: нечётные вершины относятся к нижней
 // грани, чётные — к верхней; рёбра 12, 34, 56 и 78 соединяют грани.
-// Функция вызывается только для geoType = 0: для остальных типов вершины
-// строятся решателем по параметрам геометрии.
-export function validateKvVertices(
+// Проверка применяется к вершинам после unpack для каждого geoType = 0…4.
+// Отдельные признаки нужны для точной диагностики вместо общего сообщения.
+export function validateKvVerticesDetailed(
     vertices,
     eps = KV_VALIDATION_EPS,
 ) {
+    const checks = {
+        edge13: false,
+        edge57: false,
+        edge15: false,
+        edge37: false,
+        edge26: false,
+        parallel13And24: false,
+        parallel57And68: false,
+        parallelConnectingEdges: false,
+        positiveVolume: false,
+    };
+
     if (
         !Array.isArray(vertices)
         || vertices.length !== 8
@@ -69,7 +81,11 @@ export function validateKvVertices(
         || !Number.isFinite(eps)
         || eps <= 0
     ) {
-        return false;
+        return {
+            valid: false,
+            malformed: true,
+            checks,
+        };
     }
 
     const edge13 = difference(vertices[2], vertices[0]);
@@ -82,29 +98,28 @@ export function validateKvVertices(
     const edge48 = difference(vertices[7], vertices[3]);
     const parallelTolerance = eps ** 2;
 
-    const parallel13And24 = areParallel(
+    checks.parallel13And24 = areParallel(
         edge13,
         edge24,
         parallelTolerance,
     );
-    const parallel57And68 = areParallel(
+    checks.parallel57And68 = areParallel(
         edge57,
         edge68,
         parallelTolerance,
     );
-    const parallelConnectingEdges =
+    checks.parallelConnectingEdges =
         areParallel(edge15, edge26, parallelTolerance)
         && areParallel(edge37, edge26, parallelTolerance)
         && areParallel(edge48, edge26, parallelTolerance);
 
-    const requiredEdgesAreNondegenerate =
-        norm(edge13) > eps
-        && norm(edge57) > eps
-        && norm(edge15) > eps
-        && norm(edge37) > eps
-        && norm(edge26) > eps;
+    checks.edge13 = norm(edge13) > eps;
+    checks.edge57 = norm(edge57) > eps;
+    checks.edge15 = norm(edge15) > eps;
+    checks.edge37 = norm(edge37) > eps;
+    checks.edge26 = norm(edge26) > eps;
 
-    const positiveVolume = dot(
+    checks.positiveVolume = dot(
         difference(vertices[1], vertices[0]),
         cross(
             difference(vertices[3], vertices[0]),
@@ -112,11 +127,18 @@ export function validateKvVertices(
         ),
     ) > eps ** 3;
 
-    return parallelConnectingEdges
-        && parallel13And24
-        && parallel57And68
-        && requiredEdgesAreNondegenerate
-        && positiveVolume;
+    return {
+        valid: Object.values(checks).every(Boolean),
+        malformed: false,
+        checks,
+    };
+}
+
+export function validateKvVertices(
+    vertices,
+    eps = KV_VALIDATION_EPS,
+) {
+    return validateKvVerticesDetailed(vertices, eps).valid;
 }
 
 // geo -> вершины [8][3] (kv38, локальная СК). Возврат { vertices, err }.
@@ -166,6 +188,7 @@ export function unpackKvVertices(geo, geoType) {
     // Прямоугольная призма
     if (geoType === 2) {
         const [Lx, Ly, Lz] = geo.slice(0, 3);
+        err = Lx > 0 && Ly > 0 && Lz > 0 ? 0 : 1;
         for (const m of [2, 4, 6, 8]) v[m - 1][0] = Lx;
         for (const m of [1, 2, 3, 4]) v[m - 1][1] = Ly;
         for (const m of [3, 4, 7, 8]) v[m - 1][2] = Lz;
@@ -175,6 +198,9 @@ export function unpackKvVertices(geo, geoType) {
     // Усечённая правильная пирамида
     if (geoType === 3) {
         const [Hx, Ly, Lz, Ly2, Lz2] = geo.slice(0, 5);
+        err = Hx > 0 && Ly > 0 && Lz > 0 && Ly2 > 0 && Lz2 > 0
+            ? 0
+            : 1;
         for (const m of [1, 3, 5, 7]) v[m - 1][0] = 0;
         for (const m of [2, 4, 6, 8]) v[m - 1][0] = Hx; 
         for (const m of [1, 3]) v[m - 1][1] = Ly;
@@ -191,6 +217,7 @@ export function unpackKvVertices(geo, geoType) {
     // Неправильная пирамида
     if (geoType === 4) {
         const [L15, L37, Z037, DY, H, YV, ZV] = geo.slice(0, 7);
+        err = L15 > 0 && L37 > 0 && DY > 0 ? 0 : 1;
         for (const m of [1, 3, 5, 7]) v[m - 1][0] = 0;
         for (const m of [2, 4, 6, 8]) v[m - 1][0] = -H;
         for (const m of [1, 5]) v[m - 1][1] = 0;

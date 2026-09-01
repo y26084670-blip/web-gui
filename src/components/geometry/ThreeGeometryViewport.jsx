@@ -52,6 +52,7 @@ const AXES_GIZMO_SIZE = 104;
 const AXES_GIZMO_MARGIN = 8;
 const VERTEX_POINT_SIZE = 9;
 const DISCRETIZATION_POINT_SIZE = 8;
+const DEGENERATE_POINT_SIZE = 13;
 const PICK_INTERVAL_MS = 80;
 
 function normalizeProjection(value) {
@@ -89,8 +90,9 @@ function materialStyle(primitive, category, mode) {
 }
 
 function renderObjectCost(primitive, mode, showEdges) {
+  const shape = primitiveRenderShape(primitive);
   if (
-    primitive.kind === "region-line" ||
+    shape !== "surface" ||
     mode === "wireframe" ||
     !showEdges
   ) {
@@ -118,6 +120,127 @@ function disposeObject(root) {
 
 function validMatrix(value) {
   return value?.length === 16 && Array.from(value).every(Number.isFinite);
+}
+
+function topologyVertices(primitive) {
+  return primitive.controlVertices ?? primitive.vertices ?? [];
+}
+
+function triangleHasMeasure(vertices, first, second, third) {
+  const firstOffset = first * 3;
+  const secondOffset = second * 3;
+  const thirdOffset = third * 3;
+  const left = [
+    vertices[secondOffset] - vertices[firstOffset],
+    vertices[secondOffset + 1] - vertices[firstOffset + 1],
+    vertices[secondOffset + 2] - vertices[firstOffset + 2],
+  ];
+  const right = [
+    vertices[thirdOffset] - vertices[firstOffset],
+    vertices[thirdOffset + 1] - vertices[firstOffset + 1],
+    vertices[thirdOffset + 2] - vertices[firstOffset + 2],
+  ];
+  const scale = Math.max(
+    ...left.map(Math.abs),
+    ...right.map(Math.abs),
+  );
+  if (!(scale > 0) || !Number.isFinite(scale)) return false;
+
+  const lx = left[0] / scale;
+  const ly = left[1] / scale;
+  const lz = left[2] / scale;
+  const rx = right[0] / scale;
+  const ry = right[1] / scale;
+  const rz = right[2] / scale;
+  return lx * ry - ly * rx !== 0 ||
+    ly * rz - lz * ry !== 0 ||
+    lz * rx - lx * rz !== 0;
+}
+
+function hasNonzeroTriangle(primitive) {
+  const vertices = primitive.vertices ?? [];
+  const indices = primitive.indices ?? [];
+  for (let index = 0; index + 2 < indices.length; index += 3) {
+    if (triangleHasMeasure(
+      vertices,
+      indices[index],
+      indices[index + 1],
+      indices[index + 2],
+    )) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function nonzeroTopologyPositions(primitive) {
+  const vertices = topologyVertices(primitive);
+  const indices = primitive.edgeIndices ?? [];
+  const positions = [];
+
+  for (let index = 0; index + 1 < indices.length; index += 2) {
+    const firstOffset = indices[index] * 3;
+    const secondOffset = indices[index + 1] * 3;
+    const dx = vertices[secondOffset] - vertices[firstOffset];
+    const dy = vertices[secondOffset + 1] - vertices[firstOffset + 1];
+    const dz = vertices[secondOffset + 2] - vertices[firstOffset + 2];
+    if (dx === 0 && dy === 0 && dz === 0) continue;
+
+    positions.push(
+      vertices[firstOffset],
+      vertices[firstOffset + 1],
+      vertices[firstOffset + 2],
+      vertices[secondOffset],
+      vertices[secondOffset + 1],
+      vertices[secondOffset + 2],
+    );
+  }
+
+  return new Float64Array(positions);
+}
+
+function primitiveRenderShape(primitive) {
+  if (
+    primitive.kind !== "region-line" &&
+    hasNonzeroTriangle(primitive)
+  ) {
+    return "surface";
+  }
+  return nonzeroTopologyPositions(primitive).length > 0 ? "line" : "point";
+}
+
+function mergedTopologyLineGeometry(THREE, primitive, instances) {
+  const sourcePositions = nonzeroTopologyPositions(primitive);
+  const vertexSpan = sourcePositions.length / 3;
+  if (vertexSpan === 0) return null;
+
+  const positions = [];
+  appendTransformedPositions(THREE, sourcePositions, instances, positions);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(positions), 3),
+  );
+  return { geometry, vertexSpan };
+}
+
+function mergedDegeneratePointGeometry(THREE, primitive, instances) {
+  const vertices = topologyVertices(primitive);
+  if (vertices.length < 3) return null;
+
+  const positions = [];
+  appendTransformedPositions(
+    THREE,
+    new Float64Array(vertices.slice(0, 3)),
+    instances,
+    positions,
+  );
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(positions), 3),
+  );
+  return { geometry, vertexSpan: 1 };
 }
 
 function mergedGeometry(THREE, primitive, instances) {
@@ -308,24 +431,43 @@ function renderableFor(
 ) {
   const style = materialStyle(primitive, category, mode);
   const virtual = primitive.materialKind === GEOMETRY_MATERIAL_KINDS.VIRTUAL;
-  const showSurfaceEdges = showEdges === true;
+  const renderShape = primitiveRenderShape(primitive);
+  const showSurfaceEdges = renderShape === "surface" && showEdges === true;
   let object;
   let pickKind;
   let pickSpan;
-  if (primitive.kind === "region-line") {
-    const geometry = mergedGeometry(THREE, primitive, instances);
-    if (!geometry) return null;
+  if (renderShape === "point") {
+    const point = mergedDegeneratePointGeometry(THREE, primitive, instances);
+    if (!point) return null;
+    object = new THREE.Points(
+      point.geometry,
+      new THREE.PointsMaterial({
+        color: style.color,
+        depthTest: true,
+        depthWrite: mode !== "translucent",
+        opacity: style.opacity,
+        size: DEGENERATE_POINT_SIZE,
+        sizeAttenuation: false,
+        transparent: style.opacity < 1,
+      }),
+    );
+    pickKind = "points";
+    pickSpan = point.vertexSpan;
+  } else if (renderShape === "line") {
+    const lines = mergedTopologyLineGeometry(THREE, primitive, instances);
+    if (!lines) return null;
     object = new THREE.LineSegments(
-      geometry,
+      lines.geometry,
       new THREE.LineBasicMaterial({
         color: style.color,
+        depthTest: true,
         depthWrite: mode !== "translucent",
         opacity: style.opacity,
         transparent: style.opacity < 1,
       }),
     );
     pickKind = "lines";
-    pickSpan = primitive.indices?.length ?? 0;
+    pickSpan = lines.vertexSpan;
   } else if (mode === "wireframe") {
     const wireframe = mergedWireframeGeometry(
       THREE,
@@ -386,6 +528,7 @@ function renderableFor(
       span: pickSpan,
     },
     primitiveKind: primitive.kind,
+    renderShape,
     source: primitive.source,
     surfaceEdgesShown: showSurfaceEdges,
   };
@@ -728,6 +871,7 @@ function fitCameraToBounds(THREE, camera, controls, bounds, targetOverride) {
       radius / Math.tan(verticalFov / 2),
       radius / Math.tan(Math.max(horizontalFov, 1e-6) / 2),
     );
+    if (sphere.radius === 0) distance = Math.max(distance, 1);
   }
 
   const direction = camera.position.clone().sub(controls.target);

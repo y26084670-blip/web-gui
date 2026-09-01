@@ -1,6 +1,9 @@
 import { Show, For } from "solid-js";
 import { diagnosticService } from "../../services/diagnosticService";
-import { VALIDATION_LEVELS } from "../../services/schemas/common/constants";
+import {
+  TABS,
+  VALIDATION_LEVELS,
+} from "../../services/schemas/common/constants";
 import "./DiagnosticPopup.css";
 
 const LEVEL_LABELS = {
@@ -9,6 +12,13 @@ const LEVEL_LABELS = {
   [VALIDATION_LEVELS.SUCCESS]: "SUCCESS",
   [VALIDATION_LEVELS.UNKNOWN]: "UNKNOWN",
 };
+
+const ADDRESSABLE_RECORD_TABS = new Set([
+  TABS.ELEMENTS.id,
+  TABS.REGIONS.id,
+  TABS.AMPS.id,
+  TABS.MOVES.id,
+]);
 
 export function DiagnosticPopup(props) {
   function displayValue(value) {
@@ -22,6 +32,28 @@ export function DiagnosticPopup(props) {
 
     return value;
   }
+
+  function diagnosticNavigationLabel(diagnostic) {
+    if (
+      !diagnostic?.tab?.id
+      || !ADDRESSABLE_RECORD_TABS.has(diagnostic.tab.id)
+      || diagnostic?.row === undefined
+      || diagnostic?.row === null
+    ) {
+      return null;
+    }
+
+    if (diagnostic.tab.id === TABS.ELEMENTS.id) {
+      return `Элемент №${diagnostic.row}`;
+    }
+
+    if (diagnostic.tab.id === TABS.REGIONS.id) {
+      return `Область №${diagnostic.row}`;
+    }
+
+    return `Строка №${diagnostic.row}`;
+  }
+
   return (
     <Show when={props.open()}>
       <div class="diagnostic-popup">
@@ -29,17 +61,7 @@ export function DiagnosticPopup(props) {
 
         <For each={diagnosticService.diagnostics()}>
           {(diagnostic) => (
-            <div
-              class="diagnostic-item"
-              classList={{
-                "diagnostic-item-selectable": Boolean(diagnostic?.tab?.id),
-              }}
-              onClick={() => {
-                if (diagnostic?.tab?.id) {
-                  props.onSelect?.(diagnostic);
-                }
-              }}
-            >
+            <div class="diagnostic-item">
               <div class={`diagnostic-level level-${diagnostic.level}`}>
                 {LEVEL_LABELS[diagnostic.level]}
               </div>
@@ -49,9 +71,23 @@ export function DiagnosticPopup(props) {
                   <span>Вкладка: {displayValue(diagnostic.tab)}</span>
                 )}
 
-                {diagnostic.row !== undefined && (
-                  <span>Строка: {diagnostic.row}</span>
-                )}
+                <Show
+                  when={diagnosticNavigationLabel(diagnostic)}
+                  fallback={diagnostic.row !== undefined
+                    ? <span>Строка: {diagnostic.row}</span>
+                    : null}
+                >
+                  {(label) => (
+                    <button
+                      type="button"
+                      class="diagnostic-navigation-link"
+                      aria-label={`Перейти: ${label()}`}
+                      onClick={() => props.onSelect?.(diagnostic)}
+                    >
+                      {label()}
+                    </button>
+                  )}
+                </Show>
 
                 {diagnostic.property && (
                   <span>

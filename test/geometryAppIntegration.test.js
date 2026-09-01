@@ -62,6 +62,7 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(source, /aboutDialog\.showModal\(\)/u);
     assert.match(source, /aboutButton\?\.focus\(\)/u);
     assert.match(source, /onClick=\{\(\) => setAboutOpen\(false\)\}/u);
+    assert.match(source, /<h2[^>]*>О программе E3D<\/h2>/u);
     assert.match(source, /<span>Программа предназначена для подготовки,<\/span>/u);
     assert.match(source, /<span>проверки, сохранения и визуализации<\/span>/u);
     assert.match(source, /<span>исходных данных расчётных задач Clark,<\/span>/u);
@@ -69,6 +70,8 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(source, /<span>и характеристики материалов\.<\/span>/u);
     assert.match(source, /Разработчик: ChatGPT 5\.6 Sol/u);
     assert.match(source, /Куратор: Кулаев Ю\./u);
+    assert.match(source, /<div>2026 г\.<\/div>/u);
+    assert.match(source, /class="about-separator" aria-hidden="true"/u);
     assert.match(source, /class="about-curator-stack"/u);
     assert.match(
         styles,
@@ -84,10 +87,14 @@ test("task bar exposes an always available modal about dialog", async () => {
     );
     assert.match(
         styles,
-        /\.about-curator-stack\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*max-content;/su,
+        /\.about-separator\s*\{[^}]*border-top:\s*1px dashed rgba\(240, 244, 247, \.38\);/su,
     );
     assert.match(
         styles,
-        /\.about-close-button\s*\{[^}]*width:\s*100%;[^}]*color:\s*#f0f4f7;[^}]*background:\s*#3a4650;/su,
+        /\.about-curator-stack\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*max-content;[^}]*gap:\s*4px;/su,
+    );
+    assert.match(
+        styles,
+        /\.about-close-button\s*\{[^}]*width:\s*100%;[^}]*margin-top:\s*8px;[^}]*color:\s*#f0f4f7;[^}]*background:\s*#3a4650;/su,
     );
 });

@@ -198,7 +198,7 @@ export function TaskInfoBar(props) {
           aboutButton?.focus();
         }}
       >
-        <h2 id="about-dialog-title" class="about-title">О программе</h2>
+        <h2 id="about-dialog-title" class="about-title">О программе E3D</h2>
         <p class="about-description">
           <span>Программа предназначена для подготовки,</span>
           <span>проверки, сохранения и визуализации</span>
@@ -206,10 +206,12 @@ export function TaskInfoBar(props) {
           <span>включая геометрию, параметры модели</span>
           <span>и характеристики материалов.</span>
         </p>
+        <div class="about-separator" aria-hidden="true" />
         <div class="about-credits">
           <div>Разработчик: ChatGPT 5.6 Sol</div>
           <div class="about-curator-stack">
             <div>Куратор: Кулаев Ю.</div>
+            <div>2026 г.</div>
             <button
               ref={(el) => (aboutCloseButton = el)}
               class="about-close-button"
