@@ -28,16 +28,11 @@ const TITLES = {
   [VALIDATION_LEVELS.ERROR]: "Обнаружены ошибки",
 };
 
-export function ValidationIndicator(props) {
+export function ValidationIndicator() {
   const level = () => diagnosticService.validationLevel();
 
   function handleClick() {
     setPopupOpen(!popupOpen());
-  }
-
-  function handleDiagnosticSelect(diagnostic) {
-    setPopupOpen(false);
-    props.onDiagnosticSelect?.(diagnostic);
   }
 
   return (
@@ -56,7 +51,7 @@ export function ValidationIndicator(props) {
         onClick={handleClick}
       />
 
-      <DiagnosticPopup open={popupOpen} onSelect={handleDiagnosticSelect} />
+      <DiagnosticPopup open={popupOpen} />
     </div>
   );
 }

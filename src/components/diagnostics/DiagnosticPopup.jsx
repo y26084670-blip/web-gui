@@ -13,13 +13,6 @@ const LEVEL_LABELS = {
   [VALIDATION_LEVELS.UNKNOWN]: "UNKNOWN",
 };
 
-const ADDRESSABLE_RECORD_TABS = new Set([
-  TABS.ELEMENTS.id,
-  TABS.REGIONS.id,
-  TABS.AMPS.id,
-  TABS.MOVES.id,
-]);
-
 export function DiagnosticPopup(props) {
   function displayValue(value) {
     if (value === undefined || value === null) {
@@ -33,21 +26,19 @@ export function DiagnosticPopup(props) {
     return value;
   }
 
-  function diagnosticNavigationLabel(diagnostic) {
+  function diagnosticSourceLabel(diagnostic) {
     if (
-      !diagnostic?.tab?.id
-      || !ADDRESSABLE_RECORD_TABS.has(diagnostic.tab.id)
-      || diagnostic?.row === undefined
+      diagnostic?.row === undefined
       || diagnostic?.row === null
     ) {
       return null;
     }
 
-    if (diagnostic.tab.id === TABS.ELEMENTS.id) {
+    if (diagnostic.tab?.id === TABS.ELEMENTS.id) {
       return `Элемент №${diagnostic.row}`;
     }
 
-    if (diagnostic.tab.id === TABS.REGIONS.id) {
+    if (diagnostic.tab?.id === TABS.REGIONS.id) {
       return `Область №${diagnostic.row}`;
     }
 
@@ -72,22 +63,8 @@ export function DiagnosticPopup(props) {
                     <span>Вкладка: {displayValue(diagnostic.tab)}</span>
                   )}
 
-                  <Show
-                    when={diagnosticNavigationLabel(diagnostic)}
-                    fallback={diagnostic.row !== undefined
-                      ? <span>Строка: {diagnostic.row}</span>
-                      : null}
-                  >
-                    {(label) => (
-                      <button
-                        type="button"
-                        class="diagnostic-navigation-link"
-                        aria-label={`Перейти: ${label()}`}
-                        onClick={() => props.onSelect?.(diagnostic)}
-                      >
-                        {label()}
-                      </button>
-                    )}
+                  <Show when={diagnosticSourceLabel(diagnostic)}>
+                    {(label) => <span>{label()}</span>}
                   </Show>
 
                   {diagnostic.property && (

@@ -145,7 +145,7 @@ export function TaskInfoBar(props) {
           Проверить модель
         </button>
 
-        <ValidationIndicator onDiagnosticSelect={props.onDiagnosticSelect} />
+        <ValidationIndicator />
 
         <button
           class="save-button"

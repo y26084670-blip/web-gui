@@ -99,10 +99,6 @@ export function DataEditor(props) {
   let detailLayoutHost;
   let detailResizeCleanup = null;
   let detailRedrawFrame = 0;
-  let diagnosticNavigationFrame = 0;
-  let pendingDiagnosticTarget = null;
-  let diagnosticNavigationInFlight = false;
-  let lastDiagnosticTargetSequence = 0;
   const [mainTableRatio, setMainTableRatio] = createSignal(0.65);
   const [detailLowerRatio, setDetailLowerRatio] = createSignal(0.4);
   const [detailGraphField, setDetailGraphField] = createSignal(null);
@@ -137,102 +133,6 @@ export function DataEditor(props) {
 
     const adapter = viewRegistry.get(property.view ?? VIEW_TYPES.TABLE);
     adapter?.activate?.(cell, { property });
-  }
-
-  function diagnosticPropertyName(property) {
-    if (typeof property === "string") return property;
-    return property?.id ?? property?.name ?? null;
-  }
-
-  async function navigateToDiagnosticTarget(target) {
-    if (
-      !table
-      || schema.config.storage !== STORAGE_TYPES.RECORDS
-      || hasMainView
-      || hasRecordColumns
-    ) {
-      return false;
-    }
-
-    // rowLabel — текущий устойчивый пользовательский номер записи. Поиск
-    // по позиции массива ненадёжен после перемещения или удаления строк.
-    const row = table.getRows().find(item =>
-      String(item.getData()?.rowLabel) === String(target.row)
-    );
-    if (!row) return false;
-
-    table.deselectRow?.();
-    row.select?.();
-
-    try {
-      await table.scrollToRow?.(row, "center", true);
-    } catch {
-      // Строка уже может находиться в видимой части виртуальной таблицы.
-    }
-
-    const propertyName = diagnosticPropertyName(target.property);
-    const cell = propertyName ? row.getCell?.(propertyName) : null;
-
-    if (cell) {
-      try {
-        await table.scrollToColumn?.(cell.getColumn(), "center", true);
-      } catch {
-        // Скрытое или уже видимое поле не должно отменять выбор записи.
-      }
-    }
-
-    if (propertyName === "geo" && cell) {
-      const tableSchema = cell.getTable()._gui?.schema;
-      const property = resolveProperty(cell, tableSchema);
-      const adapter = property
-        ? viewRegistry.get(property.view ?? VIEW_TYPES.TABLE)
-        : null;
-      await Promise.resolve(adapter?.activate?.(cell, { property }));
-    }
-
-    return true;
-  }
-
-  async function applyPendingDiagnosticNavigation() {
-    const target = pendingDiagnosticTarget;
-    if (
-      diagnosticNavigationInFlight
-      || !props.active
-      || !target
-      || target.tabId !== schema.id
-      || target.sequence <= lastDiagnosticTargetSequence
-    ) {
-      return;
-    }
-
-    diagnosticNavigationInFlight = true;
-    try {
-      if (await navigateToDiagnosticTarget(target)) {
-        lastDiagnosticTargetSequence = target.sequence;
-        if (pendingDiagnosticTarget?.sequence === target.sequence) {
-          pendingDiagnosticTarget = null;
-        }
-      }
-    } finally {
-      diagnosticNavigationInFlight = false;
-      if (
-        pendingDiagnosticTarget
-        && pendingDiagnosticTarget.sequence > lastDiagnosticTargetSequence
-        && pendingDiagnosticTarget.sequence !== target.sequence
-      ) {
-        scheduleDiagnosticNavigation();
-      }
-    }
-  }
-
-  function scheduleDiagnosticNavigation() {
-    if (!props.active || !pendingDiagnosticTarget) return;
-
-    cancelAnimationFrame(diagnosticNavigationFrame);
-    diagnosticNavigationFrame = requestAnimationFrame(() => {
-      diagnosticNavigationFrame = 0;
-      void applyPendingDiagnosticNavigation();
-    });
   }
 
   const mainViewPropertyName =
@@ -486,7 +386,6 @@ export function DataEditor(props) {
     await table.setData(rows);
     notifyRecordSelection();
     activateDefaultReferenceView();
-    scheduleDiagnosticNavigation();
   }
 
   async function refreshReferenceViews() {
@@ -842,7 +741,6 @@ export function DataEditor(props) {
           await table.replaceData(rows);
           notifyRecordSelection();
           activateDefaultReferenceView();
-          scheduleDiagnosticNavigation();
         } finally {
           applyingModel = false;
         }
@@ -1049,8 +947,6 @@ export function DataEditor(props) {
         onFieldChanged: setDetailGraphField,
       });
     }
-
-    scheduleDiagnosticNavigation();
   });
 
   // Активация вкладки является явным событием жизненного цикла.
@@ -1080,7 +976,6 @@ export function DataEditor(props) {
       }
 
       table.redraw(true);
-      scheduleDiagnosticNavigation();
 
       Promise.resolve(detailRegion.onVisible())
         .catch((error) => {
@@ -1099,22 +994,6 @@ export function DataEditor(props) {
     if (!props.active || !table) return;
 
     applyComputedColumnsVisibility(mode);
-  });
-
-  // sequence превращает каждый выбор диагностики в отдельное событие:
-  // повторный переход по той же записи не теряется из-за равенства объекта.
-  createEffect(() => {
-    const target = props.diagnosticTarget;
-    if (
-      !target
-      || target.tabId !== schema.id
-      || target.sequence <= lastDiagnosticTargetSequence
-    ) {
-      return;
-    }
-
-    pendingDiagnosticTarget = target;
-    scheduleDiagnosticNavigation();
   });
 
   // Загрузка данных модели
@@ -1183,7 +1062,6 @@ export function DataEditor(props) {
     stopDetailResize();
     cancelAnimationFrame(mainRedrawFrame);
     cancelAnimationFrame(detailRedrawFrame);
-    cancelAnimationFrame(diagnosticNavigationFrame);
   });
 
   // Направление BaseModel -> Tabulator. Собственные публикации редактора

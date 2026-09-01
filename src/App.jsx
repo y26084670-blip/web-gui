@@ -30,7 +30,6 @@ import "./App.css";
 
 export default function App() {
   const [activeTab, setActiveTab] = createSignal(TABS.TASKS.id);
-  const [diagnosticTarget, setDiagnosticTarget] = createSignal(null);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
   const [geometryViewerOpen, setGeometryViewerOpen] = createSignal(false);
@@ -39,7 +38,6 @@ export default function App() {
   const [selectedGeometryRegionIndices, setSelectedGeometryRegionIndices] =
     createSignal([]);
   let geometryViewerButton;
-  let diagnosticTargetSequence = 0;
   let modelValidationRevision = 0;
   let observedGeometryTaskHandle;
 
@@ -66,25 +64,6 @@ export default function App() {
     diagnosticService.setValidationResult(diagnostics);
   }
 
-  function handleDiagnosticSelect(diagnostic) {
-    const tabId = diagnostic?.tab?.id;
-    if (
-      !tabId
-      || diagnostic?.row === undefined
-      || diagnostic?.row === null
-    ) {
-      return;
-    }
-
-    setDiagnosticTarget({
-      sequence: ++diagnosticTargetSequence,
-      tabId,
-      row: diagnostic.row,
-      property: diagnostic.property,
-    });
-    setActiveTab(tabId);
-  }
-
   const tabs = [
     {
       id: TABS.TASKS.id,
@@ -104,7 +83,6 @@ export default function App() {
           schema={schema}
           active={props.active}
           computedColumnsMode={props.computedColumnsMode}
-          diagnosticTarget={props.diagnosticTarget}
           onRecordSelectionChange={handleGeometryRecordSelectionChange}
         />
       ),
@@ -255,7 +233,6 @@ export default function App() {
       <TaskInfoBar
         path={selectionService.loadedTaskPath()}
         onValidate={handleModelValidation}
-        onDiagnosticSelect={handleDiagnosticSelect}
         onSave={handleSave}
         menuOpen={sidePanelOpen()}
         onMenuToggle={() => setSidePanelOpen((open) => !open)}
@@ -331,7 +308,6 @@ export default function App() {
             >
               <Component
                 active={activeTab() === tab.id}
-                diagnosticTarget={diagnosticTarget()}
                 computedColumnsMode={
                   viewSettingsService.computedColumnsMode()
                 }
