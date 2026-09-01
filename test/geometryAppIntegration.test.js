@@ -4,6 +4,7 @@ import test from "node:test";
 
 const appUrl = new URL("../src/App.jsx", import.meta.url);
 const taskInfoBarUrl = new URL("../src/TaskInfoBar.jsx", import.meta.url);
+const taskInfoBarStylesUrl = new URL("../src/TaskInfoBar.css", import.meta.url);
 
 test("App hosts one global modeless geometry viewer", async () => {
     const source = await readFile(appUrl, "utf8");
@@ -36,6 +37,7 @@ test("task bar opens geometry viewer only for a loaded task", async () => {
 
 test("task bar exposes an always available modal about dialog", async () => {
     const source = await readFile(taskInfoBarUrl, "utf8");
+    const styles = await readFile(taskInfoBarStylesUrl, "utf8");
     const aboutButton = source.match(
         /<button\s+ref=\{\(el\) => \(aboutButton = el\)\}[\s\S]*?<\/button>/u,
     )?.[0] ?? "";
@@ -50,7 +52,24 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(source, /aboutDialog\.showModal\(\)/u);
     assert.match(source, /aboutButton\?\.focus\(\)/u);
     assert.match(source, /onClick=\{\(\) => setAboutOpen\(false\)\}/u);
-    assert.match(source, /Программа предназначена для подготовки, проверки и сохранения/u);
+    assert.match(source, /<span>Программа предназначена для подготовки,<\/span>/u);
+    assert.match(source, /<span>проверки, сохранения и визуализации<\/span>/u);
+    assert.match(source, /<span>исходных данных расчётных задач Clark,<\/span>/u);
+    assert.match(source, /<span>включая геометрию, параметры модели<\/span>/u);
+    assert.match(source, /<span>и характеристики материалов\.<\/span>/u);
     assert.match(source, /Разработчик: ChatGPT 5\.6 Sol/u);
     assert.match(source, /Куратор: Кулаев Ю\./u);
+    assert.match(source, /class="about-curator-stack"/u);
+    assert.match(
+        styles,
+        /\.about-dialog\s*\{[^}]*background:\s*#20262d;[^}]*color:\s*#f0f4f7;/su,
+    );
+    assert.match(
+        styles,
+        /\.about-curator-stack\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*max-content;/su,
+    );
+    assert.match(
+        styles,
+        /\.about-close-button\s*\{[^}]*width:\s*100%;[^}]*color:\s*#f0f4f7;[^}]*background:\s*#3a4650;/su,
+    );
 });

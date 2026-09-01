@@ -42,10 +42,10 @@ export function formatSymmetryInstance(instance) {
     return labels.length > 0 ? `[${labels.join(" ")}]` : "";
 }
 
-function sourceIdentity(source, instance) {
+function sourceIdentity(source) {
     const prefix = `${sourceLabel(source)} №${oneBasedIndex(source?.recordIndex)}`;
-    const symmetry = formatSymmetryInstance(instance);
-    return symmetry ? `${prefix} ${symmetry}` : prefix;
+    const name = sourceName(source);
+    return name ? `${prefix} — ${name}` : prefix;
 }
 
 function trimExponential(value) {
@@ -74,14 +74,31 @@ function formatCoordinate(value) {
     return String(Number(value.toPrecision(COORDINATE_SIGNIFICANT_DIGITS)));
 }
 
+function formatCoordinates(coordinates) {
+    return COORDINATE_NAMES.map(
+        (name, index) => `${name}=${formatCoordinate(coordinates?.[index])}`,
+    ).join("; ");
+}
+
+function tooltipDetails(instance, coordinates) {
+    const symmetry = formatSymmetryInstance(instance);
+    const coordinateText = coordinates == null
+        ? ""
+        : formatCoordinates(coordinates);
+    return [symmetry, coordinateText].filter(Boolean).join(" ");
+}
+
+function tooltipText(title, instance, coordinates) {
+    const details = tooltipDetails(instance, coordinates);
+    return details ? `${title}\n${details}` : title;
+}
+
 /**
  * Formats the tooltip for a scene primitive source.
  * `source.recordIndex` follows the zero-based BaseModel convention.
  */
-export function formatGeometryTooltip(source, instance) {
-    const prefix = sourceIdentity(source, instance);
-    const name = sourceName(source);
-    return name ? `${prefix} — ${name}` : prefix;
+export function formatGeometryTooltip(source, instance, coordinates) {
+    return tooltipText(sourceIdentity(source), instance, coordinates);
 }
 
 /**
@@ -94,13 +111,13 @@ export function formatVertexTooltip(
     coordinates,
     instance,
 ) {
-    const prefix = sourceIdentity(source, instance);
+    const prefix = sourceIdentity(source);
     const vertex = oneBasedIndex(vertexIndex);
-    const formattedCoordinates = COORDINATE_NAMES.map(
-        (name, index) => `${name}=${formatCoordinate(coordinates?.[index])}`,
-    ).join("; ");
-
-    return `${prefix}, вершина №${vertex} — ${formattedCoordinates}`;
+    return tooltipText(
+        `${prefix}, вершина №${vertex}`,
+        instance,
+        coordinates,
+    );
 }
 
 function positiveSafeInteger(value) {
@@ -245,16 +262,12 @@ function formatGridIndices(metadata) {
  * node. Coordinates are expected to be precomputed in Float64 precision.
  */
 export function formatDiscretizationPointTooltip(source, metadata, coordinates) {
-    const prefix = sourceIdentity(source, metadata?.instance);
+    const prefix = sourceIdentity(source);
     const pointLabel = source?.schemaId === "elements" ? "центр ЭО" : "узел";
     const gridIndices = formatGridIndices(metadata);
-    const formattedCoordinates = COORDINATE_NAMES.map(
-        (name, index) => `${name}=${formatCoordinate(coordinates?.[index])}`,
-    ).join("; ");
-
-    return `${prefix}, ${pointLabel}`
-        + (gridIndices ? ` (${gridIndices})` : "")
-        + ` — ${formattedCoordinates}`;
+    const title = `${prefix}, ${pointLabel}`
+        + (gridIndices ? ` (${gridIndices})` : "");
+    return tooltipText(title, metadata?.instance, coordinates);
 }
 
 export function geometryHitInstance(hit) {

@@ -19,8 +19,8 @@ test("geometry tooltip uses one-based source numbers and optional names", () => 
             schemaId: "elements",
             recordIndex: 0,
             name: "KV 1",
-        }),
-        "Элемент №1 — KV 1",
+        }, null, [1.25, -2, 0]),
+        "Элемент №1 — KV 1\nX=1.25; Y=-2; Z=0",
     );
     assert.equal(
         formatGeometryTooltip({
@@ -43,11 +43,11 @@ test("geometry tooltip uses one-based source numbers and optional names", () => 
 test("vertex tooltip formats element coordinates compactly and stably", () => {
     assert.equal(
         formatVertexTooltip(
-            { schemaId: "elements", recordIndex: 1 },
+            { schemaId: "elements", recordIndex: 1, name: "KV 2" },
             0,
             [1.23456789, -0, 0.000000012345],
         ),
-        "Элемент №2, вершина №1 — "
+        "Элемент №2 — KV 2, вершина №1\n"
             + "X=1.234568; Y=0; Z=1.2345e-8",
     );
 });
@@ -59,7 +59,7 @@ test("vertex tooltip supports regions, extreme and invalid coordinates", () => {
             3,
             new Float64Array([1.2e30, -9.87654e-15, Number.NaN]),
         ),
-        "Область №1, вершина №4 — "
+        "Область №1, вершина №4\n"
             + "X=1.2e+30; Y=-9.87654e-15; Z=—",
     );
     assert.equal(
@@ -68,7 +68,7 @@ test("vertex tooltip supports regions, extreme and invalid coordinates", () => {
             Number.NaN,
             [Number.POSITIVE_INFINITY, "12", null],
         ),
-        "Элемент №1, вершина №? — X=—; Y=—; Z=—",
+        "Элемент №1, вершина №?\nX=—; Y=—; Z=—",
     );
 });
 
@@ -88,8 +88,9 @@ test("symmetry labels use compact one-based image numbers", () => {
         formatGeometryTooltip(
             { schemaId: "elements", recordIndex: 1, name: "KV 2" },
             { as: 1, ps: 0, ls: 0, mirrorX: 1, mirrorY: 0 },
+            [4, 5, 6],
         ),
-        "Элемент №2 [AS=2 EX] — KV 2",
+        "Элемент №2 — KV 2\n[AS=2 EX] X=4; Y=5; Z=6",
     );
     assert.equal(
         formatVertexTooltip(
@@ -98,7 +99,7 @@ test("symmetry labels use compact one-based image numbers", () => {
             [1, 2, 3],
             { ls: 1 },
         ),
-        "Область №1 [LS=2], вершина №2 — X=1; Y=2; Z=3",
+        "Область №1, вершина №2\n[LS=2] X=1; Y=2; Z=3",
     );
 });
 
@@ -258,7 +259,7 @@ test("discretization point tooltip formats element centers and symmetry", () => 
             },
             new Float64Array([1.23456789, -0, 0.000000012345]),
         ),
-        "Элемент №4 [AS=2 EX], центр ЭО (D1=2; D2=1; D3=3) — "
+        "Элемент №4, центр ЭО (D1=2; D2=1; D3=3)\n[AS=2 EX] "
             + "X=1.234568; Y=0; Z=1.2345e-8",
     );
 });
@@ -276,7 +277,7 @@ test("discretization point tooltip formats region and line nodes", () => {
             },
             new Float64Array([1, 2, 3]),
         ),
-        "Область №2 [LS=2], узел (D1=1…4; D2=3) — X=1; Y=2; Z=3",
+        "Область №2, узел (D1=1…4; D2=3)\n[LS=2] X=1; Y=2; Z=3",
     );
     assert.equal(
         formatDiscretizationPointTooltip(
@@ -290,7 +291,7 @@ test("discretization point tooltip formats region and line nodes", () => {
             },
             [Number.NaN, Number.POSITIVE_INFINITY, -9.87654e-15],
         ),
-        "Область №1, узел (D1=1; D2=1) — X=—; Y=—; Z=-9.87654e-15",
+        "Область №1, узел (D1=1; D2=1)\nX=—; Y=—; Z=-9.87654e-15",
     );
 });
 

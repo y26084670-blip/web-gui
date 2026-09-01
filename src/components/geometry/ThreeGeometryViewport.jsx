@@ -18,6 +18,11 @@ import {
   countRegionDiscretization,
 } from "../../services/visualization/geometryDiscretization.js";
 import {
+  GEOMETRY_CAMERA_COMMANDS,
+  geometryCameraFrame,
+  normalizeGeometryCameraCommand,
+} from "../../services/visualization/geometryCameraView.js";
+import {
   findPointMetadataRange,
   findVertexMetadataRange,
   formatDiscretizationPointTooltip,
@@ -835,6 +840,7 @@ export function ThreeGeometryViewport(props) {
   let disposed = false;
   let hasFramedGeometry = false;
   let activeProjection = DEFAULT_PROJECTION;
+  let OrbitControlsClass;
   let THREE;
 
   const [ready, setReady] = createSignal(false);
@@ -905,6 +911,27 @@ export function ThreeGeometryViewport(props) {
     });
   };
 
+  const createOrbitControls = (target) => {
+    const nextControls = new OrbitControlsClass(camera, renderer.domElement);
+    nextControls.enableDamping = false;
+    nextControls.screenSpacePanning = true;
+    if (target) nextControls.target.copy(target);
+    nextControls.addEventListener("change", requestRender);
+    nextControls.addEventListener("start", handleControlsStart);
+    nextControls.addEventListener("end", handleControlsEnd);
+    nextControls.update();
+    return nextControls;
+  };
+
+  const rebuildOrbitControls = () => {
+    const target = controls.target.clone();
+    controls.removeEventListener("change", requestRender);
+    controls.removeEventListener("start", handleControlsStart);
+    controls.removeEventListener("end", handleControlsEnd);
+    controls.dispose();
+    controls = createOrbitControls(target);
+  };
+
   const resizeRenderer = () => {
     if (!host || !renderer || !camera) return;
     viewportWidth = Math.max(1, Math.floor(host.clientWidth));
@@ -951,8 +978,17 @@ export function ThreeGeometryViewport(props) {
   };
 
   const showTooltip = (text, x, y) => {
-    const widthEstimate = Math.min(390, Math.max(180, text.length * 6));
-    const lineCount = Math.max(1, Math.ceil(text.length * 6 / widthEstimate));
+    const lines = String(text).split("\n");
+    const longestLineLength = Math.max(1, ...lines.map((line) => line.length));
+    const widthEstimate = Math.min(390, Math.max(180, longestLineLength * 6));
+    const charactersPerLine = Math.max(1, Math.floor(widthEstimate / 6));
+    const lineCount = lines.reduce(
+      (count, line) => count + Math.max(
+        1,
+        Math.ceil(line.length / charactersPerLine),
+      ),
+      0,
+    );
     const heightEstimate = 18 + lineCount * 15;
     const left = x + 14 + widthEstimate <= viewportWidth
       ? x + 14
@@ -1081,10 +1117,12 @@ export function ThreeGeometryViewport(props) {
     }
 
     if (geometryHit?.object?.userData?.source) {
+      const hitPoint = geometryHit.point;
       showTooltip(
         formatGeometryTooltip(
           geometryHit.object.userData.source,
           geometryHitInstance(geometryHit),
+          hitPoint ? [hitPoint.x, hitPoint.y, hitPoint.z] : null,
         ),
         x,
         y,
@@ -1492,6 +1530,24 @@ export function ThreeGeometryViewport(props) {
     requestRender();
   };
 
+  const applyViewRequest = (request) => {
+    const command = normalizeGeometryCameraCommand(request?.command);
+    if (!ready() || !currentBounds || !command) return;
+    if (command === GEOMETRY_CAMERA_COMMANDS.FIT_ALL) {
+      fitAll();
+      return;
+    }
+
+    const frame = geometryCameraFrame(command);
+    if (!frame) return;
+    camera.up.fromArray(frame.up);
+    camera.position.fromArray(frame.offset).add(controls.target);
+    rebuildOrbitControls();
+    fitCameraToBounds(THREE, camera, controls, currentBounds);
+    clearHoverTooltip();
+    requestRender();
+  };
+
   onMount(() => {
     void Promise.all([
       import("three"),
@@ -1526,10 +1582,7 @@ export function ThreeGeometryViewport(props) {
       if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
       host.append(renderer.domElement);
 
-      controls = new controlsModule.OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = false;
-      controls.screenSpacePanning = true;
-      controls.addEventListener("change", requestRender);
+      OrbitControlsClass = controlsModule.OrbitControls;
       handleControlsStart = () => {
         controlsInteracting = true;
         clearHoverTooltip();
@@ -1537,8 +1590,7 @@ export function ThreeGeometryViewport(props) {
       handleControlsEnd = () => {
         controlsInteracting = false;
       };
-      controls.addEventListener("start", handleControlsStart);
-      controls.addEventListener("end", handleControlsEnd);
+      controls = createOrbitControls();
 
       handlePointerMove = queuePointerPick;
       handlePointerLeave = clearHoverTooltip;
@@ -1648,8 +1700,8 @@ export function ThreeGeometryViewport(props) {
   });
 
   createEffect(() => {
-    props.fitRequest;
-    if (ready()) fitAll();
+    const request = props.viewRequest;
+    if (ready()) applyViewRequest(request);
   });
 
   onCleanup(() => {

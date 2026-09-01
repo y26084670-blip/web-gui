@@ -35,8 +35,7 @@
 }
 
 .geometry-viewer-menu-button,
-.geometry-viewer-select,
-.geometry-viewer-fit {
+.geometry-viewer-select {
   min-height: 27px;
   min-width: max-content;
   width: 100%;
@@ -51,14 +50,12 @@
   white-space: nowrap;
 }
 
-.geometry-viewer-menu-button,
-.geometry-viewer-fit {
+.geometry-viewer-menu-button {
   cursor: pointer;
 }
 
 .geometry-viewer-menu-button:hover,
-.geometry-viewer-select:hover,
-.geometry-viewer-fit:hover {
+.geometry-viewer-select:hover {
   background: #3b4651;
 }
 
@@ -70,7 +67,7 @@
 
 .geometry-viewer-menu-button:focus-visible,
 .geometry-viewer-select:focus-visible,
-.geometry-viewer-fit:focus-visible,
+.geometry-viewer-view-command:focus-visible,
 .geometry-viewer-options-panel input:focus-visible {
   outline: 2px solid #8fc7ff;
   outline-offset: 1px;
@@ -120,6 +117,23 @@
   margin: 0;
 }
 
+.geometry-viewer-view-command {
+  min-height: 27px;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border: 1px solid #56626e;
+  border-radius: 3px;
+  background: #303943;
+  color: #edf2f7;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.geometry-viewer-view-command:hover {
+  background: #3b4651;
+}
+
 .geometry-viewer-canvas-region {
   position: relative;
   flex: 1 1 0;
@@ -158,7 +172,7 @@
   font-size: 11px;
   line-height: 1.35;
   overflow-wrap: anywhere;
-  white-space: normal;
+  white-space: pre-line;
   pointer-events: none;
 }
 

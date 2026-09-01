@@ -42,17 +42,20 @@ test("geometry viewer builds a reactive scene in a modeless floating window", as
   assert.match(source, /storageKey="web-gui:geometry-viewer-window:v2"/u);
 });
 
-test("toolbar exposes object, symmetry, and general option menus", async () => {
+test("toolbar exposes option panels and transient camera commands", async () => {
   const source = await readFile(windowUrl, "utf8");
 
   assert.match(source, />\s*Элементы\s*<\/button>/u);
   assert.match(source, />\s*Области\s*<\/button>/u);
   assert.match(source, />\s*Симметрии\s*<\/button>/u);
   assert.match(source, />\s*Общие опции\s*<\/button>/u);
+  assert.match(source, />\s*Показ\s*<\/button>/u);
   assert.match(source, /aria-expanded=\{openPanel\(\) === "elements"\}/u);
   assert.match(source, /aria-expanded=\{openPanel\(\) === "regions"\}/u);
   assert.match(source, /aria-expanded=\{openPanel\(\) === "symmetry"\}/u);
   assert.match(source, /aria-expanded=\{openPanel\(\) === "general"\}/u);
+  assert.match(source, /aria-expanded=\{openPanel\(\) === "view"\}/u);
+  assert.match(source, /aria-haspopup="dialog"/u);
   assert.match(source, /aria-label="Общие опции отображения"/u);
 
   assert.match(source, /createSignal\("solid"\)/u);
@@ -62,7 +65,20 @@ test("toolbar exposes object, symmetry, and general option menus", async () => {
     /<option value="translucent">Полупрозрачный<\/option>/u,
   );
   assert.match(source, /<option value="wireframe">Каркас<\/option>/u);
-  assert.match(source, />\s*Вписать всё\s*<\/button>/u);
+  assert.doesNotMatch(source, /Вписать всё/u);
+  assert.doesNotMatch(source, /fitRequest/u);
+  assert.match(source, />\s*Показать все\s*<\/button>/u);
+  assert.match(source, />\s*вид по X\s*<\/button>/u);
+  assert.match(source, />\s*вид против X\s*<\/button>/u);
+  assert.match(source, />\s*вид по Y\s*<\/button>/u);
+  assert.match(source, />\s*вид против Y\s*<\/button>/u);
+  assert.match(source, />\s*вид по Z\s*<\/button>/u);
+  assert.match(source, />\s*вид против Z\s*<\/button>/u);
+  assert.doesNotMatch(source, /role="menuitem"/u);
+  assert.match(source, /setViewRequest\(\(previous\) =>/u);
+  assert.match(source, /sequence:\s*\(previous\?\.sequence \?\? 0\) \+ 1/u);
+  assert.match(source, /closePanel\(true\)/u);
+  assert.match(source, /setViewRequest\(null\)/u);
   assert.doesNotMatch(source, /aria-label="Детализация геометрии"/u);
   assert.doesNotMatch(source, /aria-label="Тип проекции"/u);
 
@@ -78,7 +94,7 @@ test("toolbar exposes object, symmetry, and general option menus", async () => {
   );
   assertAppearsAfter(
     source,
-    "geometry-viewer-fit",
+    ">\n              Показ",
     "aria-label=\"Режим представления\"",
   );
 
@@ -97,6 +113,7 @@ test("toolbar exposes object, symmetry, and general option menus", async () => {
     source,
     /projection=\{orthographicView\(\) \? "orthographic" : "perspective"\}/u,
   );
+  assert.match(source, /viewRequest=\{viewRequest\(\)\}/u);
   assert.match(source, /filters=\{filters\(\)\}/u);
 });
 
@@ -215,6 +232,25 @@ test("Three viewport switches orthographic and perspective cameras", async () =>
   assert.match(source, /fitCameraToBounds\(THREE, camera, controls, currentBounds\)/u);
 });
 
+test("Three viewport applies repeatable fixed camera-view requests", async () => {
+  const source = await readFile(viewportUrl, "utf8");
+
+  assert.match(source, /normalizeGeometryCameraCommand\(request\?\.command\)/u);
+  assert.match(source, /geometryCameraFrame\(command\)/u);
+  assert.match(source, /camera\.up\.fromArray\(frame\.up\)/u);
+  assert.match(
+    source,
+    /camera\.position\.fromArray\(frame\.offset\)\.add\(controls\.target\)/u,
+  );
+  assert.match(source, /rebuildOrbitControls\(\)/u);
+  assert.match(source, /OrbitControlsClass = controlsModule\.OrbitControls/u);
+  assert.match(source, /controls = createOrbitControls\(target\)/u);
+  assert.match(source, /controls\.dispose\(\)/u);
+  assert.match(source, /props\.viewRequest/u);
+  assert.match(source, /applyViewRequest\(request\)/u);
+  assert.doesNotMatch(source, /props\.fitRequest/u);
+});
+
 test("Three viewport applies object, selection, and symmetry filters", async () => {
   const source = await readFile(viewportUrl, "utf8");
 
@@ -255,6 +291,10 @@ test("vertices and geometry expose hover picking metadata", async () => {
   assert.match(source, /findVertexMetadataRange\(/u);
   assert.match(source, /formatGeometryTooltip\(/u);
   assert.match(source, /formatVertexTooltip\(/u);
+  assert.match(source, /geometryHit\.point/u);
+  assert.match(source, /hitPoint\.x, hitPoint\.y, hitPoint\.z/u);
+  assert.match(source, /String\(text\)\.split\("\\n"\)/u);
+  assert.match(source, /longestLineLength/u);
   assert.match(source, /geometryHitInstance\(/u);
   assert.match(source, /vertexHitMetadata\(/u);
   assert.match(source, /instances,\s*kind:\s*pickKind,\s*span:\s*pickSpan/su);
@@ -393,7 +433,7 @@ test("geometry viewer canvas, menus, and tooltip fill the resizable window", asy
   );
   assert.match(
     styles,
-    /\.geometry-viewer-menu-button,[\s\S]*?\.geometry-viewer-select,[\s\S]*?\.geometry-viewer-fit\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;/su,
+    /\.geometry-viewer-menu-button,[\s\S]*?\.geometry-viewer-select\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;/su,
   );
   assert.match(
     styles,
@@ -401,6 +441,10 @@ test("geometry viewer canvas, menus, and tooltip fill the resizable window", asy
   );
   assert.match(
     styles,
-    /\.geometry-viewport-tooltip\s*\{[^}]*position:\s*absolute;[^}]*overflow-wrap:\s*anywhere;[^}]*pointer-events:\s*none;/su,
+    /\.geometry-viewport-tooltip\s*\{[^}]*position:\s*absolute;[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*pre-line;[^}]*pointer-events:\s*none;/su,
+  );
+  assert.match(
+    styles,
+    /\.geometry-viewer-view-command\s*\{[^}]*min-height:\s*27px;[^}]*text-align:\s*left;[^}]*cursor:\s*pointer;/su,
   );
 });

@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 
 import { buildGeometryScene } from "../../services/visualization/geometrySceneModel.js";
+import { GEOMETRY_CAMERA_COMMANDS } from "../../services/visualization/geometryCameraView.js";
 import { FloatingWindow } from "../window/FloatingWindow.jsx";
 import {
   GEOMETRY_INSTANCE_BUDGET,
@@ -89,7 +90,7 @@ export function GeometryViewerWindow(props) {
   const [sceneModel, setSceneModel] = createSignal(null);
   const [sceneError, setSceneError] = createSignal("");
   const [viewportError, setViewportError] = createSignal("");
-  const [fitRequest, setFitRequest] = createSignal(0);
+  const [viewRequest, setViewRequest] = createSignal(null);
   const [renderMode, setRenderMode] = createSignal("solid");
   const [orthographicView, setOrthographicView] = createSignal(true);
   const [showEdges, setShowEdges] = createSignal(true);
@@ -195,12 +196,21 @@ export function GeometryViewerWindow(props) {
     closePanel(true);
   };
 
+  const requestView = (command) => {
+    setViewRequest((previous) => ({
+      command,
+      sequence: (previous?.sequence ?? 0) + 1,
+    }));
+    closePanel(true);
+  };
+
   onCleanup(() => viewerResizeObserver?.disconnect());
 
   createEffect(() => {
     const open = props.open;
     if (!open) {
       setOpenPanel(null);
+      setViewRequest(null);
       setSceneModel(null);
       setSceneError("");
       setViewportError("");
@@ -313,11 +323,15 @@ export function GeometryViewerWindow(props) {
 
             <button
               type="button"
-              class="geometry-viewer-fit"
-              title="Вписать показанную геометрию в окно"
-              onClick={() => setFitRequest((value) => value + 1)}
+              class="geometry-viewer-menu-button"
+              classList={{ active: openPanel() === "view" }}
+              aria-expanded={openPanel() === "view"}
+              aria-controls={OPTIONS_PANEL_ID}
+              aria-haspopup="dialog"
+              title="Вписать геометрию или выбрать направление взгляда"
+              onClick={(event) => togglePanel("view", event)}
             >
-              Вписать всё
+              Показ
             </button>
           </div>
         </div>
@@ -332,17 +346,83 @@ export function GeometryViewerWindow(props) {
             class="geometry-viewer-options-panel"
             role="dialog"
             aria-modal="false"
-            aria-label={openPanel() === "general"
-              ? "Общие опции отображения"
-              : openPanel() === "symmetry"
-                ? "Показ симметрий"
-                : `Показ ${openPanel() === "elements" ? "элементов" : "областей"}`}
+            aria-label={openPanel() === "view"
+              ? "Команды показа геометрии"
+              : openPanel() === "general"
+                ? "Общие опции отображения"
+                : openPanel() === "symmetry"
+                  ? "Показ симметрий"
+                  : `Показ ${openPanel() === "elements" ? "элементов" : "областей"}`}
             tabIndex="-1"
             style={{
               left: `${panelPosition().left}px`,
               top: `${panelPosition().top}px`,
             }}
           >
+            <Show when={openPanel() === "view"}>
+              <button
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={() => requestView(GEOMETRY_CAMERA_COMMANDS.FIT_ALL)}
+              >
+                Показать все
+              </button>
+              <button
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={() => requestView(
+                  GEOMETRY_CAMERA_COMMANDS.VIEW_POSITIVE_X,
+                )}
+              >
+                вид по X
+              </button>
+              <button
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={() => requestView(
+                  GEOMETRY_CAMERA_COMMANDS.VIEW_NEGATIVE_X,
+                )}
+              >
+                вид против X
+              </button>
+              <button
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={() => requestView(
+                  GEOMETRY_CAMERA_COMMANDS.VIEW_POSITIVE_Y,
+                )}
+              >
+                вид по Y
+              </button>
+              <button
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={() => requestView(
+                  GEOMETRY_CAMERA_COMMANDS.VIEW_NEGATIVE_Y,
+                )}
+              >
+                вид против Y
+              </button>
+              <button
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={() => requestView(
+                  GEOMETRY_CAMERA_COMMANDS.VIEW_POSITIVE_Z,
+                )}
+              >
+                вид по Z
+              </button>
+              <button
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={() => requestView(
+                  GEOMETRY_CAMERA_COMMANDS.VIEW_NEGATIVE_Z,
+                )}
+              >
+                вид против Z
+              </button>
+            </Show>
+
             <Show when={openPanel() === "elements"}>
               <div class="geometry-viewer-options-title">Показ элементов</div>
               <label>
@@ -518,7 +598,7 @@ export function GeometryViewerWindow(props) {
             showDiscretizationLines={showDiscretizationLines()}
             showCentersAndNodes={showCentersAndNodes()}
             projection={orthographicView() ? "orthographic" : "perspective"}
-            fitRequest={fitRequest()}
+            viewRequest={viewRequest()}
             instanceBudget={GEOMETRY_INSTANCE_BUDGET}
             onRenderStats={setRenderStats}
             onError={setViewportError}

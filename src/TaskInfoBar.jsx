@@ -193,21 +193,25 @@ export function TaskInfoBar(props) {
       >
         <h2 id="about-dialog-title" class="about-title">О программе</h2>
         <p class="about-description">
-          Программа предназначена для подготовки, проверки и сохранения
-          исходных данных расчётных задач Clark, включая геометрию, параметры
-          модели и характеристики материалов.
+          <span>Программа предназначена для подготовки,</span>
+          <span>проверки, сохранения и визуализации</span>
+          <span>исходных данных расчётных задач Clark,</span>
+          <span>включая геометрию, параметры модели</span>
+          <span>и характеристики материалов.</span>
         </p>
         <div class="about-credits">
           <div>Разработчик: ChatGPT 5.6 Sol</div>
-          <div>Куратор: Кулаев Ю.</div>
+          <div class="about-curator-stack">
+            <div>Куратор: Кулаев Ю.</div>
+            <button
+              ref={(el) => (aboutCloseButton = el)}
+              class="about-close-button"
+              onClick={() => setAboutOpen(false)}
+            >
+              Закрыть
+            </button>
+          </div>
         </div>
-        <button
-          ref={(el) => (aboutCloseButton = el)}
-          class="about-close-button"
-          onClick={() => setAboutOpen(false)}
-        >
-          Закрыть
-        </button>
       </dialog>
     </div>
   );

@@ -84,11 +84,11 @@
     width: min(520px, calc(100vw - 48px));
     margin: auto;
     padding: 22px;
-    border: 1px solid #77808a;
+    border: 1px solid #596773;
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
-    background: white;
-    color: #17202a;
+    background: #20262d;
+    color: #f0f4f7;
 }
 
 .about-dialog[open] {
@@ -114,6 +114,11 @@
     text-align: center;
 }
 
+.about-description > span {
+    display: block;
+    white-space: nowrap;
+}
+
 .about-credits {
     align-self: stretch;
     display: flex;
@@ -123,9 +128,28 @@
     text-align: center;
 }
 
+.about-curator-stack {
+    align-self: center;
+    display: grid;
+    grid-template-columns: max-content;
+    gap: 14px;
+}
+
 .about-close-button {
+    box-sizing: border-box;
+    width: 100%;
     padding: 4px 16px;
+    border: 1px solid #7f8d99;
+    border-radius: 3px;
+    color: #f0f4f7;
+    background: #3a4650;
     cursor: pointer;
+}
+
+.about-close-button:hover,
+.about-close-button:focus-visible {
+    border-color: #a9bac7;
+    background: #4a5965;
 }
 
 /* Модальное окно панели задания. */
