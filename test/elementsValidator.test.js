@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { elementsValidator }
     from "../src/tabulator/validators/models/elements/elementsValidator.js";
 
+const EPS = 0.03;
+
 function validVertices() {
     return [
         [0, 1, 0],
@@ -88,6 +90,57 @@ test("elements reports invalid direct vertices at their record row", () => {
     );
 });
 
+test("elements reports connecting-edge failures separately", () => {
+    const delta = 2 * EPS ** 2;
+    const pair15 = [
+        [0, 0, 0], [1, 0, 0],
+        [0, 1, 0], [1, 1, 0],
+        [0, delta, 1], [1, 0, 1],
+        [0, 1, 1], [1, 1, 1],
+    ];
+    const pair37 = [
+        [0, -1, 0], [1, -1, 0],
+        [0, 0, 0], [1, delta, 0],
+        [0, -1, 1], [1, -1, 1],
+        [0, delta, 1], [1, delta, 1],
+    ];
+    const pair48 = [
+        [0, -1, 0], [1, -1, 0],
+        [0, delta, 0], [1, 0, 0],
+        [0, -1, 1], [1, -1, 1],
+        [0, delta, 1], [1, delta, 1],
+    ];
+    const cases = [
+        [pair15, "Рёбра 15 и 26 не параллельны с заданной точностью"],
+        [pair37, "Рёбра 37 и 26 не параллельны с заданной точностью"],
+        [pair48, "Рёбра 48 и 26 не параллельны с заданной точностью"],
+    ];
+
+    for (const [geo, message] of cases) {
+        const diagnostics = validate([element({ geo })]);
+
+        assert.deepEqual(
+            diagnostics.map(item => item.message),
+            [message],
+        );
+    }
+});
+
+test("elements accepts the reported Float32 geometry", () => {
+    const geo = [
+        [13, 0, 24.500778198242188],
+        [13, -2.5132100582122803, 24.37150001525879],
+        [13, 0, 27.500699996948242],
+        [13, -2.5132100582122803, 27.386499404907227],
+        [10, 0, 24.500699996948242],
+        [10, -2.5132100582122803, 24.37150001525879],
+        [10, 0, 27.500699996948242],
+        [10, -2.5132100582122803, 27.386499404907227],
+    ];
+
+    assert.deepEqual(validate([element({ geo })]), []);
+});
+
 test("elements validates every geometry type after unpack", () => {
     const validCases = [
         [1, [0, 1, 1, 1, 1, 2, 0, 2, 30]],
@@ -138,8 +191,8 @@ test("elements reports every failed solver geometry flag separately", () => {
     assert.deepEqual(
         diagnostics.map(({ message }) => message),
         [
-            "Длина ребра 26 не превышает 0,001 мм",
-            "Ориентированный объём не превышает 0,000000001 мм³",
+            "Длина ребра 26 не превышает 0,03 мм",
+            "Ориентированный объём не превышает 0,000027 мм³",
         ],
     );
     assert.equal(diagnostics.every(item => item.row === 1), true);
@@ -161,7 +214,7 @@ test("elements reports unpack errors without suppressing flag details", () => {
         diagnostics.map(({ message }) => message),
         [
             "Прямоугольная призма содержит неположительный размер Lx, Ly или Lz",
-            "Ориентированный объём не превышает 0,000000001 мм³",
+            "Ориентированный объём не превышает 0,000027 мм³",
         ],
     );
 });

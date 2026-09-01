@@ -59,48 +59,50 @@ export function DiagnosticPopup(props) {
       <div class="diagnostic-popup">
         <div class="diagnostic-title">Диагностика модели</div>
 
-        <For each={diagnosticService.diagnostics()}>
-          {(diagnostic) => (
-            <div class="diagnostic-item">
-              <div class={`diagnostic-level level-${diagnostic.level}`}>
-                {LEVEL_LABELS[diagnostic.level]}
-              </div>
-              <div class="diagnostic-message">{diagnostic.message}</div>
-              <div class="diagnostic-source">
-                {diagnostic.tab && (
-                  <span>Вкладка: {displayValue(diagnostic.tab)}</span>
-                )}
-
-                <Show
-                  when={diagnosticNavigationLabel(diagnostic)}
-                  fallback={diagnostic.row !== undefined
-                    ? <span>Строка: {diagnostic.row}</span>
-                    : null}
-                >
-                  {(label) => (
-                    <button
-                      type="button"
-                      class="diagnostic-navigation-link"
-                      aria-label={`Перейти: ${label()}`}
-                      onClick={() => props.onSelect?.(diagnostic)}
-                    >
-                      {label()}
-                    </button>
+        <div class="diagnostic-list">
+          <For each={diagnosticService.diagnostics()}>
+            {(diagnostic) => (
+              <div class="diagnostic-item">
+                <div class={`diagnostic-level level-${diagnostic.level}`}>
+                  {LEVEL_LABELS[diagnostic.level]}
+                </div>
+                <div class="diagnostic-message">{diagnostic.message}</div>
+                <div class="diagnostic-source">
+                  {diagnostic.tab && (
+                    <span>Вкладка: {displayValue(diagnostic.tab)}</span>
                   )}
-                </Show>
 
-                {diagnostic.property && (
-                  <span>
-                    Поле:{" "}
-                    {typeof diagnostic.property === "object"
-                      ? (diagnostic.property.title ?? diagnostic.property.id)
-                      : diagnostic.property}
-                  </span>
-                )}
+                  <Show
+                    when={diagnosticNavigationLabel(diagnostic)}
+                    fallback={diagnostic.row !== undefined
+                      ? <span>Строка: {diagnostic.row}</span>
+                      : null}
+                  >
+                    {(label) => (
+                      <button
+                        type="button"
+                        class="diagnostic-navigation-link"
+                        aria-label={`Перейти: ${label()}`}
+                        onClick={() => props.onSelect?.(diagnostic)}
+                      >
+                        {label()}
+                      </button>
+                    )}
+                  </Show>
+
+                  {diagnostic.property && (
+                    <span>
+                      Поле:{" "}
+                      {typeof diagnostic.property === "object"
+                        ? (diagnostic.property.title ?? diagnostic.property.id)
+                        : diagnostic.property}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </For>
+            )}
+          </For>
+        </div>
       </div>
     </Show>
   );

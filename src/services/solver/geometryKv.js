@@ -2,7 +2,7 @@
 // Источник: julia, src/core/03_kv.jl, функция unpack(me::Kv). Снимок 2026-08.
 
 const GRAD2RADIAN = Math.PI / 180;
-const KV_VALIDATION_EPS = 0.001;
+const KV_VALIDATION_EPS = 0.03;
 
 function difference(left, right) {
     return [
@@ -52,7 +52,7 @@ export const KV_GEO_FIELDS = {
 export const KV_GEO_LENGTH = 24;   // zeros(REAL, 3 * 8)
 
 // Источник: solver/src/core/03_kv.jl::validator(me::Kv),
-// commit 691f6043c9baab2ce4e6970075edd3bee02c93ca.
+// commit d712c7bb6ba14f204e777e115afe7bab044c2d6c.
 //
 // Нумерация вершин повторяет solver: нечётные вершины относятся к нижней
 // грани, чётные — к верхней; рёбра 12, 34, 56 и 78 соединяют грани.
@@ -70,7 +70,9 @@ export function validateKvVerticesDetailed(
         edge26: false,
         parallel13And24: false,
         parallel57And68: false,
-        parallelConnectingEdges: false,
+        parallel15And26: false,
+        parallel37And26: false,
+        parallel48And26: false,
         positiveVolume: false,
     };
 
@@ -108,10 +110,21 @@ export function validateKvVerticesDetailed(
         edge68,
         parallelTolerance,
     );
-    checks.parallelConnectingEdges =
-        areParallel(edge15, edge26, parallelTolerance)
-        && areParallel(edge37, edge26, parallelTolerance)
-        && areParallel(edge48, edge26, parallelTolerance);
+    checks.parallel15And26 = areParallel(
+        edge15,
+        edge26,
+        parallelTolerance,
+    );
+    checks.parallel37And26 = areParallel(
+        edge37,
+        edge26,
+        parallelTolerance,
+    );
+    checks.parallel48And26 = areParallel(
+        edge48,
+        edge26,
+        parallelTolerance,
+    );
 
     checks.edge13 = norm(edge13) > eps;
     checks.edge57 = norm(edge57) > eps;

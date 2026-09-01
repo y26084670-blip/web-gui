@@ -8,7 +8,8 @@ import {
 }
     from "../src/services/solver/geometryKv.js";
 
-const EPS = 0.001;
+const EPS = 0.03;
+const PREVIOUS_EPS = 0.001;
 
 function validVertices() {
     return [
@@ -39,7 +40,9 @@ test("KV validator accepts a valid hexahedron", () => {
                 edge26: true,
                 parallel13And24: true,
                 parallel57And68: true,
-                parallelConnectingEdges: true,
+                parallel15And26: true,
+                parallel37And26: true,
+                parallel48And26: true,
                 positiveVolume: true,
             },
         },
@@ -112,6 +115,7 @@ test("KV validator keeps strict thresholds for every parallel check", () => {
     const cases = [
         {
             group: "13 ∥ 24",
+            check: "parallel13And24",
             make: delta => {
                 const vertices = validVertices();
                 vertices[3] = [1, 1, delta];
@@ -120,6 +124,7 @@ test("KV validator keeps strict thresholds for every parallel check", () => {
         },
         {
             group: "57 ∥ 68",
+            check: "parallel57And68",
             make: delta => [
                 [0, 0, -1], [1, 0, -1],
                 [0, 1, -1], [1, 1, -1],
@@ -129,6 +134,7 @@ test("KV validator keeps strict thresholds for every parallel check", () => {
         },
         {
             group: "15 ∥ 26",
+            check: "parallel15And26",
             make: delta => {
                 const vertices = validVertices();
                 vertices[4] = [0, delta, 1];
@@ -137,6 +143,7 @@ test("KV validator keeps strict thresholds for every parallel check", () => {
         },
         {
             group: "37 ∥ 26",
+            check: "parallel37And26",
             make: delta => [
                 [0, -1, 0], [1, -1, 0],
                 [0, 0, 0], [1, delta, 0],
@@ -146,6 +153,7 @@ test("KV validator keeps strict thresholds for every parallel check", () => {
         },
         {
             group: "48 ∥ 26",
+            check: "parallel48And26",
             make: delta => [
                 [0, -1, 0], [1, -1, 0],
                 [0, delta, 0], [1, 0, 0],
@@ -155,13 +163,7 @@ test("KV validator keeps strict thresholds for every parallel check", () => {
         },
     ];
 
-    for (const { group, make } of cases) {
-        const check = group === "13 ∥ 24"
-            ? "parallel13And24"
-            : group === "57 ∥ 68"
-                ? "parallel57And68"
-                : "parallelConnectingEdges";
-
+    for (const { group, check, make } of cases) {
         assert.equal(
             validateKvVertices(make(0.5 * EPS ** 2)),
             true,
@@ -176,6 +178,101 @@ test("KV validator keeps strict thresholds for every parallel check", () => {
         assert.equal(validateKvVertices(make(EPS ** 2)), false, group);
         assert.equal(validateKvVertices(make(2 * EPS ** 2)), false, group);
     }
+});
+
+test("KV validator identifies each connecting-edge pair independently", () => {
+    const connectingChecks = [
+        "parallel15And26",
+        "parallel37And26",
+        "parallel48And26",
+    ];
+    const cases = [
+        {
+            failed: "parallel15And26",
+            make: delta => {
+                const vertices = validVertices();
+                vertices[4] = [0, delta, 1];
+                return vertices;
+            },
+        },
+        {
+            failed: "parallel37And26",
+            make: delta => [
+                [0, -1, 0], [1, -1, 0],
+                [0, 0, 0], [1, delta, 0],
+                [0, -1, 1], [1, -1, 1],
+                [0, delta, 1], [1, delta, 1],
+            ],
+        },
+        {
+            failed: "parallel48And26",
+            make: delta => [
+                [0, -1, 0], [1, -1, 0],
+                [0, delta, 0], [1, 0, 0],
+                [0, -1, 1], [1, -1, 1],
+                [0, delta, 1], [1, delta, 1],
+            ],
+        },
+    ];
+
+    for (const { failed, make } of cases) {
+        const validation = validateKvVerticesDetailed(
+            make(2 * EPS ** 2),
+        );
+
+        for (const check of connectingChecks) {
+            assert.equal(
+                validation.checks[check],
+                check !== failed,
+                `${failed}: ${check}`,
+            );
+        }
+        assert.equal(validation.valid, false, failed);
+    }
+});
+
+test("KV validator reports simultaneous connecting-edge failures", () => {
+    const delta = 2 * EPS ** 2;
+    const vertices = validVertices();
+    vertices[4] = [0, delta, 1];
+    vertices[6] = [0, 1 + delta, 1];
+    vertices[7] = [1, 1 + delta, 1];
+
+    const validation = validateKvVerticesDetailed(vertices);
+
+    assert.equal(validation.checks.parallel15And26, false);
+    assert.equal(validation.checks.parallel37And26, false);
+    assert.equal(validation.checks.parallel48And26, false);
+    assert.equal(validation.valid, false);
+});
+
+test("KV validator accepts the reported Float32 element at the new tolerance", () => {
+    const vertices = [
+        [13, 0, 24.500778198242188],
+        [13, -2.5132100582122803, 24.37150001525879],
+        [13, 0, 27.500699996948242],
+        [13, -2.5132100582122803, 27.386499404907227],
+        [10, 0, 24.500699996948242],
+        [10, -2.5132100582122803, 24.37150001525879],
+        [10, 0, 27.500699996948242],
+        [10, -2.5132100582122803, 27.386499404907227],
+    ];
+
+    const previousValidation = validateKvVerticesDetailed(
+        vertices,
+        PREVIOUS_EPS,
+    );
+    const validation = validateKvVerticesDetailed(vertices);
+
+    assert.deepEqual(
+        Object.entries(previousValidation.checks)
+            .filter(([, passed]) => !passed)
+            .map(([check]) => check),
+        ["parallel15And26"],
+    );
+    assert.equal(previousValidation.valid, false);
+    assert.equal(validation.valid, true);
+    assert.equal(Object.values(validation.checks).every(Boolean), true);
 });
 
 test("KV validator requires a positive vertex orientation", () => {

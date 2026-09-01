@@ -48,6 +48,26 @@ test("diagnostic rows expose explicit accessible navigation links", async () => 
     );
 });
 
+test("diagnostic popup scrolls the list while keeping its title visible", async () => {
+    const [source, styles] = await Promise.all([
+        readFile(popupUrl, "utf8"),
+        readFile(popupStylesUrl, "utf8"),
+    ]);
+
+    assert.match(
+        source,
+        /<div class="diagnostic-title">[^<]+<\/div>\s*<div class="diagnostic-list">\s*<For/u,
+    );
+    assert.match(
+        styles,
+        /\.diagnostic-popup\s*\{[^}]*max-height:\s*calc\(100vh - 48px\);/su,
+    );
+    assert.match(
+        styles,
+        /\.diagnostic-list\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/su,
+    );
+});
+
 test("App emits a sequenced target and passes it to DataEditor", async () => {
     const source = await readFile(appUrl, "utf8");
 

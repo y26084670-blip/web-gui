@@ -12,8 +12,12 @@
 }
 
 .diagnostic-popup {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     min-width: 300px;
     max-width: 500px;
+    max-height: calc(100vh - 48px);
 
     padding: 10px;
 
@@ -26,8 +30,14 @@
 }
 
 .diagnostic-title {
+    flex: 0 0 auto;
     font-weight: bold;
     margin-bottom: 8px;
+}
+
+.diagnostic-list {
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .diagnostic-item1 {
