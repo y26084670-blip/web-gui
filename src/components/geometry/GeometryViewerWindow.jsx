@@ -4,6 +4,7 @@ import {
   createEffect,
   createMemo,
   createSignal,
+  onCleanup,
 } from "solid-js";
 
 import { buildGeometryScene } from "../../services/visualization/geometrySceneModel.js";
@@ -41,6 +42,14 @@ const DIAGNOSTIC_REASONS = Object.freeze({
   "unsupported-geometry": "неизвестный тип геометрии",
 });
 
+const OBJECT_MODE_LABELS = Object.freeze({
+  all: "все",
+  none: "не показывать",
+  selected: "выделенные",
+});
+
+const OPTIONS_PANEL_ID = "geometry-viewer-options-panel";
+
 function diagnosticDetail(diagnostic) {
   if (typeof diagnostic === "string") return diagnostic;
   return diagnostic?.message ?? diagnostic?.code ?? String(diagnostic);
@@ -67,33 +76,106 @@ function diagnosticLevel(diagnostic) {
 }
 
 export function GeometryViewerWindow(props) {
+  let viewerElement;
+  let toolbarElement;
+  let optionsPanelElement;
+  let activePanelButton;
+  let viewerResizeObserver;
+
   const [sceneModel, setSceneModel] = createSignal(null);
   const [sceneError, setSceneError] = createSignal("");
   const [viewportError, setViewportError] = createSignal("");
   const [fitRequest, setFitRequest] = createSignal(0);
   const [projection, setProjection] = createSignal("orthographic");
-  const [mode, setMode] = createSignal("surfaces");
-  const [showElements, setShowElements] = createSignal(true);
-  const [showRegions, setShowRegions] = createSignal(true);
-  const [showBase, setShowBase] = createSignal(true);
-  const [showCopies, setShowCopies] = createSignal(true);
-  const [showMirrors, setShowMirrors] = createSignal(true);
+  const [renderMode, setRenderMode] = createSignal("solid");
+  const [detailMode, setDetailMode] = createSignal("geometry");
+  const [elementsMode, setElementsMode] = createSignal("all");
+  const [regionsMode, setRegionsMode] = createSignal("all");
+  const [showLocalSymmetry, setShowLocalSymmetry] = createSignal(true);
+  const [showAxialSymmetry, setShowAxialSymmetry] = createSignal(true);
+  const [showPeriodicSymmetry, setShowPeriodicSymmetry] = createSignal(true);
+  const [showMirrorSymmetry, setShowMirrorSymmetry] = createSignal(true);
+  const [openPanel, setOpenPanel] = createSignal(null);
+  const [panelPosition, setPanelPosition] = createSignal({ left: 8, top: 40 });
   const [renderStats, setRenderStats] = createSignal(EMPTY_RENDER_STATS);
 
   const filters = createMemo(() => ({
-    base: showBase(),
-    copies: showCopies(),
-    elements: showElements(),
-    mirrors: showMirrors(),
-    regions: showRegions(),
+    objectModes: {
+      elements: elementsMode(),
+      regions: regionsMode(),
+    },
+    selections: {
+      elements: new Set(props.selections?.elements ?? []),
+      regions: new Set(props.selections?.regions ?? []),
+    },
+    symmetry: {
+      axial: showAxialSymmetry(),
+      local: showLocalSymmetry(),
+      mirror: showMirrorSymmetry(),
+      periodic: showPeriodicSymmetry(),
+    },
   }));
 
   const counts = () => sceneModel()?.counts ?? EMPTY_COUNTS;
   const diagnostics = () => sceneModel()?.diagnostics ?? [];
 
+  const updatePanelPosition = () => {
+    if (!openPanel() || !viewerElement || !activePanelButton) return;
+
+    const viewerBounds = viewerElement.getBoundingClientRect();
+    const buttonBounds = activePanelButton.getBoundingClientRect();
+    const toolbarBounds = toolbarElement?.getBoundingClientRect();
+    const panelWidth = optionsPanelElement?.offsetWidth ?? 248;
+    const maximumLeft = Math.max(8, viewerBounds.width - panelWidth - 8);
+    setPanelPosition({
+      left: Math.min(
+        Math.max(buttonBounds.left - viewerBounds.left, 8),
+        maximumLeft,
+      ),
+      top: Math.max(
+        (toolbarBounds?.bottom ?? buttonBounds.bottom) - viewerBounds.top + 4,
+        4,
+      ),
+    });
+  };
+
+  const setViewerElement = (element) => {
+    viewerResizeObserver?.disconnect();
+    viewerElement = element;
+    if (!element || typeof ResizeObserver !== "function") return;
+
+    viewerResizeObserver = new ResizeObserver(updatePanelPosition);
+    viewerResizeObserver.observe(element);
+  };
+
+  const togglePanel = (name, event) => {
+    if (openPanel() === name) {
+      setOpenPanel(null);
+      return;
+    }
+
+    activePanelButton = event.currentTarget;
+    setOpenPanel(name);
+    queueMicrotask(updatePanelPosition);
+  };
+
+  const closePanel = (restoreFocus = false) => {
+    setOpenPanel(null);
+    if (restoreFocus) activePanelButton?.focus();
+  };
+
+  const handlePanelKeyDown = (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    closePanel(true);
+  };
+
+  onCleanup(() => viewerResizeObserver?.disconnect());
+
   createEffect(() => {
     const open = props.open;
     if (!open) {
+      setOpenPanel(null);
       setSceneModel(null);
       setSceneError("");
       setViewportError("");
@@ -126,109 +208,79 @@ export function GeometryViewerWindow(props) {
       minWidth={520}
       minHeight={360}
     >
-      <section class="geometry-viewer-window">
+      <section
+        ref={setViewerElement}
+        class="geometry-viewer-window"
+        onKeyDown={handlePanelKeyDown}
+      >
         <div
+          ref={(element) => (toolbarElement = element)}
           class="geometry-viewer-toolbar"
           role="toolbar"
           aria-label="Управление 3D-окном"
+          onScroll={updatePanelPosition}
         >
-          <fieldset class="geometry-viewer-filter-group">
-            <legend>Объекты</legend>
-            <label title="Показать геометрию элементов">
-              <input
-                type="checkbox"
-                checked={showElements()}
-                onChange={(event) => setShowElements(event.currentTarget.checked)}
-              />
-              Элементы
-            </label>
-            <label title="Показать геометрию областей">
-              <input
-                type="checkbox"
-                checked={showRegions()}
-                onChange={(event) => setShowRegions(event.currentTarget.checked)}
-              />
-              Области
-            </label>
-          </fieldset>
-
-          <fieldset class="geometry-viewer-filter-group">
-            <legend>Симметрии</legend>
-            <label title="Показать исходные объекты">
-              <input
-                type="checkbox"
-                checked={showBase()}
-                onChange={(event) => setShowBase(event.currentTarget.checked)}
-              />
-              Исходные
-            </label>
-            <label title="Показать образы LS, AS и PS">
-              <input
-                type="checkbox"
-                checked={showCopies()}
-                onChange={(event) => setShowCopies(event.currentTarget.checked)}
-              />
-              Образы
-            </label>
-            <label title="Показать зеркальные образы">
-              <input
-                type="checkbox"
-                checked={showMirrors()}
-                onChange={(event) => setShowMirrors(event.currentTarget.checked)}
-              />
-              Зеркала
-            </label>
-          </fieldset>
-
-          <div
-            class="geometry-viewer-mode-group geometry-viewer-projection-group"
-            role="group"
-            aria-label="Тип проекции"
+          <button
+            type="button"
+            class="geometry-viewer-menu-button"
+            classList={{ active: openPanel() === "elements" }}
+            aria-expanded={openPanel() === "elements"}
+            aria-controls={OPTIONS_PANEL_ID}
+            aria-haspopup="dialog"
+            title={`Элементы: ${OBJECT_MODE_LABELS[elementsMode()]}`}
+            onClick={(event) => togglePanel("elements", event)}
           >
-            <button
-              type="button"
-              classList={{ active: projection() === "orthographic" }}
-              aria-pressed={projection() === "orthographic"}
-              title="Ортогональная проекция без перспективных искажений"
-              onClick={() => setProjection("orthographic")}
-            >
-              Ортогональная
-            </button>
-            <button
-              type="button"
-              classList={{ active: projection() === "perspective" }}
-              aria-pressed={projection() === "perspective"}
-              title="Перспективная проекция"
-              onClick={() => setProjection("perspective")}
-            >
-              Перспективная
-            </button>
-          </div>
+            Элементы
+          </button>
 
-          <div
-            class="geometry-viewer-mode-group"
-            role="group"
+          <button
+            type="button"
+            class="geometry-viewer-menu-button"
+            classList={{ active: openPanel() === "regions" }}
+            aria-expanded={openPanel() === "regions"}
+            aria-controls={OPTIONS_PANEL_ID}
+            aria-haspopup="dialog"
+            title={`Области: ${OBJECT_MODE_LABELS[regionsMode()]}`}
+            onClick={(event) => togglePanel("regions", event)}
+          >
+            Области
+          </button>
+
+          <button
+            type="button"
+            class="geometry-viewer-menu-button"
+            classList={{ active: openPanel() === "symmetry" }}
+            aria-expanded={openPanel() === "symmetry"}
+            aria-controls={OPTIONS_PANEL_ID}
+            aria-haspopup="dialog"
+            title="Настроить показ образов симметрии"
+            onClick={(event) => togglePanel("symmetry", event)}
+          >
+            Симметрии
+          </button>
+
+          <select
+            class="geometry-viewer-select"
+            value={detailMode()}
+            aria-label="Детализация геометрии"
+            title="Показ геометрии или геометрии с вершинами"
+            onChange={(event) => setDetailMode(event.currentTarget.value)}
+          >
+            <option value="geometry">Только геометрия</option>
+            <option value="vertices">+вершины</option>
+          </select>
+
+          <select
+            class="geometry-viewer-select"
+            value={renderMode()}
             aria-label="Режим представления"
+            title="Режим представления геометрии"
+            onChange={(event) => setRenderMode(event.currentTarget.value)}
           >
-            <button
-              type="button"
-              classList={{ active: mode() === "surfaces" }}
-              aria-pressed={mode() === "surfaces"}
-              title="Показывать поверхности"
-              onClick={() => setMode("surfaces")}
-            >
-              Поверхности
-            </button>
-            <button
-              type="button"
-              classList={{ active: mode() === "wireframe" }}
-              aria-pressed={mode() === "wireframe"}
-              title="Показывать каркас"
-              onClick={() => setMode("wireframe")}
-            >
-              Каркас
-            </button>
-          </div>
+            <option value="solid">Сплошной</option>
+            <option value="translucent">Полупрозрачный</option>
+            <option value="wireframe">Каркас</option>
+          </select>
 
           <button
             type="button"
@@ -238,13 +290,148 @@ export function GeometryViewerWindow(props) {
           >
             Вписать всё
           </button>
+
+          <select
+            class="geometry-viewer-select geometry-viewer-projection-select"
+            value={projection()}
+            aria-label="Тип проекции"
+            title="Тип проекции 3D-сцены"
+            onChange={(event) => setProjection(event.currentTarget.value)}
+          >
+            <option value="orthographic">Ортогональная</option>
+            <option value="perspective">Перспективная</option>
+          </select>
         </div>
+
+        <Show when={openPanel()}>
+          <div
+            ref={(element) => {
+              optionsPanelElement = element;
+              queueMicrotask(updatePanelPosition);
+            }}
+            id={OPTIONS_PANEL_ID}
+            class="geometry-viewer-options-panel"
+            role="dialog"
+            aria-modal="false"
+            aria-label={openPanel() === "symmetry"
+              ? "Показ симметрий"
+              : `Показ ${openPanel() === "elements" ? "элементов" : "областей"}`}
+            tabIndex="-1"
+            style={{
+              left: `${panelPosition().left}px`,
+              top: `${panelPosition().top}px`,
+            }}
+          >
+            <Show when={openPanel() === "elements"}>
+              <div class="geometry-viewer-options-title">Показ элементов</div>
+              <label>
+                <input
+                  type="radio"
+                  name="geometry-elements-mode"
+                  checked={elementsMode() === "all"}
+                  onChange={() => setElementsMode("all")}
+                />
+                Все элементы
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="geometry-elements-mode"
+                  checked={elementsMode() === "selected"}
+                  onChange={() => setElementsMode("selected")}
+                />
+                Выделенные в списке
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="geometry-elements-mode"
+                  checked={elementsMode() === "none"}
+                  onChange={() => setElementsMode("none")}
+                />
+                Не показывать
+              </label>
+            </Show>
+
+            <Show when={openPanel() === "regions"}>
+              <div class="geometry-viewer-options-title">Показ областей</div>
+              <label>
+                <input
+                  type="radio"
+                  name="geometry-regions-mode"
+                  checked={regionsMode() === "all"}
+                  onChange={() => setRegionsMode("all")}
+                />
+                Все области
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="geometry-regions-mode"
+                  checked={regionsMode() === "selected"}
+                  onChange={() => setRegionsMode("selected")}
+                />
+                Выделенные в списке
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="geometry-regions-mode"
+                  checked={regionsMode() === "none"}
+                  onChange={() => setRegionsMode("none")}
+                />
+                Не показывать
+              </label>
+            </Show>
+
+            <Show when={openPanel() === "symmetry"}>
+              <div class="geometry-viewer-options-title">Показ симметрий</div>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showLocalSymmetry()}
+                  onChange={(event) =>
+                    setShowLocalSymmetry(event.currentTarget.checked)}
+                />
+                Локальная
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showAxialSymmetry()}
+                  onChange={(event) =>
+                    setShowAxialSymmetry(event.currentTarget.checked)}
+                />
+                Азимутальная
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showPeriodicSymmetry()}
+                  onChange={(event) =>
+                    setShowPeriodicSymmetry(event.currentTarget.checked)}
+                />
+                Периодическая
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showMirrorSymmetry()}
+                  onChange={(event) =>
+                    setShowMirrorSymmetry(event.currentTarget.checked)}
+                />
+                Зеркальная
+              </label>
+            </Show>
+          </div>
+        </Show>
 
         <div class="geometry-viewer-canvas-region">
           <ThreeGeometryViewport
             scene={sceneModel()}
             filters={filters()}
-            mode={mode()}
+            mode={renderMode()}
+            showVertices={detailMode() === "vertices"}
             projection={projection()}
             fitRequest={fitRequest()}
             instanceBudget={GEOMETRY_INSTANCE_BUDGET}
@@ -254,7 +441,7 @@ export function GeometryViewerWindow(props) {
           <Show when={renderStats().truncated}>
             <div class="geometry-viewer-budget-warning" role="status">
               Показаны первые {renderStats().renderedInstances} экземпляров из
-              {" "}{renderStats().selectedInstances}. Измените набор слоёв.
+              {" "}{renderStats().selectedInstances}. Измените режимы показа.
             </div>
           </Show>
         </div>

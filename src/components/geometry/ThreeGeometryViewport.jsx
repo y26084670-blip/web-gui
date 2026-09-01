@@ -6,6 +6,16 @@ import {
   onMount,
 } from "solid-js";
 
+import {
+  instanceVisible,
+  primitiveVisible,
+} from "../../services/visualization/geometryRenderFilters.js";
+import {
+  findVertexMetadataRange,
+  formatGeometryTooltip,
+  formatVertexTooltip,
+} from "../../services/visualization/geometryPicking.js";
+
 export const GEOMETRY_INSTANCE_BUDGET = 20_000;
 export const GEOMETRY_RENDER_OBJECT_BUDGET = 1_000;
 
@@ -13,6 +23,10 @@ const INSTANCE_CATEGORIES = Object.freeze(["base", "copy", "mirror"]);
 const DEFAULT_PROJECTION = "orthographic";
 const PERSPECTIVE_FOV = 45;
 const CAMERA_FRAME_PADDING = 1.25;
+const AXES_GIZMO_SIZE = 104;
+const AXES_GIZMO_MARGIN = 8;
+const VERTEX_POINT_SIZE = 9;
+const PICK_INTERVAL_MS = 80;
 
 function normalizeProjection(value) {
   return value === "perspective" ? "perspective" : DEFAULT_PROJECTION;
@@ -30,24 +44,14 @@ function instanceCategory(instance) {
   return "copy";
 }
 
-function sourceCategory(primitive) {
-  return primitive?.kind === "element-volume" ? "elements" : "regions";
-}
-
-function filterEnabled(filters, name) {
-  const filterName = name === "copy"
-    ? "copies"
-    : name === "mirror"
-      ? "mirrors"
-      : name;
-  return filters?.[filterName] !== false;
-}
-
 function materialStyle(primitive, category, mode) {
+  const solid = mode === "solid";
+  const wireframe = mode === "wireframe";
+
   if (category === "mirror") {
     return {
-      color: mode === "wireframe" ? 0xff9aa9 : 0xe76f86,
-      opacity: mode === "wireframe" ? 0.82 : 0.38,
+      color: wireframe ? 0xff9aa9 : 0xe76f86,
+      opacity: solid ? 1 : wireframe ? 0.82 : 0.38,
     };
   }
 
@@ -56,7 +60,9 @@ function materialStyle(primitive, category, mode) {
   const copyColor = isElement ? 0x8dc4ff : 0xffd08f;
   return {
     color: category === "base" ? baseColor : copyColor,
-    opacity: mode === "wireframe"
+    opacity: solid
+      ? 1
+      : wireframe
       ? category === "base" ? 0.96 : 0.72
       : category === "base" ? 0.64 : 0.35,
   };
@@ -67,6 +73,7 @@ function disposeMaterial(material) {
     for (const item of material) item?.dispose?.();
     return;
   }
+  material?.map?.dispose?.();
   material?.dispose?.();
 }
 
@@ -155,6 +162,7 @@ function renderableFor(THREE, primitive, instances, category, mode) {
       geometry,
       new THREE.LineBasicMaterial({
         color: style.color,
+        depthWrite: mode !== "translucent",
         opacity: style.opacity,
         transparent: style.opacity < 1,
       }),
@@ -178,7 +186,7 @@ function renderableFor(THREE, primitive, instances, category, mode) {
         color: style.color,
         opacity: style.opacity,
         transparent: style.opacity < 1,
-        depthWrite: style.opacity >= 0.6,
+        depthWrite: mode !== "translucent",
         metalness: 0.05,
         roughness: 0.78,
         side: THREE.DoubleSide,
@@ -195,6 +203,155 @@ function renderableFor(THREE, primitive, instances, category, mode) {
     source: primitive.source,
   };
   return object;
+}
+
+function appendVertexBatch(THREE, primitive, instances, positions, ranges) {
+  const sourceVertices = primitive.vertices ?? [];
+  const sourceVertexCount = Math.floor(sourceVertices.length / 3);
+  if (sourceVertexCount === 0) return;
+
+  const start = positions.length / 3;
+  const matrix = new THREE.Matrix4();
+  const vertex = new THREE.Vector3();
+
+  for (const instance of instances) {
+    matrix.fromArray(instance.matrix);
+    for (let index = 0; index < sourceVertexCount; index += 1) {
+      const offset = index * 3;
+      vertex.set(
+        sourceVertices[offset],
+        sourceVertices[offset + 1],
+        sourceVertices[offset + 2],
+      ).applyMatrix4(matrix);
+      positions.push(vertex.x, vertex.y, vertex.z);
+    }
+  }
+
+  ranges.push({
+    end: positions.length / 3,
+    source: primitive.source,
+    sourceVertexCount,
+    start,
+  });
+}
+
+function createVertexPoints(THREE, positions) {
+  if (positions.length === 0) return null;
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(positions), 3),
+  );
+  geometry.computeBoundingSphere();
+  const points = new THREE.Points(
+    geometry,
+    new THREE.PointsMaterial({
+      color: 0xffee75,
+      depthTest: true,
+      depthWrite: false,
+      size: VERTEX_POINT_SIZE,
+      sizeAttenuation: false,
+    }),
+  );
+  points.name = "geometry-vertices";
+  points.renderOrder = 20;
+  return points;
+}
+
+function createAxisLabel(THREE, text, color) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = color;
+  context.font = "bold 40px sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, 32, 33);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    depthTest: false,
+    depthWrite: false,
+    map: texture,
+    transparent: true,
+  }));
+  sprite.scale.set(0.34, 0.34, 0.34);
+  sprite.renderOrder = 4;
+  return sprite;
+}
+
+function createAxisArrow(THREE, direction, color, label, cssColor) {
+  const root = new THREE.Group();
+  const material = new THREE.MeshBasicMaterial({
+    color,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.035, 0.72, 12),
+    material,
+  );
+  shaft.position.y = 0.36;
+  const head = new THREE.Mesh(
+    new THREE.ConeGeometry(0.11, 0.28, 16),
+    material.clone(),
+  );
+  head.position.y = 0.86;
+  root.add(shaft, head);
+  root.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    direction,
+  );
+
+  const labelSprite = createAxisLabel(THREE, label, cssColor);
+  labelSprite.position.set(0, 1.17, 0);
+  root.add(labelSprite);
+  return root;
+}
+
+function createAxesGizmo(THREE) {
+  const root = new THREE.Group();
+  root.name = "screen-axes-gizmo";
+  root.add(
+    createAxisArrow(
+      THREE,
+      new THREE.Vector3(1, 0, 0),
+      0xf05252,
+      "X",
+      "#ff6b6b",
+    ),
+    createAxisArrow(
+      THREE,
+      new THREE.Vector3(0, 1, 0),
+      0x4bc26b,
+      "Y",
+      "#62dc82",
+    ),
+    createAxisArrow(
+      THREE,
+      new THREE.Vector3(0, 0, 1),
+      0x4c8ff2,
+      "Z",
+      "#75aaff",
+    ),
+  );
+  return root;
+}
+
+function worldUnitsPerPixel(camera, target, viewportHeight) {
+  const height = Math.max(1, viewportHeight);
+  if (camera.isOrthographicCamera) {
+    return Math.abs(camera.top - camera.bottom) /
+      Math.max(camera.zoom * height, 1e-9);
+  }
+
+  const distance = Math.max(camera.position.distanceTo(target), 1e-9);
+  const verticalFov = camera.fov * Math.PI / 180;
+  return 2 * distance * Math.tan(verticalFov / 2) / height;
 }
 
 function fitCameraToBounds(THREE, camera, controls, bounds, targetOverride) {
@@ -281,13 +438,35 @@ export function ThreeGeometryViewport(props) {
   let host;
   let renderer;
   let threeScene;
+  let axesScene;
+  let axesCamera;
+  let axesRoot;
   let camera;
   let controls;
   let geometryRoot;
   let helperRoot;
+  let vertexPoints;
+  let vertexBatches = [];
+  let vertexRanges = [];
+  let geometryPickTargets = [];
   let currentBounds;
   let resizeObserver;
+  let raycaster;
+  let pointerNdc;
+  let pendingPointer;
+  let handlePointerMove;
+  let handlePointerLeave;
+  let handleControlsStart;
+  let handleControlsEnd;
   let renderFrame = 0;
+  let pickFrame = 0;
+  let pickTimer = 0;
+  let lastPickTime = Number.NEGATIVE_INFINITY;
+  let viewportWidth = 1;
+  let viewportHeight = 1;
+  let verticesVisible = false;
+  let controlsInteracting = false;
+  let contextLost = false;
   let disposed = false;
   let hasFramedGeometry = false;
   let activeProjection = DEFAULT_PROJECTION;
@@ -297,6 +476,7 @@ export function ThreeGeometryViewport(props) {
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal("");
   const [renderedCount, setRenderedCount] = createSignal(0);
+  const [hoverTooltip, setHoverTooltip] = createSignal(null);
 
   const reportError = (value) => {
     const message = value instanceof Error ? value.message : String(value);
@@ -308,17 +488,233 @@ export function ThreeGeometryViewport(props) {
     if (!renderer || !threeScene || !camera || renderFrame) return;
     renderFrame = requestAnimationFrame(() => {
       renderFrame = 0;
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, viewportWidth, viewportHeight);
+      renderer.clear(true, true, true);
       renderer.render(threeScene, camera);
+
+      if (axesScene && axesCamera && axesRoot && controls) {
+        const size = axesGizmoSize();
+        const direction = camera.position.clone().sub(controls.target);
+        if (direction.lengthSq() < 1e-12) direction.set(1, 1, 1);
+        axesCamera.position.copy(direction.normalize().multiplyScalar(5));
+        axesCamera.up.copy(camera.up);
+        axesCamera.lookAt(0, 0, 0);
+        axesCamera.updateMatrixWorld();
+
+        renderer.clearDepth();
+        renderer.setScissor(
+          AXES_GIZMO_MARGIN,
+          AXES_GIZMO_MARGIN,
+          size,
+          size,
+        );
+        renderer.setViewport(
+          AXES_GIZMO_MARGIN,
+          AXES_GIZMO_MARGIN,
+          size,
+          size,
+        );
+        renderer.setScissorTest(true);
+        renderer.render(axesScene, axesCamera);
+        renderer.setScissorTest(false);
+        renderer.setViewport(0, 0, viewportWidth, viewportHeight);
+      }
     });
   };
 
   const resizeRenderer = () => {
     if (!host || !renderer || !camera) return;
-    const width = Math.max(1, Math.floor(host.clientWidth));
-    const height = Math.max(1, Math.floor(host.clientHeight));
-    renderer.setSize(width, height, false);
-    resizeCameraProjection(camera, width / height);
+    viewportWidth = Math.max(1, Math.floor(host.clientWidth));
+    viewportHeight = Math.max(1, Math.floor(host.clientHeight));
+    renderer.setSize(viewportWidth, viewportHeight, false);
+    resizeCameraProjection(camera, viewportWidth / viewportHeight);
+    setHoverTooltip(null);
     requestRender();
+  };
+
+  const cancelPendingPick = () => {
+    pendingPointer = null;
+    if (pickFrame) cancelAnimationFrame(pickFrame);
+    if (pickTimer) clearTimeout(pickTimer);
+    pickFrame = 0;
+    pickTimer = 0;
+  };
+
+  const clearHoverTooltip = () => {
+    cancelPendingPick();
+    setHoverTooltip(null);
+  };
+
+  const axesGizmoSize = () => Math.max(
+    1,
+    Math.min(
+      AXES_GIZMO_SIZE,
+      viewportWidth - 2 * AXES_GIZMO_MARGIN,
+      viewportHeight - 2 * AXES_GIZMO_MARGIN,
+    ),
+  );
+
+  const pointCoordinates = (globalIndex) => {
+    const attribute = vertexPoints?.geometry?.getAttribute?.("position");
+    if (!attribute || globalIndex < 0 || globalIndex >= attribute.count) {
+      return null;
+    }
+
+    return [
+      attribute.getX(globalIndex),
+      attribute.getY(globalIndex),
+      attribute.getZ(globalIndex),
+    ];
+  };
+
+  const showTooltip = (text, x, y) => {
+    const widthEstimate = Math.min(390, Math.max(180, text.length * 6));
+    const lineCount = Math.max(1, Math.ceil(text.length * 6 / widthEstimate));
+    const heightEstimate = 18 + lineCount * 15;
+    const left = x + 14 + widthEstimate <= viewportWidth
+      ? x + 14
+      : Math.max(8, x - widthEstimate - 14);
+    const top = y + 14 + heightEstimate <= viewportHeight
+      ? y + 14
+      : Math.max(8, y - heightEstimate - 14);
+    setHoverTooltip({ left, text, top });
+  };
+
+  const pickAtPointer = (pointer) => {
+    if (
+      !pointer ||
+      !renderer ||
+      !camera ||
+      !controls ||
+      !raycaster ||
+      !pointerNdc
+    ) {
+      setHoverTooltip(null);
+      return;
+    }
+
+    const bounds = renderer.domElement.getBoundingClientRect();
+    const x = pointer.clientX - bounds.left;
+    const y = pointer.clientY - bounds.top;
+    if (x < 0 || y < 0 || x > bounds.width || y > bounds.height) {
+      setHoverTooltip(null);
+      return;
+    }
+
+    const gizmoSize = axesGizmoSize();
+    if (
+      x <= AXES_GIZMO_MARGIN + gizmoSize &&
+      y >= bounds.height - AXES_GIZMO_MARGIN - gizmoSize
+    ) {
+      setHoverTooltip(null);
+      return;
+    }
+
+    pointerNdc.set(
+      x / Math.max(bounds.width, 1) * 2 - 1,
+      -(y / Math.max(bounds.height, 1)) * 2 + 1,
+    );
+    raycaster.setFromCamera(pointerNdc, camera);
+    const unitsPerPixel = worldUnitsPerPixel(
+      camera,
+      controls.target,
+      bounds.height,
+    );
+    raycaster.params.Line.threshold = unitsPerPixel * 5;
+    raycaster.params.Points.threshold = unitsPerPixel * 9;
+
+    const geometryHit = raycaster.intersectObjects(
+      geometryPickTargets,
+      false,
+    )[0] ?? null;
+    const vertexHit = verticesVisible && vertexPoints
+      ? raycaster.intersectObject(vertexPoints, false)[0] ?? null
+      : null;
+
+    if (
+      vertexHit &&
+      Number.isSafeInteger(vertexHit.index) &&
+      (
+        !geometryHit ||
+        vertexHit.distance <= geometryHit.distance + unitsPerPixel * 9
+      )
+    ) {
+      const range = findVertexMetadataRange(vertexRanges, vertexHit.index);
+      const coordinates = pointCoordinates(vertexHit.index);
+      if (range && coordinates) {
+        const localIndex = vertexHit.index - range.start;
+        const vertexIndex = localIndex % range.sourceVertexCount;
+        showTooltip(
+          formatVertexTooltip(range.source, vertexIndex, coordinates),
+          x,
+          y,
+        );
+        return;
+      }
+    }
+
+    if (geometryHit?.object?.userData?.source) {
+      showTooltip(
+        formatGeometryTooltip(geometryHit.object.userData.source),
+        x,
+        y,
+      );
+      return;
+    }
+
+    setHoverTooltip(null);
+  };
+
+  const queuePointerPick = (event) => {
+    if (controlsInteracting) return;
+    pendingPointer = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+    };
+    if (pickFrame || pickTimer) return;
+
+    const scheduleFrame = () => {
+      pickTimer = 0;
+      if (!pendingPointer || controlsInteracting) return;
+      pickFrame = requestAnimationFrame(() => {
+        pickFrame = 0;
+        const pointer = pendingPointer;
+        pendingPointer = null;
+        lastPickTime = performance.now();
+        pickAtPointer(pointer);
+      });
+    };
+    const delay = Math.max(0, PICK_INTERVAL_MS - (
+      performance.now() - lastPickTime
+    ));
+    if (delay > 0) {
+      pickTimer = window.setTimeout(scheduleFrame, delay);
+    } else {
+      scheduleFrame();
+    }
+  };
+
+  const materializeVertexPoints = () => {
+    if (!THREE || !helperRoot || vertexPoints) return;
+
+    const positions = [];
+    vertexRanges = [];
+    for (const batch of vertexBatches) {
+      appendVertexBatch(
+        THREE,
+        batch.primitive,
+        batch.instances,
+        positions,
+        vertexRanges,
+      );
+    }
+
+    vertexPoints = createVertexPoints(THREE, positions);
+    if (vertexPoints) {
+      vertexPoints.visible = verticesVisible;
+      helperRoot.add(vertexPoints);
+    }
   };
 
   const switchProjection = (value) => {
@@ -374,6 +770,11 @@ export function ThreeGeometryViewport(props) {
     helperRoot = new THREE.Group();
     helperRoot.name = "geometry-helpers";
     threeScene.add(geometryRoot, helperRoot);
+    geometryPickTargets = [];
+    vertexBatches = [];
+    vertexRanges = [];
+    vertexPoints = null;
+    clearHoverTooltip();
 
     const budget = Math.max(
       1,
@@ -392,13 +793,20 @@ export function ThreeGeometryViewport(props) {
     let invalidInstances = 0;
 
     for (const primitive of sceneModel?.primitives ?? []) {
-      if (!filterEnabled(filters, sourceCategory(primitive))) continue;
+      if (!primitiveVisible(
+        primitive,
+        filters?.objectModes,
+        filters?.selections,
+      )) {
+        continue;
+      }
       const instances = primitive.instances ?? [];
 
       for (const category of INSTANCE_CATEGORIES) {
-        if (!filterEnabled(filters, category)) continue;
         const categoryInstances = instances.filter(
-          (instance) => instanceCategory(instance) === category,
+          (instance) =>
+            instanceCategory(instance) === category &&
+            instanceVisible(instance, filters?.symmetry),
         );
         const validInstances = categoryInstances.filter(
           (instance) => validMatrix(instance.matrix),
@@ -423,17 +831,18 @@ export function ThreeGeometryViewport(props) {
         );
         if (!object) continue;
         geometryRoot.add(object);
+        geometryPickTargets.push(object);
+        vertexBatches.push({ instances: accepted, primitive });
         renderedPrimitives += 1;
         renderedInstances += accepted.length;
         remaining -= accepted.length;
       }
     }
 
+    if (verticesVisible) materializeVertexPoints();
+
     currentBounds = new THREE.Box3().setFromObject(geometryRoot);
     if (!currentBounds.isEmpty()) {
-      const size = currentBounds.getSize(new THREE.Vector3());
-      const axesSize = Math.max(size.x, size.y, size.z, 1) * 0.18;
-      helperRoot.add(new THREE.AxesHelper(axesSize));
       if (!hasFramedGeometry) {
         fitCameraToBounds(THREE, camera, controls, currentBounds);
         hasFramedGeometry = true;
@@ -454,8 +863,10 @@ export function ThreeGeometryViewport(props) {
     };
     setRenderedCount(renderedInstances);
     props.onRenderStats?.(stats);
-    setError("");
-    props.onError?.("");
+    if (!contextLost) {
+      setError("");
+      props.onError?.("");
+    }
     requestRender();
   };
 
@@ -474,13 +885,27 @@ export function ThreeGeometryViewport(props) {
       THREE = threeModule;
       threeScene = new THREE.Scene();
       threeScene.background = new THREE.Color(0x141a20);
+      axesScene = new THREE.Scene();
+      axesCamera = new THREE.OrthographicCamera(
+        -1.35,
+        1.35,
+        1.35,
+        -1.35,
+        0.1,
+        20,
+      );
+      axesRoot = createAxesGizmo(THREE);
+      axesScene.add(axesRoot);
       activeProjection = normalizeProjection(props.projection);
       camera = createCamera(THREE, activeProjection, 1);
+      raycaster = new THREE.Raycaster();
+      pointerNdc = new THREE.Vector2();
 
       renderer = new THREE.WebGLRenderer({
         antialias: true,
         powerPreference: "high-performance",
       });
+      renderer.autoClear = false;
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
       host.append(renderer.domElement);
@@ -489,6 +914,20 @@ export function ThreeGeometryViewport(props) {
       controls.enableDamping = false;
       controls.screenSpacePanning = true;
       controls.addEventListener("change", requestRender);
+      handleControlsStart = () => {
+        controlsInteracting = true;
+        clearHoverTooltip();
+      };
+      handleControlsEnd = () => {
+        controlsInteracting = false;
+      };
+      controls.addEventListener("start", handleControlsStart);
+      controls.addEventListener("end", handleControlsEnd);
+
+      handlePointerMove = queuePointerPick;
+      handlePointerLeave = clearHoverTooltip;
+      renderer.domElement.addEventListener("pointermove", handlePointerMove);
+      renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
 
       threeScene.add(new THREE.HemisphereLight(0xffffff, 0x283441, 1.7));
       const light = new THREE.DirectionalLight(0xffffff, 1.35);
@@ -497,9 +936,11 @@ export function ThreeGeometryViewport(props) {
 
       const handleContextLost = (event) => {
         event.preventDefault();
+        contextLost = true;
         reportError("Контекст WebGL потерян");
       };
       const handleContextRestored = () => {
+        contextLost = false;
         setError("");
         props.onError?.("");
         requestRender();
@@ -527,9 +968,18 @@ export function ThreeGeometryViewport(props) {
   });
 
   createEffect(() => {
+    verticesVisible = props.showVertices === true;
+    if (!ready()) return;
+    if (verticesVisible && !vertexPoints) materializeVertexPoints();
+    if (vertexPoints) vertexPoints.visible = verticesVisible;
+    clearHoverTooltip();
+    requestRender();
+  });
+
+  createEffect(() => {
     const sceneModel = props.scene;
     const filters = props.filters;
-    const mode = props.mode ?? "surfaces";
+    const mode = props.mode ?? "solid";
     if (!ready()) return;
 
     try {
@@ -554,11 +1004,17 @@ export function ThreeGeometryViewport(props) {
     setReady(false);
     resizeObserver?.disconnect();
     if (renderFrame) cancelAnimationFrame(renderFrame);
+    cancelPendingPick();
     controls?.removeEventListener("change", requestRender);
+    controls?.removeEventListener("start", handleControlsStart);
+    controls?.removeEventListener("end", handleControlsEnd);
     controls?.dispose();
     disposeObject(geometryRoot);
     disposeObject(helperRoot);
+    disposeObject(axesRoot);
     if (renderer?.domElement) {
+      renderer.domElement.removeEventListener("pointermove", handlePointerMove);
+      renderer.domElement.removeEventListener("pointerleave", handlePointerLeave);
       const handlers = renderer.domElement.__geometryContextHandlers;
       if (handlers) {
         renderer.domElement.removeEventListener(
@@ -577,6 +1033,11 @@ export function ThreeGeometryViewport(props) {
     renderer?.domElement?.remove();
     renderer = null;
     threeScene = null;
+    axesScene = null;
+    axesCamera = null;
+    axesRoot = null;
+    raycaster = null;
+    pointerNdc = null;
   });
 
   return (
@@ -592,13 +1053,27 @@ export function ThreeGeometryViewport(props) {
       </Show>
       <Show when={!loading() && !error() && renderedCount() === 0}>
         <div class="geometry-viewport-overlay">
-          Нет геометрии для выбранных слоёв
+          Нет геометрии для текущих настроек
         </div>
       </Show>
       <Show when={error()}>
         <div class="geometry-viewport-overlay geometry-viewport-error" role="alert">
           3D-представление недоступно: {error()}
         </div>
+      </Show>
+      <Show when={hoverTooltip()} keyed>
+        {(tooltip) => (
+          <div
+            class="geometry-viewport-tooltip"
+            role="tooltip"
+            style={{
+              left: `${tooltip.left}px`,
+              top: `${tooltip.top}px`,
+            }}
+          >
+            {tooltip.text}
+          </div>
+        )}
       </Show>
     </div>
   );

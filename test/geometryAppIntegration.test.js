@@ -13,6 +13,13 @@ test("App hosts one global modeless geometry viewer", async () => {
     assert.match(source, /<GeometryViewerWindow/u);
     assert.match(source, /const geometryModel = createMemo/u);
     assert.match(source, /model=\{geometryModel\(\)\}/u);
+    assert.match(source, /selectedGeometryElementIndices/u);
+    assert.match(source, /selectedGeometryRegionIndices/u);
+    assert.match(source, /onRecordSelectionChange=\{handleGeometryRecordSelectionChange\}/u);
+    assert.match(source, /selections=\{geometrySelections\(\)\}/u);
+    assert.match(source, /selectionService\.loadedTaskHandle\(\)/u);
+    assert.match(source, /setSelectedGeometryElementIndices\(\[\]\)/u);
+    assert.match(source, /setSelectedGeometryRegionIndices\(\[\]\)/u);
     assert.match(source, /setGeometryViewerOpen\(false\)/u);
     assert.match(source, /geometryViewerButton\?\.focus\(\)/u);
 });

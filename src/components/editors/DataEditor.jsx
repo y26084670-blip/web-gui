@@ -142,6 +142,10 @@ export function DataEditor(props) {
     : null;
   const hasMainView = Boolean(mainViewProperty);
   const hasRecordColumns = hasRecordColumnsView(schema);
+  const reportsRecordSelection =
+    schema.config.storage === STORAGE_TYPES.RECORDS &&
+    !hasMainView &&
+    !hasRecordColumns;
   const mainViewStructureMutable =
     hasMainView &&
     !isPropertyReadonly(mainViewProperty) &&
@@ -219,7 +223,9 @@ export function DataEditor(props) {
         },
         endChange() {
           changingStructure = false;
-          return publishTableChanged(true);
+          const update = publishTableChanged(true);
+          notifyRecordSelection();
+          return update;
         },
         cancelChange() {
           changingStructure = false;
@@ -378,6 +384,7 @@ export function DataEditor(props) {
             modelSnapshot: modelService.getModel(),
           });
     await table.setData(rows);
+    notifyRecordSelection();
     activateDefaultReferenceView();
   }
 
@@ -425,6 +432,7 @@ export function DataEditor(props) {
 
   function handleRowSelectionChanged(_data, rows) {
     selectionContextService.notifySelectionChanged(table);
+    notifyRecordSelection(rows);
     syncSelectedGraphRecords(rows);
     const tableSchema = table?._gui?.schema;
 
@@ -434,6 +442,22 @@ export function DataEditor(props) {
     }
 
     showDetailForSelection(rows);
+  }
+
+  function selectedRecordIndices(rows = table?.getSelectedRows?.() ?? []) {
+    const indices = (rows ?? [])
+      .map((row) => Number(row?.getData?.()?.rowLabel) - 1)
+      .filter((index) => Number.isInteger(index) && index >= 0);
+
+    return [...new Set(indices)].sort((left, right) => left - right);
+  }
+
+  function notifyRecordSelection(rows) {
+    if (!reportsRecordSelection) return;
+    props.onRecordSelectionChange?.(
+      schema.id,
+      selectedRecordIndices(rows),
+    );
   }
 
   function syncSelectedGraphRecords(rows = table?.getSelectedRows()) {
@@ -715,6 +739,7 @@ export function DataEditor(props) {
 
         try {
           await table.replaceData(rows);
+          notifyRecordSelection();
           activateDefaultReferenceView();
         } finally {
           applyingModel = false;

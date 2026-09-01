@@ -3,6 +3,7 @@
 }
 
 .geometry-viewer-window {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -26,93 +27,84 @@
   scrollbar-width: thin;
 }
 
-.geometry-viewer-filter-group {
-  display: flex;
-  flex: 1 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  margin: 0;
-  padding: 2px 7px 3px;
-  border: 1px solid #4e5965;
-  border-radius: 3px;
-}
-
-.geometry-viewer-filter-group legend {
-  padding: 0 3px;
-  color: #aeb9c4;
-  font-size: 10px;
-}
-
-.geometry-viewer-filter-group label {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  color: #e3e9ee;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.geometry-viewer-filter-group input {
-  margin: 0;
-}
-
-.geometry-viewer-mode-group {
-  display: flex;
-  flex: 1 0 auto;
-  align-items: stretch;
-  min-width: max-content;
-}
-
-.geometry-viewer-mode-group button,
+.geometry-viewer-menu-button,
+.geometry-viewer-select,
 .geometry-viewer-fit {
+  flex: 1 0 auto;
   min-height: 27px;
+  min-width: max-content;
+  box-sizing: border-box;
   padding: 3px 8px;
   border: 1px solid #56626e;
+  border-radius: 3px;
   background: #303943;
   color: #edf2f7;
   font-size: 12px;
-  cursor: pointer;
-}
-
-.geometry-viewer-mode-group button {
-  flex: 1 1 0;
   white-space: nowrap;
 }
 
-.geometry-viewer-mode-group button:first-child {
-  border-radius: 3px 0 0 3px;
+.geometry-viewer-menu-button,
+.geometry-viewer-fit {
+  cursor: pointer;
 }
 
-.geometry-viewer-mode-group button:last-child {
-  margin-left: -1px;
-  border-radius: 0 3px 3px 0;
-}
-
-.geometry-viewer-mode-group button:hover,
+.geometry-viewer-menu-button:hover,
+.geometry-viewer-select:hover,
 .geometry-viewer-fit:hover {
   background: #3b4651;
 }
 
-.geometry-viewer-mode-group button.active {
+.geometry-viewer-menu-button.active {
   border-color: #70bd85;
   background: #285b3a;
   color: #f2fff5;
 }
 
-.geometry-viewer-mode-group button:focus-visible,
+.geometry-viewer-menu-button:focus-visible,
+.geometry-viewer-select:focus-visible,
 .geometry-viewer-fit:focus-visible,
-.geometry-viewer-filter-group input:focus-visible {
+.geometry-viewer-options-panel input:focus-visible {
   outline: 2px solid #8fc7ff;
   outline-offset: 1px;
 }
 
-.geometry-viewer-fit {
-  flex: 1 0 auto;
-  border-radius: 3px;
-  white-space: nowrap;
+.geometry-viewer-options-panel {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 248px;
+  max-width: calc(100% - 16px);
+  max-height: min(260px, calc(100% - 54px));
+  box-sizing: border-box;
+  padding: 10px 11px;
+  overflow: auto;
+  border: 1px solid #697683;
+  border-radius: 4px;
+  box-shadow: 0 7px 20px rgba(0, 0, 0, .58);
+  background: #252d35;
+  color: #edf2f7;
+  font-size: 12px;
+}
+
+.geometry-viewer-options-title {
+  margin-bottom: 1px;
+  color: #bfcad4;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.geometry-viewer-options-panel label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  cursor: pointer;
+}
+
+.geometry-viewer-options-panel input {
+  margin: 0;
 }
 
 .geometry-viewer-canvas-region {
@@ -138,6 +130,23 @@
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+
+.geometry-viewport-tooltip {
+  position: absolute;
+  z-index: 5;
+  max-width: min(390px, calc(100% - 16px));
+  box-sizing: border-box;
+  padding: 5px 7px;
+  border: 1px solid #708090;
+  border-radius: 3px;
+  background: rgba(27, 34, 41, .95);
+  color: #f1f5f8;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  pointer-events: none;
 }
 
 .geometry-viewport-overlay {

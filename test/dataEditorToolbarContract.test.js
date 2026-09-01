@@ -25,3 +25,21 @@ test("generator-enabled data tabs expose an accessible vertical splitter", async
     assert.match(source, /onPointerDown=\{beginMainResize\}/u);
     assert.match(source, /onKeyDown=\{handleMainSplitterKey\}/u);
 });
+
+test("main record selections are reported by stable zero-based row labels", async () => {
+    const source = await readFile(componentUrl, "utf8");
+
+    assert.match(source, /const reportsRecordSelection =/u);
+    assert.match(source, /schema\.config\.storage === STORAGE_TYPES\.RECORDS/u);
+    assert.match(source, /!hasMainView/u);
+    assert.match(source, /!hasRecordColumns/u);
+    assert.match(
+        source,
+        /Number\(row\?\.getData\?\.\(\)\?\.rowLabel\) - 1/u,
+    );
+    assert.match(source, /props\.onRecordSelectionChange\?\.\(/u);
+    assert.match(source, /notifyRecordSelection\(rows\)/u);
+    assert.match(source, /await table\.setData\(rows\);\s+notifyRecordSelection\(\);/u);
+    assert.match(source, /await table\.replaceData\(rows\);\s+notifyRecordSelection\(\);/u);
+    assert.match(source, /const update = publishTableChanged\(true\);\s+notifyRecordSelection\(\);/u);
+});

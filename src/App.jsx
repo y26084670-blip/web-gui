@@ -34,8 +34,13 @@ export default function App() {
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
   const [geometryViewerOpen, setGeometryViewerOpen] = createSignal(false);
+  const [selectedGeometryElementIndices, setSelectedGeometryElementIndices] =
+    createSignal([]);
+  const [selectedGeometryRegionIndices, setSelectedGeometryRegionIndices] =
+    createSignal([]);
   let geometryViewerButton;
   let modelValidationRevision = 0;
+  let observedGeometryTaskHandle;
 
   async function handleModelValidation() {
     const revision = ++modelValidationRevision;
@@ -87,6 +92,7 @@ export default function App() {
           schema={schema}
           active={props.active}
           computedColumnsMode={props.computedColumnsMode}
+          onRecordSelectionChange={handleGeometryRecordSelectionChange}
         />
       ),
     })),
@@ -134,6 +140,45 @@ export default function App() {
       elements: model.elements,
       regions: model.regions,
     };
+  });
+  const geometrySelections = createMemo(() => ({
+    elements: selectedGeometryElementIndices(),
+    regions: selectedGeometryRegionIndices(),
+  }));
+
+  function sameRecordIndices(left, right) {
+    return left.length === right.length &&
+      left.every((value, index) => value === right[index]);
+  }
+
+  function updateGeometrySelection(setSelection, recordIndices) {
+    const next = Array.isArray(recordIndices) ? [...recordIndices] : [];
+    setSelection((current) =>
+      sameRecordIndices(current, next) ? current : next
+    );
+  }
+
+  function handleGeometryRecordSelectionChange(schemaId, recordIndices) {
+    if (schemaId === TABS.ELEMENTS.id) {
+      updateGeometrySelection(
+        setSelectedGeometryElementIndices,
+        recordIndices,
+      );
+    } else if (schemaId === TABS.REGIONS.id) {
+      updateGeometrySelection(
+        setSelectedGeometryRegionIndices,
+        recordIndices,
+      );
+    }
+  }
+
+  createEffect(() => {
+    const taskHandle = selectionService.loadedTaskHandle();
+    if (taskHandle === observedGeometryTaskHandle) return;
+
+    observedGeometryTaskHandle = taskHandle;
+    setSelectedGeometryElementIndices([]);
+    setSelectedGeometryRegionIndices([]);
   });
 
   function handleMaterialSelectionOpen() {
@@ -292,6 +337,7 @@ export default function App() {
       <GeometryViewerWindow
         open={geometryViewerOpen()}
         model={geometryModel()}
+        selections={geometrySelections()}
         onClose={() => {
           setGeometryViewerOpen(false);
           geometryViewerButton?.focus();
