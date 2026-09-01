@@ -72,6 +72,40 @@ test("diagnostic popup scrolls the list while keeping its title visible", async 
     );
 });
 
+test("diagnostic fields use visible schema labels", async () => {
+    const source = await readFile(popupUrl, "utf8");
+
+    assert.match(
+        source,
+        /import \{ tabRegistry \} from "\.\.\/\.\.\/services\/tabRegistry";/u,
+    );
+    assert.match(
+        source,
+        /import \{ materialTabRegistry \} from "\.\.\/\.\.\/services\/materialTabRegistry";/u,
+    );
+    assert.match(source, /tabRegistry\.map\(\(schema\) => \[schema\.id, schema\]\)/u);
+    assert.match(source, /materialTabRegistry\.map\(\(definition\) => \[/u);
+    assert.match(source, /definition\.id,\s*definition\.schema,/u);
+    assert.match(source, /function diagnosticPropertyLabel\(diagnostic\)/u);
+    assert.match(source, /nonEmptyLabel\(property\.label\)/u);
+    assert.match(source, /nonEmptyLabel\(property\.title\)/u);
+    assert.match(
+        source,
+        /schema\.properties\?\.\[propertyId\]\?\.label/u,
+    );
+    assert.match(
+        source,
+        /schema\.views\?\.references\?\.\[propertyId\]\?\.label/u,
+    );
+    assert.match(source, /if \(!schema \|\| !nonEmptyLabel\(propertyId\)\) return null;/u);
+    assert.match(
+        source,
+        /<Show when=\{diagnosticPropertyLabel\(diagnostic\)\}>\s*\{\(label\) => <span>Поле: \{label\(\)\}<\/span>\}\s*<\/Show>/u,
+    );
+    assert.doesNotMatch(source, /typeof diagnostic\.property/u);
+    assert.doesNotMatch(source, /:\s*diagnostic\.property\s*\}/u);
+});
+
 test("App and DataEditor contain no diagnostic navigation state", async () => {
     const [app, editor] = await Promise.all([
         readFile(appUrl, "utf8"),

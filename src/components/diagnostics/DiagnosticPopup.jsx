@@ -4,6 +4,8 @@ import {
   TABS,
   VALIDATION_LEVELS,
 } from "../../services/schemas/common/constants";
+import { tabRegistry } from "../../services/tabRegistry";
+import { materialTabRegistry } from "../../services/materialTabRegistry";
 import "./DiagnosticPopup.css";
 
 const LEVEL_LABELS = {
@@ -12,6 +14,43 @@ const LEVEL_LABELS = {
   [VALIDATION_LEVELS.SUCCESS]: "SUCCESS",
   [VALIDATION_LEVELS.UNKNOWN]: "UNKNOWN",
 };
+
+const SCHEMAS_BY_TAB_ID = new Map([
+  ...tabRegistry.map((schema) => [schema.id, schema]),
+  ...materialTabRegistry.map((definition) => [
+    definition.id,
+    definition.schema,
+  ]),
+]);
+
+function nonEmptyLabel(value) {
+  return typeof value === "string" && value.trim() !== ""
+    ? value
+    : null;
+}
+
+function diagnosticPropertyLabel(diagnostic) {
+  const property = diagnostic?.property;
+
+  if (property && typeof property === "object") {
+    const objectLabel = nonEmptyLabel(property.label)
+      ?? nonEmptyLabel(property.title);
+    if (objectLabel) return objectLabel;
+  }
+
+  const propertyId = typeof property === "string"
+    ? property
+    : property?.id;
+  const tabId = typeof diagnostic?.tab === "string"
+    ? diagnostic.tab
+    : diagnostic?.tab?.id;
+  const schema = SCHEMAS_BY_TAB_ID.get(tabId);
+
+  if (!schema || !nonEmptyLabel(propertyId)) return null;
+
+  return nonEmptyLabel(schema.properties?.[propertyId]?.label)
+    ?? nonEmptyLabel(schema.views?.references?.[propertyId]?.label);
+}
 
 export function DiagnosticPopup(props) {
   function displayValue(value) {
@@ -67,14 +106,9 @@ export function DiagnosticPopup(props) {
                     {(label) => <span>{label()}</span>}
                   </Show>
 
-                  {diagnostic.property && (
-                    <span>
-                      Поле:{" "}
-                      {typeof diagnostic.property === "object"
-                        ? (diagnostic.property.title ?? diagnostic.property.id)
-                        : diagnostic.property}
-                    </span>
-                  )}
+                  <Show when={diagnosticPropertyLabel(diagnostic)}>
+                    {(label) => <span>Поле: {label()}</span>}
+                  </Show>
                 </div>
               </div>
             )}

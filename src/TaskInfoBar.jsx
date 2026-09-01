@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from "solid-js";
+import { Show, createEffect, createSignal } from "solid-js";
 import { ValidationIndicator } from "./components/diagnostics/ValidationIndicator";
 import { selectionService } from "./services/selectionService";
 import {
@@ -18,9 +18,6 @@ export function TaskInfoBar(props) {
   let aboutDialog;
   let aboutButton;
   let aboutCloseButton;
-
-  const displayPath = () =>
-    props.path ?? "Задание для редактирования не загружено";
 
   // Модальность обеспечивается нативным <dialog>: удержание фокуса,
   // блокировка страницы и закрытие по Esc — штатное поведение элемента.
@@ -116,8 +113,23 @@ export function TaskInfoBar(props) {
         📂
       </button>
 
-      <div class="task-info-path" title={props.path ?? ""}>
-        {displayPath()}
+      <div
+        class="task-info-path"
+        title={props.path ?? ""}
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <Show
+          keyed
+          when={props.path}
+          fallback={
+            <span class="task-info-path-empty">
+              Задание для редактирования не загружено
+            </span>
+          }
+        >
+          {(path) => <span class="task-info-path-value">{path}</span>}
+        </Show>
       </div>
 
       <div class="validation-controls">
