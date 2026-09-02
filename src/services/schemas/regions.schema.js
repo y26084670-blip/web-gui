@@ -82,8 +82,8 @@ export default createSchema({
             storageKey: "sym.vi",
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
-            label: "Поворот локальной СК",
-            description: "Углы поворота локальной системы координат, град",
+            label: "LSK ориентация, град",
+            description: "Углы начальной ориентации локальной СК, как последовательный поворот вокруг осей X, Y, Z",
             default: [0, 0, 0],
             nColumns: 1,
             columns: ["Угол, град"],
@@ -105,7 +105,7 @@ export default createSchema({
             storageKey: "sym.r0",
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
-            label: "Начало локальной СК",
+            label: "LSK начало, мм",
             description: "Координаты начала локальной системы координат",
             default: [0, 0, 0],
             nColumns: 1,
@@ -127,7 +127,7 @@ export default createSchema({
         symYl: {
             storageKey: "sym.yl",
             type: FIELD_TYPES.FLOAT,
-            label: "Локальная симметрия: угол",
+            label: "YLV, град",
             description: "Угол поворота в локальной СК, формирующий образы локальной симметрии, град",
             default: 0,
             digits: 6,
@@ -136,7 +136,7 @@ export default createSchema({
         symYa: {
             storageKey: "sym.ya",
             type: FIELD_TYPES.FLOAT,
-            label: "Азимутальная симметрия: угол",
+            label: "YA",
             description: "Угол поворота в основной СК, формирующий азимутальные образы, град",
             default: 0,
             digits: 6,
@@ -146,7 +146,7 @@ export default createSchema({
         symTx: {
             storageKey: "sym.tx",
             type: FIELD_TYPES.FLOAT,
-            label: "Периодическая симметрия: смещение",
+            label: "TX",
             description: "Смещение в основной СК, формирующее периодические образы",
             default: 0,
             digits: 6,
@@ -156,7 +156,7 @@ export default createSchema({
         symLs: {
             storageKey: "sym.ls",
             type: FIELD_TYPES.INTEGER,
-            label: "Образы локальной симметрии",
+            label: "LAS",
             description: "Число образов локальной симметрии",
             default: 1,
             minimum: 1,
@@ -165,7 +165,7 @@ export default createSchema({
         symAs: {
             storageKey: "sym.as",
             type: FIELD_TYPES.INTEGER,
-            label: "Образы азимутальной симметрии",
+            label: "AS",
             description: "Число образов азимутальной симметрии",
             default: 1,
             hidden: true,
@@ -174,7 +174,7 @@ export default createSchema({
         symPs: {
             storageKey: "sym.ps",
             type: FIELD_TYPES.INTEGER,
-            label: "Образы периодической симметрии",
+            label: "PS",
             description: "Число образов периодической симметрии",
             default: 1,
             hidden: true,
@@ -183,7 +183,7 @@ export default createSchema({
         symKya: {
             storageKey: "sym.kya",
             type: FIELD_TYPES.ENUM,
-            label: "Тип азимутальной симметрии",
+            label: "Тип AS",
             description: "Знак и характер азимутальной симметрии",
             default: 0,
             enum: SYM_KIND,
@@ -193,7 +193,7 @@ export default createSchema({
         symKyp: {
             storageKey: "sym.kyp",
             type: FIELD_TYPES.ENUM,
-            label: "Тип периодической симметрии",
+            label: "Тип PS",
             description: "Знак и характер периодической симметрии",
             default: 0,
             enum: SYM_KIND,
@@ -235,8 +235,8 @@ export default createSchema({
         dr: {
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
-            label: "Смещение геометрии",
-            description: "Вектор смещения геометрии области наблюдения",
+            label: "Начальное смещение, мм",
+            description: "Вектор сначального смещения геометрии объёмного элемента после установки ориентации",
             default: [0, 0, 0],
             nColumns: 1,
             columns: ["Значение"],
@@ -278,7 +278,7 @@ export default createSchema({
 
         epCount: {
             type: FIELD_TYPES.INTEGER,
-            label: "Количество ЭП",
+            label: "Число ЭП",
             description: "Число элементарных площадок",
             default: 0,
             readonly: true,
@@ -291,22 +291,22 @@ export default createSchema({
 
         indCoil: {
             type: FIELD_TYPES.INTEGER,
-            label: "Индекс катушки",
+            label: "# катушка",
             description: "Номер измерительной катушки; 0 — область не принадлежит катушке",
             default: 0,
         },
 
         wCoil: {
             type: FIELD_TYPES.FLOAT,
-            label: "Множитель катушки",
-            description: "Множитель вклада области в потокосцепление измерительной катушки",
+            label: "W катушки",
+            description: "Множитель вклада элемента в потокосцепление измерительной катушки",
             default: 0,
             digits: 6,
         },
 
         indMove: {
             type: FIELD_TYPES.INTEGER,
-            label: "Индекс движения",
+            label: "# moview",
             description: "Индекс траектории движения области наблюдения",
             default: 0,
         },
