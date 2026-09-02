@@ -16,8 +16,12 @@ export const TK_GEO_TYPE = [
     { value: 3, label: "Прямоугольник" },
 ];
 export const EN_MODEL = [
-    { value: 0, label: "ФММ: M(H) из таблицы" },
-    { value: 1, label: "Частные циклы (не используется)" },
+    { value: 0, label: "ФММ M(H)" },
+    {
+        value: 1,
+        label: "Частные циклы (не используется)",
+        disabled: true,
+    },
     { value: 2, label: "ВТСП 2-го рода" },
 ];
 export const EN_TARG = [

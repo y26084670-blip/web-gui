@@ -22,6 +22,7 @@ export function enumEditor(
         const option = document.createElement("option");
         option.value = String(index);
         option.textContent = entry.label;
+        option.disabled = entry.disabled === true;
         if (entry.value === currentValue) {
             option.selected = true;
         }

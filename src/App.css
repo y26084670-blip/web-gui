@@ -98,3 +98,8 @@ body,
 .app-container .tabulator .tabulator-tableholder {
   background-color: #fafafa;
 }
+
+.tabulator-tooltip {
+  font-size: 14px;
+  font-weight: bold;
+}
