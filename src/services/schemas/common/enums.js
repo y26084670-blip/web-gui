@@ -1,7 +1,7 @@
 // Источник: julia, src/core/types.jl (KvGeoType, TkGeoType);
-//           src/base/defines.jl (EnModel, EnXap, EnTARG);
+//           src/base/defines.jl (EnModel, EnTARG);
 //           src/import/02_fillKvs.jl (kya/kyp);
-//           подписи TkGeoType — src/import/02_fillTks.jl. Снимок 2026-08.
+//           подписи TkGeoType — src/import/02_fillTks.jl. Снимок 2026-09.
 export const KV_GEO_TYPE = [
     { value: 0, label: "Шестигранник" },
     { value: 1, label: "Сектор" },
@@ -19,11 +19,6 @@ export const EN_MODEL = [
     { value: 0, label: "ФММ: M(H) из таблицы" },
     { value: 1, label: "Частные циклы (не используется)" },
     { value: 2, label: "ВТСП 2-го рода" },
-];
-export const EN_XAP = [
-    { value: 0, label: "Немагнитный" },
-    { value: 1, label: "Кривая намагничивания" },
-    { value: 2, label: "Кривая размагничивания" },
 ];
 export const EN_TARG = [
     { value: 0, label: "Неизвестные источники" },

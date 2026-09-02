@@ -44,6 +44,8 @@ export function createSchema({
     required = true,
     // RECORDS: строгое число записей в файле и BaseModel.
     recordCount = undefined,
+    // Устаревшие пути StorageModel: молча принимаются только при чтении.
+    obsoleteStoragePaths = [],
     // Оформление
     rowLabelTitle = "Параметр",
     rowLabelDescription = "parameter Description",
@@ -79,6 +81,7 @@ export function createSchema({
 
             required,
             recordCount,
+            obsoleteStoragePaths,
 
             rowLabelTitle,
             rowLabelDescription,
@@ -266,6 +269,57 @@ function validateSchema(schema) {
             });
         }
     }
+
+    validateObsoleteStoragePaths(schema, storagePaths);
+}
+
+function validateObsoleteStoragePaths(schema, activeStoragePaths) {
+    const paths = schema.config.obsoleteStoragePaths;
+
+    if (!Array.isArray(paths)) {
+        throw new Error(
+            `Schema '${schema.id}': obsoleteStoragePaths must be an array.`,
+        );
+    }
+
+    const accepted = [];
+
+    paths.forEach((path, index) => {
+        if (!isValidStoragePath(path)) {
+            throw new Error(
+                `Schema '${schema.id}', obsoleteStoragePaths[${index}]: `
+                + "expected a non-empty dot path.",
+            );
+        }
+
+        const conflictingActive = activeStoragePaths.find(item =>
+            storagePathsOverlap(item.path, path)
+        );
+        if (conflictingActive) {
+            throw new Error(
+                `Schema '${schema.id}', obsolete storage path '${path}' `
+                + `conflicts with active path '${conflictingActive.path}'.`,
+            );
+        }
+
+        const conflictingObsolete = accepted.find(item =>
+            storagePathsOverlap(item, path)
+        );
+        if (conflictingObsolete) {
+            throw new Error(
+                `Schema '${schema.id}': obsolete storage paths `
+                + `'${conflictingObsolete}' and '${path}' conflict.`,
+            );
+        }
+
+        accepted.push(path);
+    });
+}
+
+function storagePathsOverlap(left, right) {
+    return left === right ||
+        left.startsWith(`${right}.`) ||
+        right.startsWith(`${left}.`);
 }
 
 function isNonEmptyString(value) {
@@ -821,16 +875,18 @@ export function validateSchemaRegistry(schemas) {
 }
 
 function validateStoragePath(schemaId, propertyName, path) {
-    if (
-        typeof path !== "string" ||
-        path.length === 0 ||
-        path.split(".").some(segment => segment.length === 0)
-    ) {
+    if (!isValidStoragePath(path)) {
         throw new Error(
             `Schema '${schemaId}', property '${propertyName}': `
             + `storageKey must be a non-empty dot path.`
         );
     }
+}
+
+function isValidStoragePath(path) {
+    return typeof path === "string" &&
+        path.length > 0 &&
+        !path.split(".").some(segment => segment.length === 0);
 }
 
 function validatePropertyEnum(schemaId, propertyName, property) {

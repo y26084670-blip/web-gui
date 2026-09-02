@@ -1,7 +1,7 @@
 /*
 Источник: solver/src/base/types.jl (SYMBase),
 solver/src/core/types.jl (KvBase), solver/src/core/03_kv.jl
-и solver/src/task/05_taskData.jl. Снимок 2026-08.
+и solver/src/task/05_taskData.jl. Снимок 2026-09.
 Сериализуются только поля KvBase; производные поля Kv в схему не входят.
 */
 import {
@@ -14,7 +14,6 @@ import {
 import {
     EN_MODEL,
     EN_TARG,
-    EN_XAP,
     KV_GEO_TYPE,
     SYM_KIND,
 } from "./common/enums";
@@ -71,6 +70,7 @@ export default createSchema({
     file: FILES.KVS,
     storage: STORAGE_TYPES.RECORDS,
     required: true,
+    obsoleteStoragePaths: ["xapType"],
     columnHeaderWordLines: true,
 
     properties: {
