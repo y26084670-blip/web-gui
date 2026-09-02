@@ -40,6 +40,8 @@ export class TableView {
         this.computedSignature = null;
         this.adjusted = false;
         this.built = false;
+        this.buildPromise = Promise.resolve();
+        this.resolveBuilt = null;
         this.observer = null;
         this.lastWidth = 0;
         this.lastHeight = 0;
@@ -110,16 +112,21 @@ export class TableView {
             this.computedRows,
         );
 
-        this.table = new Tabulator(
+        this.built = false;
+        this.buildPromise = new Promise((resolve) => {
+            this.resolveBuilt = resolve;
+        });
+        const table = new Tabulator(
             this.host,
             this.createOptions(),
         );
+        this.table = table;
 
         // События Tabulator 6.x подключаются через API экземпляра,
         // а не передаются как параметры конструктора.
-        this.table.on(
+        table.on(
             "tableBuilt",
-            () => this.onTableBuilt(),
+            () => this.onTableBuilt(table),
         );
 
         this.setupContext();
@@ -199,15 +206,22 @@ export class TableView {
     }
 
     // Однократное согласование размеров после построения Tabulator.
-    onTableBuilt() {
+    onTableBuilt(table) {
+        if (this.table !== table) {
+            return;
+        }
+
         this.built = true;
         this.lastWidth = this.host?.offsetWidth ?? 0;
         this.lastHeight = this.host?.offsetHeight ?? 0;
-        if (this.adjusted) {
-            return;
+        if (!this.adjusted) {
+            this.adjusted = true;
+            table.redraw(true);
         }
-        this.adjusted = true;
-        this.table.redraw(true);
+
+        const resolveBuilt = this.resolveBuilt;
+        this.resolveBuilt = null;
+        resolveBuilt?.();
     }
 
     readValue() {
@@ -561,6 +575,20 @@ export class TableView {
     }
 
     update() {
+        const table = this.table;
+        if (!table) {
+            return undefined;
+        }
+        if (!this.built) {
+            const buildPromise = this.buildPromise;
+            return buildPromise.then(() => {
+                if (this.table !== table || !this.built) {
+                    return undefined;
+                }
+                return this.update();
+            });
+        }
+
         const value = this.readValue();
         const presentation = this.readPresentation(value);
         const computedRows = this.readComputedRows(presentation);
@@ -612,6 +640,10 @@ export class TableView {
 
     destroy() {
         this.unobserveHost();
+        const resolveBuilt = this.resolveBuilt;
+        this.resolveBuilt = null;
+        resolveBuilt?.();
+        this.buildPromise = Promise.resolve();
         this.table?.destroy();
         this.table = null;
         this.built = false;
@@ -627,3 +659,4 @@ export class TableView {
         this.binding = null;
     }
 }
+
