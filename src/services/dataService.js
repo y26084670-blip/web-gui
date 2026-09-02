@@ -142,7 +142,11 @@ export const dataService = {
         for (const item of items) {
             if (!item || typeof item !== "object") continue;
 
-            findUnknownStoragePaths(item, declared)
+            findUnknownStoragePaths(
+                item,
+                declared,
+                schema.config.obsoleteStoragePaths,
+            )
                 .forEach(path => unknown.add(path));
 
             for (const path of declared) {

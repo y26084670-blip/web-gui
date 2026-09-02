@@ -153,6 +153,38 @@ test("legacy Conrab fields are dropped from both RECORDS profiles", () => {
     ]);
 });
 
+test("legacy element xapType is ignored and dropped during round-trip", () => {
+    const schema = {
+        id: "elements-fixture",
+        config: { storage: "records" },
+        properties: {
+            name: { type: "string", default: "" },
+            xapName: { type: "string", default: "" },
+        },
+    };
+    const storage = [{
+        name: "KV",
+        xapName: "Steel",
+        xapType: 2,
+        unexpected: true,
+    }];
+
+    const model = deserialize(storage, schema);
+
+    assert.deepEqual(model, [{ name: "KV", xapName: "Steel" }]);
+    assert.deepEqual(serialize(model, schema), [
+        { name: "KV", xapName: "Steel" },
+    ]);
+    assert.deepEqual(
+        findUnknownStoragePaths(
+            storage[0],
+            ["name", "xapName"],
+            ["xapType"],
+        ),
+        ["unexpected"],
+    );
+});
+
 test("RECORDS serialization applies the same contract to each record", () => {
     const schema = {
         id: "records",

@@ -77,10 +77,17 @@ export function getStorageValue(storageItem, path) {
     return current;
 }
 
-// Поиск неизвестных ключей с учётом объявленных составных путей.
+// Поиск неизвестных ключей с учётом объявленных и устаревших составных путей.
 // Если путь объявляет объект целиком, его внутреннее содержимое не проверяется.
-export function findUnknownStoragePaths(storageItem, declaredPaths) {
-    const root = createStoragePathTree(declaredPaths);
+export function findUnknownStoragePaths(
+    storageItem,
+    declaredPaths,
+    obsoletePaths = [],
+) {
+    const root = createStoragePathTree([
+        ...declaredPaths,
+        ...obsoletePaths,
+    ]);
     const unknown = [];
 
     function visit(value, node, prefix) {
