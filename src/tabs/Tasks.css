@@ -173,7 +173,7 @@ button:hover {
 }
 
 .data-editor-lower.with-graph .data-editor-detail {
-  flex: 0 0 calc(50% - 3px);
+  flex: 0 0 calc(65% - 3px);
   min-width: 280px;
   min-height: 0;
   max-height: none;
@@ -313,4 +313,3 @@ button:hover {
 .tabulator .tabulator-tableholder::-webkit-scrollbar-corner {
   background: #d7dbe0;
 }
-

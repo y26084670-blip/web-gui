@@ -45,3 +45,28 @@ test("active tabs fill their content area without the gray page background", asy
     );
     assert.doesNotMatch(materials, /position:\s*fixed;/u);
 });
+
+test("graph tabs align their initial vertical divisions", async () => {
+    const [editor, tasksCss] = await Promise.all([
+        readFile(files.editor, "utf8"),
+        readFile(
+            new URL("../src/tabs/Tasks.css", import.meta.url),
+            "utf8",
+        ),
+    ]);
+
+    assert.match(
+        editor,
+        /const \[mainTableRatio, setMainTableRatio\] = createSignal\(0\.65\)/u,
+    );
+    const lowerRuleStart = tasksCss.indexOf(
+        ".data-editor-lower.with-graph .data-editor-detail {",
+    );
+    const lowerRule = tasksCss.slice(
+        lowerRuleStart,
+        tasksCss.indexOf("}", lowerRuleStart),
+    );
+
+    assert.ok(lowerRuleStart >= 0);
+    assert.match(lowerRule, /flex:\s*0 0 calc\(65% - 3px\)/u);
+});
