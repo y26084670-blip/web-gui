@@ -30,6 +30,7 @@ import "./App.css";
 
 export default function App() {
   const [activeTab, setActiveTab] = createSignal(TABS.TASKS.id);
+  const [admin, setAdmin] = createSignal(false);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
   const [geometryViewerOpen, setGeometryViewerOpen] = createSignal(false);
@@ -64,12 +65,21 @@ export default function App() {
     diagnosticService.setValidationResult(diagnostics);
   }
 
+  function handleAdminUnlock(password) {
+    if (password !== "_qwerty123") return false;
+    setAdmin(true);
+    return true;
+  }
+
   const tabs = [
     {
       id: TABS.TASKS.id,
       label: "Задачи и результаты",
       component: (props) => (
-        <Tasks onReturnToEditing={props.onReturnToEditing} />
+        <Tasks
+          admin={admin()}
+          onReturnToEditing={props.onReturnToEditing}
+        />
       ),
       historyEnabled: false,
       changeIndicator: false,
@@ -231,7 +241,9 @@ export default function App() {
   return (
     <div class="app-container">
       <TaskInfoBar
+        admin={admin()}
         path={selectionService.loadedTaskPath()}
+        onAdminUnlock={handleAdminUnlock}
         onValidate={handleModelValidation}
         onSave={handleSave}
         menuOpen={sidePanelOpen()}

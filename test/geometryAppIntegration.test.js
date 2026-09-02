@@ -98,3 +98,48 @@ test("task bar exposes an always available modal about dialog", async () => {
         /\.about-close-button\s*\{[^}]*width:\s*100%;[^}]*margin-top:\s*8px;[^}]*color:\s*#f0f4f7;[^}]*background:\s*#3a4650;/su,
     );
 });
+
+test("about dialog unlocks a transient application admin mode", async () => {
+    const appSource = await readFile(appUrl, "utf8");
+    const source = await readFile(taskInfoBarUrl, "utf8");
+    const styles = await readFile(taskInfoBarStylesUrl, "utf8");
+
+    assert.match(
+        appSource,
+        /const \[admin, setAdmin\] = createSignal\(false\);/u,
+    );
+    assert.match(appSource, /function handleAdminUnlock\(password\)/u);
+    assert.match(appSource, /password !== "_qwerty123"/u);
+    assert.match(appSource, /setAdmin\(true\)/u);
+    assert.match(appSource, /<Tasks[\s\S]*?admin=\{admin\(\)\}/u);
+    assert.match(appSource, /<TaskInfoBar[\s\S]*?admin=\{admin\(\)\}/u);
+    assert.match(appSource, /onAdminUnlock=\{handleAdminUnlock\}/u);
+
+    assert.match(source, /class="about-admin-button"/u);
+    assert.match(source, /disabled=\{props\.admin\}/u);
+    assert.match(source, /aria-pressed=\{props\.admin\}/u);
+    assert.match(source, /onClick=\{openAdminDialog\}/u);
+    assert.match(source, />\s*Админ\s*<\/button>/u);
+    assert.match(source, /class="admin-dialog"/u);
+    assert.match(source, /type="password"/u);
+    assert.match(source, /onSubmit=\{handleAdminSubmit\}/u);
+    assert.match(source, /props\.onAdminUnlock\?\.\(adminPassword\(\)\)/u);
+    assert.match(source, /Неверный пароль\./u);
+
+    const aboutStart = source.indexOf('class="about-dialog"');
+    const aboutEnd = source.indexOf("</dialog>", aboutStart);
+    const adminStart = source.indexOf('class="admin-dialog"');
+    assert.ok(aboutStart >= 0 && aboutEnd > aboutStart);
+    assert.ok(adminStart > aboutEnd, "password dialog must be a sibling");
+
+    const adminButtonStyle = styles.match(
+        /\.about-admin-button\s*\{[^}]*\}/su,
+    )?.[0] ?? "";
+    const adminDialogStyle = styles.match(
+        /\.admin-dialog\s*\{[^}]*\}/su,
+    )?.[0] ?? "";
+    assert.match(adminButtonStyle, /color:\s*rgba\(240, 244, 247, \.55\);/u);
+    assert.match(adminButtonStyle, /font-size:\s*10px;/u);
+    assert.match(adminDialogStyle, /background:\s*#20262d;/u);
+    assert.match(adminDialogStyle, /color:\s*#f0f4f7;/u);
+});

@@ -15,6 +15,8 @@ import {
 
 import "./Tasks.css";
 
+const PROJECTS_ROOT_NAME = "clark.projects";
+
 export function Tasks(props) {
   // состояние компонента
   const [rootHandle, setRootHandle] = createSignal(null);
@@ -99,6 +101,13 @@ export function Tasks(props) {
       const handle = await window.showDirectoryPicker({
         mode: "readwrite",
       });
+      if (!props.admin && handle.name !== PROJECTS_ROOT_NAME) {
+        showTaskError(
+          `Выберите каталог «${PROJECTS_ROOT_NAME}». `
+          + `Выбран каталог «${handle.name}».`,
+        );
+        return;
+      }
       const requestId = invalidateBrowserSelection();
       setRootHandle(handle);
       setRootName("Корневой каталог: " + handle.name);

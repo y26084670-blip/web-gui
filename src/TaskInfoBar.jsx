@@ -12,12 +12,16 @@ import "./TaskInfoBar.css";
 export function TaskInfoBar(props) {
   const [browseNotice, setBrowseNotice] = createSignal("");
   const [aboutOpen, setAboutOpen] = createSignal(false);
+  const [adminPassword, setAdminPassword] = createSignal("");
+  const [adminError, setAdminError] = createSignal("");
 
   let noticeDialog;
   let noticeButton;
   let aboutDialog;
   let aboutButton;
   let aboutCloseButton;
+  let adminDialog;
+  let adminPasswordInput;
 
   // Модальность обеспечивается нативным <dialog>: удержание фокуса,
   // блокировка страницы и закрытие по Esc — штатное поведение элемента.
@@ -32,6 +36,35 @@ export function TaskInfoBar(props) {
       noticeDialog.close();
     }
   });
+
+  function resetAdminDialog() {
+    setAdminPassword("");
+    setAdminError("");
+  }
+
+  function openAdminDialog() {
+    if (props.admin) return;
+
+    resetAdminDialog();
+    setAboutOpen(false);
+    if (aboutDialog?.open) aboutDialog.close();
+    queueMicrotask(() => {
+      if (!adminDialog.open) adminDialog.showModal();
+      adminPasswordInput?.focus();
+    });
+  }
+
+  function handleAdminSubmit(event) {
+    event.preventDefault();
+    if (props.onAdminUnlock?.(adminPassword()) === true) {
+      adminDialog.close();
+      return;
+    }
+
+    setAdminError("Неверный пароль.");
+    setAdminPassword("");
+    queueMicrotask(() => adminPasswordInput?.focus());
+  }
 
   createEffect(() => {
     if (!aboutDialog) return;
@@ -231,8 +264,55 @@ export function TaskInfoBar(props) {
             >
               Закрыть
             </button>
+            <button
+              type="button"
+              class="about-admin-button"
+              disabled={props.admin}
+              aria-pressed={props.admin}
+              title={props.admin
+                ? "Режим администратора включён"
+                : "Включить режим администратора"}
+              onClick={openAdminDialog}
+            >
+              Админ
+            </button>
           </div>
         </div>
+      </dialog>
+
+      <dialog
+        class="admin-dialog"
+        ref={(el) => (adminDialog = el)}
+        aria-labelledby="admin-dialog-title"
+        onClose={() => {
+          resetAdminDialog();
+          aboutButton?.focus();
+        }}
+      >
+        <form class="admin-form" onSubmit={handleAdminSubmit}>
+          <h2 id="admin-dialog-title">Режим администратора</h2>
+          <label for="admin-password">Пароль</label>
+          <input
+            ref={(el) => (adminPasswordInput = el)}
+            id="admin-password"
+            type="password"
+            autocomplete="off"
+            value={adminPassword()}
+            onInput={(event) => {
+              setAdminPassword(event.currentTarget.value);
+              if (adminError()) setAdminError("");
+            }}
+          />
+          <div class="admin-error" aria-live="polite">
+            {adminError()}
+          </div>
+          <div class="admin-actions">
+            <button type="submit">Включить</button>
+            <button type="button" onClick={() => adminDialog.close()}>
+              Отмена
+            </button>
+          </div>
+        </form>
       </dialog>
     </div>
   );
