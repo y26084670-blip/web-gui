@@ -10,6 +10,10 @@ import {
 import { modelService } from "../../services/modelService.js";
 import { selectionService } from "../../services/selectionService.js";
 import { TABS } from "../../services/schemas/common/constants.js";
+import { GraphContextMenu } from "../graphs/GraphContextMenu.jsx";
+import {
+  createGeneratedDetailTableBlock,
+} from "../../services/graphs/graphClipboard.js";
 import {
   generateTimeSeries,
 } from "../../services/generator/timeFunctionModel.js";
@@ -27,7 +31,6 @@ import "./TimeFunctionGenerator.css";
 function errorText(error) {
   return error instanceof Error ? error.message : String(error);
 }
-
 const FORMULA_PLACEHOLDER = [
   "Введите построчно здесь свои формулы зависимостей от времени t (сек).",
   "Используйте промежуточные переменные.",
@@ -42,15 +45,23 @@ const FORMULA_PLACEHOLDER = [
 ].join("\n");
 
 function GeneratorPreviewGraph(props) {
+  const [menuPosition, setMenuPosition] = createSignal(null);
   let canvas;
   let chart;
   let renderRevision = 0;
+
+  function openContextMenu(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setMenuPosition({ x: event.clientX, y: event.clientY });
+  }
 
   createEffect(() => {
     const points = props.points ?? [];
     const revision = ++renderRevision;
     chart?.destroy();
     chart = null;
+    setMenuPosition(null);
     if (!canvas || points.length === 0) return;
 
     void import("chart.js/auto").then(({ default: Chart }) => {
@@ -81,13 +92,21 @@ function GeneratorPreviewGraph(props) {
           scales: {
             x: {
               type: "linear",
-              title: { display: true, text: "Время, сек", color: "#dce4ec" },
+              title: {
+                display: true,
+                text: "Время, сек",
+                color: "#dce4ec",
+              },
               ticks: { color: "#b8c3cd" },
               grid: { color: "rgba(180, 195, 208, .16)" },
             },
             y: {
               type: "linear",
-              title: { display: true, text: props.label || "Значение", color: "#dce4ec" },
+              title: {
+                display: true,
+                text: props.label || "Значение",
+                color: "#dce4ec",
+              },
               ticks: { color: "#b8c3cd" },
               grid: { color: "rgba(180, 195, 208, .16)" },
             },
@@ -106,7 +125,11 @@ function GeneratorPreviewGraph(props) {
   return (
     <div
       class="time-generator-graph"
-      style={{ "flex-basis": `${Math.round((props.ratio ?? 0.42) * 10000) / 100}%` }}
+      style={{
+        "flex-basis":
+          `${Math.round((props.ratio ?? 0.42) * 10000) / 100}%`,
+      }}
+      onContextMenu={openContextMenu}
     >
       <canvas ref={(element) => (canvas = element)} />
       <Show when={(props.points?.length ?? 0) === 0}>
@@ -114,6 +137,15 @@ function GeneratorPreviewGraph(props) {
           Введите формулу и нажмите «Генерировать»
         </div>
       </Show>
+      <GraphContextMenu
+        position={menuPosition()}
+        onClose={() => setMenuPosition(null)}
+        onError={props.onError}
+        getTables={() => props.tables ?? []}
+        getCanvas={() => canvas}
+        hasImage={() => Boolean(chart)}
+        imageBackground="#1b2026"
+      />
     </div>
   );
 }
@@ -139,6 +171,24 @@ export function TimeFunctionGenerator(props) {
 
   function targetDefinition(value = target()) {
     return descriptor.targets.find(item => item.value === value);
+  }
+
+  function previewTables() {
+    const generated = preview();
+    const targetItem = generated
+      ? targetDefinition(generated.target)
+      : null;
+    const property = targetItem
+      ? props.schema.properties[targetItem.property]
+      : null;
+    if (!generated || !targetItem || !property) return [];
+
+    return [createGeneratedDetailTableBlock({
+      title: `${property.label ?? targetItem.label} — предпросмотр`,
+      property,
+      points: generated.points,
+      valueColumn: targetItem.column,
+    })];
   }
 
   function resetForTask(taskHandle) {
@@ -377,6 +427,7 @@ export function TimeFunctionGenerator(props) {
         <GeneratorPreviewGraph
           points={preview()?.points ?? []}
           label={preview()?.label ?? targetDefinition()?.label}
+          tables={previewTables()}
           ratio={graphRatio()}
           onError={showError}
         />

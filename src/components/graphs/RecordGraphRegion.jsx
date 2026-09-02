@@ -5,15 +5,24 @@ import {
   Show,
 } from "solid-js";
 
+import { GraphContextMenu } from "./GraphContextMenu.jsx";
+import {
+  createDetailTableBlock,
+} from "../../services/graphs/graphClipboard.js";
 import {
   recordGraphConfig,
   recordGraphModeForProperty,
 } from "../../services/graphs/recordGraphModel.js";
 import "./RecordGraphRegion.css";
 
+function errorText(error) {
+  return error instanceof Error ? error.message : String(error);
+}
 export function RecordGraphRegion(props) {
   const descriptor = props.schema.views.graph;
   const [graphError, setGraphError] = createSignal("");
+  const [copyError, setCopyError] = createSignal("");
+  const [menuPosition, setMenuPosition] = createSignal(null);
   let canvas;
   let chart;
   let renderRevision = 0;
@@ -31,6 +40,30 @@ export function RecordGraphRegion(props) {
     return "";
   }
 
+  function tableBlocks() {
+    const mode = currentMode();
+    const property = mode
+      ? props.schema.properties[mode.property]
+      : null;
+    if (!mode || !property) return [];
+
+    return (props.records ?? []).map((record, index) => {
+      const recordLabel = record?.rowLabel ?? index + 1;
+      return createDetailTableBlock({
+        title: `${property.label ?? mode.property} — запись ${recordLabel}`,
+        property,
+        rows: record?.[mode.property],
+      });
+    });
+  }
+
+  function openContextMenu(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setCopyError("");
+    setMenuPosition({ x: event.clientX, y: event.clientY });
+  }
+
   createEffect(() => {
     const records = props.records ?? [];
     const mode = currentMode();
@@ -38,6 +71,8 @@ export function RecordGraphRegion(props) {
     chart?.destroy();
     chart = null;
     setGraphError("");
+    setCopyError("");
+    setMenuPosition(null);
     if (!canvas || records.length === 0 || !mode) return;
 
     void import("chart.js/auto").then(({ default: Chart }) => {
@@ -49,7 +84,7 @@ export function RecordGraphRegion(props) {
     }).catch((error) => {
       if (revision !== renderRevision) return;
       console.error(`${props.schema.id} graph creation error:`, error);
-      setGraphError(error instanceof Error ? error.message : String(error));
+      setGraphError(errorText(error));
     });
   });
 
@@ -63,6 +98,7 @@ export function RecordGraphRegion(props) {
     <section
       class="record-graph-region"
       aria-label={descriptor.title}
+      onContextMenu={openContextMenu}
     >
       <div class="record-graph-region-header">
         <div class="record-graph-region-title">
@@ -82,7 +118,21 @@ export function RecordGraphRegion(props) {
             График не построен: {graphError()}
           </div>
         </Show>
+        <Show when={copyError()}>
+          <div class="record-graph-region-error" role="alert">
+            Копирование не выполнено: {copyError()}
+          </div>
+        </Show>
       </div>
+      <GraphContextMenu
+        position={menuPosition()}
+        onClose={() => setMenuPosition(null)}
+        onError={error => setCopyError(errorText(error))}
+        getTables={tableBlocks}
+        getCanvas={() => canvas}
+        hasImage={() => Boolean(chart)}
+        imageBackground="#20262d"
+      />
     </section>
   );
 }

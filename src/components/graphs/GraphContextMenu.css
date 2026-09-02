@@ -1,0 +1,30 @@
+.graph-context-menu {
+  position: fixed;
+  z-index: 1600;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 4px;
+  border: 1px solid #555;
+  background: #ececec;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .45);
+}
+.graph-context-menu button {
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: #111;
+  text-align: left;
+}
+
+.graph-context-menu button:not(:disabled):hover,
+.graph-context-menu button:not(:disabled):focus-visible {
+  background: #c9dced;
+  outline: none;
+}
+
+.graph-context-menu button:disabled {
+  color: #888;
+  cursor: not-allowed;
+}

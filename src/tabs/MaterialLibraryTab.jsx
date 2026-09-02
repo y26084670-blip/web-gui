@@ -47,7 +47,6 @@ function withoutRowLabel(rowData) {
   const { rowLabel, ...record } = rowData;
   return record;
 }
-
 function editableMaterialSchema(schema) {
   return {
     ...schema,
@@ -1126,7 +1125,12 @@ export function MaterialLibraryTab(props) {
             onPointerDown={beginVerticalResize}
             onKeyDown={handleVerticalSplitterKey}
           />
-          <FmmGraphRegion records={selectedRecords()} />
+          <FmmGraphRegion
+            records={selectedRecords()}
+            property={
+              tableSchema.properties[definition.detail.property]
+            }
+          />
         </Show>
       </div>
       <MaterialDeleteConfirmationDialog
