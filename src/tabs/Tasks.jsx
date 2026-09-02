@@ -1,12 +1,16 @@
 //
 // вкладка выбора задания
 //
-import { createSignal } from "solid-js";
+import { Show, createSignal } from "solid-js";
 import { selectionService } from "../services/selectionService";
 import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
+import {
+  TASK_SUMMARY_TEXT,
+  readTaskSummary,
+} from "../services/taskSummaryService.js";
 import {
   getFilePickerErrorMessage,
   getFileSystemAccessSupport,
@@ -16,6 +20,10 @@ import {
 import "./Tasks.css";
 
 const PROJECTS_ROOT_NAME = "clark.projects";
+const EMPTY_TASK_INFO = Object.freeze({
+  summaryText: "",
+  legacyImportAvailable: false,
+});
 
 export function Tasks(props) {
   // состояние компонента
@@ -28,6 +36,7 @@ export function Tasks(props) {
   const loadedTaskHandle = selectionService.loadedTaskHandle;
   const [taskErrorMessage, setTaskErrorMessage] = createSignal("");
   const [pendingTaskLoad, setPendingTaskLoad] = createSignal(null);
+  const [taskInfo, setTaskInfo] = createSignal(EMPTY_TASK_INFO);
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -35,6 +44,7 @@ export function Tasks(props) {
   let returnToEditingButton;
   let selectionRevision = 0;
   let taskLoadRevision = 0;
+  let taskInfoRevision = 0;
 
   // Сброс данных прежнего задания выполняется до любой новой загрузки.
   const clearLoadedTaskState = () => {
@@ -48,6 +58,7 @@ export function Tasks(props) {
   const invalidateBrowserSelection = () => {
     selectionRevision += 1;
     taskLoadRevision += 1;
+    taskInfoRevision += 1;
     return selectionRevision;
   };
 
@@ -115,6 +126,7 @@ export function Tasks(props) {
       setSelectedProject("");
       setTasks([]);
       setSelectedTask(null);
+      setTaskInfo(EMPTY_TASK_INFO);
 
       const subdirs = await getSubdirs(handle);
       if (requestId !== selectionRevision) return;
@@ -137,6 +149,7 @@ export function Tasks(props) {
     setSelectedProject(projectName);
     setTasks([]);
     setSelectedTask(null);
+    setTaskInfo(EMPTY_TASK_INFO);
     if (!projectName) return;
     try {
       const root = rootHandle();
@@ -161,9 +174,27 @@ export function Tasks(props) {
     selectionService.setLoadedTaskPath(fullPath);
   };
 
-  const selectTaskCandidate = (task) => {
+  const selectTaskCandidate = async (task) => {
     taskLoadRevision += 1;
+    const requestId = ++taskInfoRevision;
     setSelectedTask(task);
+    setTaskInfo(EMPTY_TASK_INFO);
+
+    try {
+      const info = await readTaskSummary(task.handle);
+      if (
+        requestId !== taskInfoRevision
+        || selectedTask()?.handle !== task.handle
+      ) return;
+      setTaskInfo(info);
+    } catch (error) {
+      if (requestId !== taskInfoRevision) return;
+      console.error("Ошибка чтения информации о выбранном задании:", error);
+      setTaskInfo({
+        summaryText: TASK_SUMMARY_TEXT.NO_INFORMATION,
+        legacyImportAvailable: false,
+      });
+    }
   };
 
   const requestTaskLoad = async () => {
@@ -219,7 +250,7 @@ export function Tasks(props) {
     <div
       style={{
         display: "grid",
-        "grid-template-columns": "500px 0.5fr 1fr",
+        "grid-template-columns": "500px 0.6fr 0.9fr",
         gap: "10px",
         width: "100%",
         height: "100%",
@@ -288,13 +319,24 @@ export function Tasks(props) {
         </div>
       </div>
       <div
+        class="task-summary-panel"
         style={{
           border: "3px solid #161414",
           padding: "20px",
           background: "lightgray",
         }}
       >
-        <h4> Вторая ячейка 1 (пустая) </h4>
+        <textarea
+          class="task-summary-text"
+          aria-label="Информация о выбранном задании"
+          readOnly
+          value={taskInfo().summaryText}
+        />
+        <Show when={taskInfo().legacyImportAvailable}>
+          <div class="task-legacy-import">
+            {TASK_SUMMARY_TEXT.LEGACY_IMPORT}
+          </div>
+        </Show>
       </div>
       <div
         style={{
@@ -344,3 +386,4 @@ export function Tasks(props) {
     </div>
   );
 }
+
