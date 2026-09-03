@@ -1,5 +1,4 @@
 import {
-    defaultLibraryService,
     MATERIAL_LIBRARY_KINDS,
 } from "./defaultLibraryService.js";
 import { taskMaterialLibraryService } from "./taskMaterialLibraryService.js";
@@ -44,23 +43,17 @@ export function createMaterialReferenceCatalog(recordsByKind = {}) {
     return catalog;
 }
 
-export async function loadMaterialReferenceCatalog(taskHandle) {
-    const requests = [];
-    for (const kind of Object.values(MATERIAL_LIBRARY_KINDS)) {
-        requests.push({
+export async function loadMaterialReferenceCatalog(
+    taskHandle,
+    { taskLibraryService = taskMaterialLibraryService } = {},
+) {
+    const requests = Object.values(MATERIAL_LIBRARY_KINDS).map(kind => ({
+        kind,
+        load: () => taskLibraryService.loadMaterials({
+            taskHandle,
             kind,
-            source: "базовая",
-            load: () => defaultLibraryService.loadRecords(kind),
-        });
-        requests.push({
-            kind,
-            source: "локальная",
-            load: () => taskMaterialLibraryService.loadMaterials({
-                taskHandle,
-                kind,
-            }),
-        });
-    }
+        }),
+    }));
 
     const settled = await Promise.allSettled(
         requests.map(request => request.load()),
@@ -78,7 +71,7 @@ export async function loadMaterialReferenceCatalog(taskHandle) {
             return;
         }
         errors.push(
-            `${request.source} библиотека ${request.kind}: `
+            `локальная библиотека ${request.kind}: `
             + (result.reason instanceof Error
                 ? result.reason.message
                 : String(result.reason)),

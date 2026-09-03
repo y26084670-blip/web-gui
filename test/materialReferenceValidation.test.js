@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
     createMaterialReferenceCatalog,
+    loadMaterialReferenceCatalog,
     validateElementMaterialReferences,
 } from "../src/services/materialReferenceValidation.js";
 
@@ -25,7 +26,7 @@ test("material references respect model kind and report missing files", () => {
     assert.deepEqual(diagnostics.map(item => item.row), [2, 3]);
 });
 
-test("same canonical spelling in local and base libraries is not a collision", () => {
+test("identical local names are not diagnosed as a collision", () => {
     const diagnostics = [];
     const catalog = createMaterialReferenceCatalog({
         FMM: [{ name: "Сталь" }, { name: "Сталь" }],
@@ -50,4 +51,40 @@ test("case-only material spellings are diagnosed as ambiguous", () => {
     );
     assert.equal(diagnostics.length, 1);
     assert.match(diagnostics[0].message, /неоднозначна/u);
+});
+
+test("validation catalog loads names only from task libraries", async () => {
+    const taskHandle = { name: "task" };
+    const calls = [];
+    const result = await loadMaterialReferenceCatalog(
+        taskHandle,
+        {
+            taskLibraryService: {
+                async loadMaterials(request) {
+                    calls.push(request);
+                    return request.kind === "FMM"
+                        ? [{ name: "Локальная сталь" }]
+                        : [{ name: "Локальная ВТСП" }];
+                },
+            },
+        },
+    );
+
+    assert.deepEqual(
+        calls.map(request => request.kind),
+        ["FMM", "HTC"],
+    );
+    assert.ok(calls.every(request => request.taskHandle === taskHandle));
+    assert.deepEqual(result.errors, []);
+
+    const diagnostics = [];
+    validateElementMaterialReferences([
+        { model: 0, xapName: "Локальная сталь" },
+        { model: 0, xapName: "Только базовая сталь" },
+        { model: 2, xapName: "Локальная ВТСП" },
+    ], result.catalog, diagnostics);
+
+    assert.equal(diagnostics.length, 1);
+    assert.equal(diagnostics[0].row, 2);
+    assert.match(diagnostics[0].message, /не найден/u);
 });
