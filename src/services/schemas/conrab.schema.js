@@ -38,7 +38,7 @@ export default createSchema({
         EPS_0: {
             type: FIELD_TYPES.FLOAT,
             label: "EPS_0 — критерий при t = 0",
-            description: "Критерий на нулевом временном шаге; 0 — использовать EPS",
+            description: "Критерий на нулевом временном шаге; 0 — использовать EPS; рекомендуется при учете вихревых токов",
             default: 0.0005,
             digits: 6,
         },
@@ -71,15 +71,15 @@ export default createSchema({
         ADMIN: {
             type: FIELD_TYPES.FLOAT,
             label: "ADMIN",
-            description: "Нижнее ограничение диагональных элементов для намагниченности",
-            default: 0.05,
+            description: "Нижнее регулязирующее ограничение диагональных элементов для намагниченности",
+            default: 0.01,
             digits: 6,
         },
 
         UZMIN: {
             type: FIELD_TYPES.FLOAT,
-            label: "UZMIN",
-            description: "Ограничение на расстояние до площадки",
+            label: "UZMIN, мм",
+            description: "Регуляризирующее ограничение на расстояние от точки наблюдения до площадки",
             default: 0.005,
             digits: 6,
         },
@@ -94,8 +94,8 @@ export default createSchema({
         LONGD: {
             type: FIELD_TYPES.FLOAT,
             label: "LONGD",
-            description: "Коэффициент при Y-размере интервала интегрирования; не используется, так как режим дальней зоны удалён",
-            default: 20000,
+            description: "Коэффициент перехода к квадратуре дальней зоны: LONGD * |SY| <= YY; SY—интервал, YY — расстояние в плоскости y–z от точки наблюдения до начала интервала",
+            default: 150,
             digits: 6,
         },
 
