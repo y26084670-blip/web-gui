@@ -251,14 +251,21 @@ button:hover {
   margin-top: 12px;
 }
 
-.task-load-confirmation {
+.task-load-label {
+  position: relative;
   display: inline-block;
-  margin-left: 12px;
+}
+
+.task-load-confirmation {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 10px);
   color: #ffd600;
   font-size: 22px;
   font-weight: 900;
   line-height: 1;
   text-shadow: 0 1px 1px rgba(0, 0, 0, .55);
+  transform: translateY(-50%);
   animation: task-load-confirmation 3s ease-in-out both;
 }
 

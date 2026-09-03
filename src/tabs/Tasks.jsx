@@ -34,10 +34,10 @@ export function Tasks(props) {
   const [tasks, setTasks] = createSignal([]);
   const [selectedTask, setSelectedTask] = createSignal(null);
   const loadedTaskHandle = selectionService.loadedTaskHandle;
+  const loadedTaskPath = selectionService.loadedTaskPath;
   const [taskErrorMessage, setTaskErrorMessage] = createSignal("");
   const [pendingTaskLoad, setPendingTaskLoad] = createSignal(null);
   const [taskInfo, setTaskInfo] = createSignal(EMPTY_TASK_INFO);
-  const [loadConfirmation, setLoadConfirmation] = createSignal(0);
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -173,7 +173,6 @@ export function Tasks(props) {
     console.log("Выбранное задание:", fullPath);
     selectionService.setLoadedTaskHandle(task.handle);
     selectionService.setLoadedTaskPath(fullPath);
-    setLoadConfirmation((revision) => revision + 1);
   };
 
   const selectTaskCandidate = async (task) => {
@@ -273,7 +272,9 @@ export function Tasks(props) {
         <div>
           <span>
             <button id="pickDir" onClick={handlePickDirectory}>
-              Выбрать каталог с проектами
+              {props.admin
+                ? "Выбрать каталог с проектами"
+                : "Выбрать каталог clark.projects"}
             </button>
             <p></p>
           </span>
@@ -316,19 +317,21 @@ export function Tasks(props) {
             }
             onClick={requestTaskLoad}
           >
-            Загрузить для редактирования
-            <Show keyed when={loadConfirmation()}>
-              {() => (
-                <span
-                  class="task-load-confirmation"
-                  role="status"
-                  aria-label="Задание загружено"
-                  title="Задание загружено"
-                >
-                  ✓
-                </span>
-              )}
-            </Show>
+            <span class="task-load-label">
+              <Show keyed when={loadedTaskPath()}>
+                {() => (
+                  <span
+                    class="task-load-confirmation"
+                    role="status"
+                    aria-label="Задание загружено"
+                    title="Задание загружено"
+                  >
+                    ✓
+                  </span>
+                )}
+              </Show>
+              Загрузить для редактирования
+            </span>
           </button>
         </div>
       </div>
@@ -400,4 +403,3 @@ export function Tasks(props) {
     </div>
   );
 }
-

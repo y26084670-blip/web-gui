@@ -28,6 +28,8 @@ import {
     recordColumnField,
 } from "../converters/recordColumns";
 import { referenceViewEntries } from "../../services/referenceViewService.js";
+import { findNamedEnumOption }
+    from "../../services/schemas/common/enumOptions.js";
 
 import "../../tabs/Tasks.css";
 
@@ -63,6 +65,20 @@ function wordLinesHeaderFormatter(cell) {
 function textTooltip(text) {
     const element = document.createElement("div");
     element.textContent = text;
+    return element;
+}
+
+function imageEnumTooltip(property, value) {
+    const option = findNamedEnumOption(property?.enum, value);
+    if (typeof option?.image !== "string" || option.image.length === 0) {
+        return null;
+    }
+
+    const text = option.description ?? option.label;
+    if (!text) return "";
+
+    const element = textTooltip(text);
+    element.classList.add("image-enum-tooltip");
     return element;
 }
 
@@ -107,13 +123,19 @@ export const TableBuilder = {
             },
             formatter: universalFormatter,
             tooltip(e, cell) {
+                const property = resolveProperty(cell, schema,);
+                if (cell.getElement()?.classList.contains("tabulator-editing")) {
+                    return "";
+                }
                 if (
                     schema.config.storage === STORAGE_TYPES.RECORDS &&
                     !hasRecordColumnsView(schema)
                 ) {
                     return overflowCellTooltip(cell);
                 }
-                return resolveProperty(cell, schema,)?.description ?? "";
+                return imageEnumTooltip(property, cell.getValue())
+                    ?? property?.description
+                    ?? "";
             },
             cellClick(e, cell) {
                 const property = resolveProperty(cell, schema,);

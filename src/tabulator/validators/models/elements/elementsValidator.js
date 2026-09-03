@@ -1,4 +1,7 @@
-import { createError } from "../../common/createDiagnostic.js";
+import {
+    createError,
+    createWarning,
+} from "../../common/createDiagnostic.js";
 import { TABS } from "../../../../services/schemas/common/constants.js";
 import {
     unpackKvVertices,
@@ -89,6 +92,7 @@ export function elementsValidator(
     if (!Array.isArray(elements)) return;
 
     validateArrayShapes(elements, diagnostics);
+    validateRecordRules(elements, diagnostics);
     validateGeometry(elements, diagnostics);
     validateRecordOrder(elements, diagnostics);
     validateElementMaterialReferences(
@@ -96,6 +100,120 @@ export function elementsValidator(
         context.materialCatalog,
         diagnostics,
     );
+}
+
+function validateRecordRules(elements, diagnostics) {
+    elements.forEach((record, index) => {
+        validateSymmetryPair({
+            diagnostics,
+            index,
+            record,
+            stepProperty: "symYl",
+            countProperty: "symLs",
+            multipleMessage:
+                "при наличии локальных образов следует задать "
+                + "ненулевой угол симметрии (шаг по углу)",
+            unusedMessage:
+                "при отсутствии локальных образов задавать "
+                + "угол симметрии (шаг по углу) излишне",
+        });
+        validateSymmetryPair({
+            diagnostics,
+            index,
+            record,
+            stepProperty: "symYa",
+            countProperty: "symAs",
+            multipleMessage:
+                "при наличии азимутальных образов следует задать "
+                + "ненулевой угол симметрии (шаг по углу)",
+            unusedMessage:
+                "при отсутствии азимутальных образов задавать угол "
+                + "симметрии (шаг по углу) излишне",
+        });
+        validateSymmetryPair({
+            diagnostics,
+            index,
+            record,
+            stepProperty: "symTx",
+            countProperty: "symPs",
+            multipleMessage:
+                "при наличии периодических образов следует "
+                + "задать ненулевой шаг вдоль оси",
+            unusedMessage:
+                "при отсутствии периодических образов задавать "
+                + "шаг вдоль оси излишне",
+        });
+
+        if (Number.isFinite(record?.indMove) && record.indMove < 0) {
+            diagnostics.push(createError({
+                tab: TABS.ELEMENTS,
+                row: index + 1,
+                property: "indMove",
+                message:
+                    "индекс движения не может быть отрицательным",
+            }));
+        }
+
+        if (Number.isFinite(record?.rv) && record.rv < 0) {
+            diagnostics.push(createError({
+                tab: TABS.ELEMENTS,
+                row: index + 1,
+                property: "rv",
+                message:
+                    "электропроводность не может быть отрицательной",
+            }));
+        }
+
+        validateDiscretization(record, index, diagnostics);
+    });
+}
+
+function validateSymmetryPair({
+    diagnostics,
+    index,
+    record,
+    stepProperty,
+    countProperty,
+    multipleMessage,
+    unusedMessage,
+}) {
+    const step = record?.[stepProperty];
+    const count = record?.[countProperty];
+    if (!Number.isFinite(step) || !Number.isInteger(count)) return;
+
+    if (step === 0 && count > 1) {
+        diagnostics.push(createError({
+            tab: TABS.ELEMENTS,
+            row: index + 1,
+            property: stepProperty,
+            message: multipleMessage,
+        }));
+    } else if (step !== 0 && count === 1) {
+        diagnostics.push(createWarning({
+            tab: TABS.ELEMENTS,
+            row: index + 1,
+            property: stepProperty,
+            message: unusedMessage,
+        }));
+    }
+}
+
+function validateDiscretization(record, index, diagnostics) {
+    if (!hasCompleteShape(record?.dp, { rows: 3, columns: 1 })) return;
+
+    record.dp.forEach((row, directionIndex) => {
+        const value = row[0];
+        if (Number.isInteger(value) && value >= 1) return;
+
+        diagnostics.push(createError({
+            tab: TABS.ELEMENTS,
+            row: index + 1,
+            property: "dp",
+            message:
+                `разбиение D${directionIndex + 1} должно быть задано `
+                + "положительным целым числом",
+        }));
+    });
 }
 
 function validateArrayShapes(elements, diagnostics) {

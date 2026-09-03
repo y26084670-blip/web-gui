@@ -116,18 +116,27 @@ export function SidePanel(props) {
               <div class="side-panel-section-title">
                 Элементы модели
               </div>
-              <button
-                class="side-panel-option"
-                disabled={!props.open || !props.materialActionEnabled}
-                onClick={props.onChooseMaterial}
-                title={
-                  props.materialActionEnabled
-                    ? "Назначить одну локальную характеристику всем выделенным элементам"
-                    : "Выберите задание и хотя бы один элемент"
-                }
-              >
-                Выбрать характеристику
-              </button>
+              <div class="side-panel-options">
+                <button
+                  class="side-panel-option"
+                  disabled={!props.open || !props.materialActionEnabled}
+                  onClick={props.onChooseMaterial}
+                  title={
+                    "Выбрать элементы в списке, нажать кнопку и выбрать "
+                    + "характеристику в появившемся диалоге"
+                  }
+                >
+                  Выбрать характеристику
+                </button>
+                <button
+                  class="side-panel-option"
+                  disabled={!props.open || !props.materialActionEnabled}
+                  onClick={props.onMakeNonmagnetic}
+                  title="Очистить имя характеристики у выделенных элементов"
+                >
+                  Сделать немагнитными
+                </button>
+              </div>
             </section>
           </>
         )}

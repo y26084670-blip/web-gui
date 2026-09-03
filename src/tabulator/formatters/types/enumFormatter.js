@@ -6,7 +6,6 @@ import { findNamedEnumOption } from "../../../services/schemas/common/enumOption
 function imageEnumValue(option) {
     const value = document.createElement("span");
     value.className = "image-enum-value";
-    value.title = option.description ?? option.label;
     value.setAttribute("aria-label", option.description ?? option.label);
 
     const image = document.createElement("img");

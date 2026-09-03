@@ -25,6 +25,10 @@ test("ordinary mode accepts only the clark.projects root", async () => {
         /if \(!props\.admin && handle\.name !== PROJECTS_ROOT_NAME\)/u,
     );
     assert.match(source, /Выберите каталог «\$\{PROJECTS_ROOT_NAME\}»/u);
+    assert.match(
+        source,
+        /props\.admin[\s\S]*?"Выбрать каталог с проектами"[\s\S]*?: "Выбрать каталог clark\.projects"/u,
+    );
 
     const pickerIndex = source.indexOf("window.showDirectoryPicker");
     const guardIndex = source.indexOf(

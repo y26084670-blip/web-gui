@@ -269,9 +269,10 @@ export function TaskInfoBar(props) {
               class="about-admin-button"
               disabled={props.admin}
               aria-pressed={props.admin}
-              title={props.admin
-                ? "Режим администратора включён"
-                : "Включить режим администратора"}
+              title={
+                "Админ имеет право открывать задания в произвольном "
+                + "каталоге проектов, а не только в clark.projects"
+              }
               onClick={openAdminDialog}
             >
               Админ

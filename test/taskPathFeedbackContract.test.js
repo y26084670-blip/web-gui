@@ -24,7 +24,7 @@ test("loaded task path reaches the task bar", async () => {
     );
 });
 
-test("successful task load shows a three-second yellow confirmation", async () => {
+test("task path and confirmation use one successful-load signal", async () => {
     const [source, styles] = await Promise.all([
         readFile(tasksUrl, "utf8"),
         readFile(tasksStylesUrl, "utf8"),
@@ -32,17 +32,37 @@ test("successful task load shows a three-second yellow confirmation", async () =
 
     assert.match(
         source,
-        /commitTaskLoad[\s\S]*?setLoadConfirmation\(\(revision\) => revision \+ 1\);/u,
+        /const loadedTaskPath = selectionService\.loadedTaskPath;/u,
     );
+    assert.match(source, /<Show keyed when=\{loadedTaskPath\(\)\}>/u);
+    assert.doesNotMatch(source, /loadConfirmation|setLoadConfirmation/u);
+    assert.match(source, /class="task-load-label"/u);
     assert.match(source, /class="task-load-confirmation"/u);
     assert.match(source, /aria-label="Задание загружено"/u);
     assert.match(
         styles,
-        /\.task-load-confirmation\s*\{[^}]*color:\s*#ffd600;[^}]*font-weight:\s*900;[^}]*animation:\s*task-load-confirmation 3s/su,
+        /\.task-load-confirmation\s*\{[^}]*position:\s*absolute;[^}]*right:\s*calc\(100% \+ 10px\);[^}]*color:\s*#ffd600;[^}]*font-weight:\s*900;[^}]*animation:\s*task-load-confirmation 3s/su,
     );
     assert.match(
         styles,
         /@keyframes task-load-confirmation\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?opacity:\s*1;/u,
+    );
+});
+
+test("task-bar action buttons share height and the drawer button is accented", async () => {
+    const styles = await readFile(taskInfoBarStylesUrl, "utf8");
+
+    assert.match(
+        styles,
+        /\.validate-button,\s*\.save-button\s*\{[^}]*height:\s*26px;[^}]*padding:\s*3px 10px;/su,
+    );
+    assert.match(
+        styles,
+        /\.menu-button\s*\{[^}]*background:\s*#e6a23c;/su,
+    );
+    assert.match(
+        styles,
+        /\.menu-button:hover,[\s\S]*?\.menu-button\[aria-expanded="true"\]\s*\{[^}]*background:\s*#c98218;/su,
     );
 });
 

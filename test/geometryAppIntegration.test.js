@@ -119,6 +119,8 @@ test("about dialog unlocks a transient application admin mode", async () => {
     assert.match(source, /disabled=\{props\.admin\}/u);
     assert.match(source, /aria-pressed=\{props\.admin\}/u);
     assert.match(source, /onClick=\{openAdminDialog\}/u);
+    assert.match(source, /Админ имеет право открывать задания в произвольном/u);
+    assert.match(source, /каталоге проектов, а не только в clark\.projects/u);
     assert.match(source, />\s*Админ\s*<\/button>/u);
     assert.match(source, /class="admin-dialog"/u);
     assert.match(source, /type="password"/u);

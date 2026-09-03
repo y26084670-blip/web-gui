@@ -1,5 +1,8 @@
-import { createError } from "../../common/createDiagnostic";
-import { TABS } from "../../../../services/schemas/common/constants";
+import {
+    createError,
+    createWarning,
+} from "../../common/createDiagnostic.js";
+import { TABS } from "../../../../services/schemas/common/constants.js";
 
 const FIXED_ARRAY_SHAPES = Object.freeze([
     { property: "symVi", storagePath: "sym.vi", rows: 3, columns: 1 },
@@ -34,6 +37,59 @@ export function regionsValidator(
                 })
             );
         }
+
+        validateRecordRules(record, index, diagnostics);
+    });
+}
+
+function validateRecordRules(record, index, diagnostics) {
+    const step = record?.symYl;
+    const count = record?.symLs;
+    if (Number.isFinite(step) && Number.isInteger(count)) {
+        if (step === 0 && count > 1) {
+            diagnostics.push(createError({
+                tab: TABS.REGIONS,
+                row: index + 1,
+                property: "symYl",
+                message:
+                    "при наличии локальных образов следует "
+                    + "задать ненулевой угол симметрии (шаг по углу)",
+            }));
+        } else if (step !== 0 && count === 1) {
+            diagnostics.push(createWarning({
+                tab: TABS.REGIONS,
+                row: index + 1,
+                property: "symYl",
+                message:
+                    "при отсутствии локальных образов задавать "
+                    + "угол симметрии (шаг по углу) излишне",
+            }));
+        }
+    }
+
+    if (Number.isFinite(record?.indMove) && record.indMove < 0) {
+        diagnostics.push(createError({
+            tab: TABS.REGIONS,
+            row: index + 1,
+            property: "indMove",
+            message:
+                "индекс движения не может быть отрицательным",
+        }));
+    }
+
+    if (!hasCompleteShape(record?.dp, { rows: 2, columns: 1 })) return;
+    record.dp.forEach((row, directionIndex) => {
+        const value = row[0];
+        if (Number.isInteger(value) && value >= 1) return;
+
+        diagnostics.push(createError({
+            tab: TABS.REGIONS,
+            row: index + 1,
+            property: "dp",
+            message:
+                `разбиение D${directionIndex + 1} должно быть задано `
+                + "положительным целым числом",
+        }));
     });
 }
 

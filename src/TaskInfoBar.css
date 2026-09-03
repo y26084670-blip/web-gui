@@ -55,8 +55,11 @@
     }
 }
 
-.validate-button {
+.validate-button,
+.save-button {
     flex-shrink: 0;
+    box-sizing: border-box;
+    height: 26px;
     padding: 3px 10px;
     cursor: pointer;
 }
@@ -342,7 +345,7 @@
     padding: 0;
     border: 1px solid #888;
     border-radius: 3px;
-    background: #d7d7d7;
+    background: #e6a23c;
     color: #111;
     font-size: 18px;
     line-height: 22px;
@@ -351,5 +354,5 @@
 
 .menu-button:hover,
 .menu-button[aria-expanded="true"] {
-    background: #bfcfbc;
+    background: #c98218;
 }

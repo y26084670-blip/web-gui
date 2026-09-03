@@ -65,3 +65,21 @@ test("region discretization is expressed as positive node counts", async () => {
     assert.match(dp, /items: \{[\s\S]*?minimum: 1,/u);
     assert.doesNotMatch(dp, /Число интервалов/u);
 });
+
+test("element and region scalar limits match solver preconditions", async () => {
+    const [elements, regions] = await Promise.all([
+        readFile(elementsUrl, "utf8"),
+        readFile(regionsUrl, "utf8"),
+    ]);
+
+    assert.match(
+        elements,
+        /dp: \{[\s\S]*?items: \{[\s\S]*?minimum: 1,/u,
+    );
+    assert.match(elements, /indMove: \{[\s\S]*?minimum: 0,/u);
+    assert.match(regions, /indMove: \{[\s\S]*?minimum: 0,/u);
+    assert.match(
+        elements,
+        /rv: \{[\s\S]*?label: "GAM, МСм\/м",[\s\S]*?minimum: 0,/u,
+    );
+});

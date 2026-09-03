@@ -119,7 +119,7 @@ export default createSchema({
         mirrorSymmetryX: {
             type: FIELD_TYPES.ENUM,
             label: "Зеркальная симметрия по X",
-            description: "Зеркальная симметрия по X\n(относительно плоскости ZoY)",
+            description: "",
             default: -1,
             enum: mirrorSymmetryOptions,
         },

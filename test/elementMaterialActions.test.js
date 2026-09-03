@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
     assignSelectedElementMaterial,
+    clearSelectedElementMaterials,
     selectedElementMaterialRequest,
+    selectedElementsRequest,
 } from "../src/tabulator/actions/elementMaterialActions.js";
 
 function row(data) {
@@ -56,4 +58,20 @@ test("HTC elements use the HTC library and mixed selections are rejected", () =>
         ),
         /разным видам характеристик/,
     );
+});
+
+test("mixed selected elements can be made nonmagnetic in one model call", async () => {
+    const records = [
+        { model: 0, xapName: "Сталь" },
+        { model: 2, xapName: "ВТСП" },
+    ];
+    const { table, calls } = tableFor(records);
+    const request = selectedElementsRequest(table);
+
+    await clearSelectedElementMaterials(request);
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].field, "xapName");
+    assert.equal(calls[0].value, "");
+    assert.deepEqual(records.map(item => item.xapName), ["", ""]);
 });

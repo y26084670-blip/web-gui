@@ -21,7 +21,9 @@ import { selectionContextService } from "./services/selectionContextService.js";
 import { unsavedChangesService } from "./services/unsavedChangesService.js";
 import {
   assignSelectedElementMaterial,
+  clearSelectedElementMaterials,
   selectedElementMaterialRequest,
+  selectedElementsRequest,
 } from "./tabulator/actions/elementMaterialActions.js";
 import { loadMaterialReferenceCatalog } from "./services/materialReferenceValidation.js";
 import { createError } from "./tabulator/validators/common/createDiagnostic.js";
@@ -210,6 +212,18 @@ export default function App() {
     }
   }
 
+  async function handleMakeElementsNonmagnetic() {
+    try {
+      const request = selectedElementsRequest(
+        selectionContextService.getActiveTable(),
+      );
+      await clearSelectedElementMaterials(request);
+      setSidePanelOpen(false);
+    } catch (error) {
+      console.error("Не удалось сделать элементы немагнитными", error);
+    }
+  }
+
   async function handleSave() {
     const dirHandle = selectionService.loadedTaskHandle();
     if (!dirHandle) return;
@@ -276,6 +290,7 @@ export default function App() {
         materialActionVisible={materialActionVisible()}
         materialActionEnabled={materialActionEnabled()}
         onChooseMaterial={handleMaterialSelectionOpen}
+        onMakeNonmagnetic={handleMakeElementsNonmagnetic}
       />
       <div class="tabs-header">
         <For each={tabs}>

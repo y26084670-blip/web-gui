@@ -19,8 +19,8 @@ function validVertices() {
     ];
 }
 
-function vector(rows) {
-    return Array.from({ length: rows }, () => [0]);
+function vector(rows, value = 0) {
+    return Array.from({ length: rows }, () => [value]);
 }
 
 function parameterGeo(values) {
@@ -38,18 +38,28 @@ function parameterGeo(values) {
 function element({
     geoType = 0,
     geo = validVertices(),
+    ...overrides
 } = {}) {
     return {
         symVi: vector(3),
         symR0: vector(3),
+        symYl: 0,
+        symYa: 0,
+        symTx: 0,
+        symLs: 1,
+        symAs: 1,
+        symPs: 1,
         geoType,
         geo,
         dr: vector(3),
-        dp: vector(3),
+        dp: vector(3, 1),
         vkan: vector(3),
         med: vector(6),
+        indMove: 0,
         targ: 0,
         model: 0,
+        rv: 0,
+        ...overrides,
     };
 }
 
@@ -243,4 +253,107 @@ test("elements treats sparse geo arrays as one shape error", () => {
         assert.equal(diagnostics[0].property, "geo");
         assert.match(diagnostics[0].message, /8 × 3/);
     }
+});
+
+test("elements reports inconsistent symmetry settings", () => {
+    const diagnostics = validate([element({
+        symLs: 2,
+        symAs: 3,
+        symPs: 2,
+    })]);
+
+    assert.deepEqual(
+        diagnostics.map(({ level, property, message }) => ({
+            level,
+            property,
+            message,
+        })),
+        [
+            {
+                level: "error",
+                property: "symYl",
+                message:
+                    "при наличии локальных образов следует задать "
+                    + "ненулевой угол симметрии (шаг по углу)",
+            },
+            {
+                level: "error",
+                property: "symYa",
+                message:
+                    "при наличии азимутальных образов следует задать "
+                    + "ненулевой угол симметрии (шаг по углу)",
+            },
+            {
+                level: "error",
+                property: "symTx",
+                message:
+                    "при наличии периодических образов следует задать "
+                    + "ненулевой шаг вдоль оси",
+            },
+        ],
+    );
+});
+
+test("elements warns about unused symmetry steps", () => {
+    const diagnostics = validate([element({
+        symYl: 15,
+        symYa: 30,
+        symTx: 4,
+    })]);
+
+    assert.deepEqual(diagnostics.map(item => item.level), [
+        "warning",
+        "warning",
+        "warning",
+    ]);
+    assert.deepEqual(diagnostics.map(item => item.property), [
+        "symYl",
+        "symYa",
+        "symTx",
+    ]);
+    assert.deepEqual(diagnostics.map(item => item.message), [
+        "при отсутствии локальных образов задавать угол симметрии "
+            + "(шаг по углу) излишне",
+        "при отсутствии азимутальных образов задавать угол симметрии "
+            + "(шаг по углу) излишне",
+        "при отсутствии периодических образов задавать шаг вдоль оси "
+            + "излишне",
+    ]);
+});
+
+test("elements rejects negative movement and conductivity", () => {
+    const diagnostics = validate([element({ indMove: -1, rv: -0.1 })]);
+
+    assert.deepEqual(
+        diagnostics.map(({ level, property, message }) => ({
+            level,
+            property,
+            message,
+        })),
+        [
+            {
+                level: "error",
+                property: "indMove",
+                message: "индекс движения не может быть отрицательным",
+            },
+            {
+                level: "error",
+                property: "rv",
+                message: "электропроводность не может быть отрицательной",
+            },
+        ],
+    );
+});
+
+test("elements validates every discretization direction", () => {
+    const diagnostics = validate([element({
+        dp: [[0], [1.5], ["2"]],
+    })]);
+
+    assert.deepEqual(diagnostics.map(item => item.property), ["dp", "dp", "dp"]);
+    assert.deepEqual(diagnostics.map(item => item.message), [
+        "разбиение D1 должно быть задано положительным целым числом",
+        "разбиение D2 должно быть задано положительным целым числом",
+        "разбиение D3 должно быть задано положительным целым числом",
+    ]);
 });

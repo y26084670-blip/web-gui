@@ -9,7 +9,7 @@ test("task selection is committed only by the explicit load action", async () =>
     const source = await readFile(tasksUrl, "utf8");
 
     assert.match(source, /onClick=\{\(\) => selectTaskCandidate\(task\)\}/u);
-    assert.match(source, />\s*Загрузить для редактирования\s*</u);
+    assert.match(source, /class="task-load-label"[\s\S]*?Загрузить для редактирования/u);
     assert.match(source, /const commitTaskLoad = .*clearLoadedTaskState\(\)/su);
     assert.match(source, /getDirectoryHandle\(DIRECTORIES\.INPUT\)/u);
     assert.doesNotMatch(source, /Текущее выбранное задание/u);

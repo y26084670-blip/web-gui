@@ -104,6 +104,14 @@ body,
   font-weight: bold;
 }
 
+.tabulator-tooltip.image-enum-tooltip {
+  border: 1px solid #aaa;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .18);
+  white-space: normal;
+}
+
 .image-enum-value {
   display: inline-flex;
   width: 100%;
