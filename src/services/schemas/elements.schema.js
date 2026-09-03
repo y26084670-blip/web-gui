@@ -487,7 +487,7 @@ export default createSchema({
 
         rv: {
             type: FIELD_TYPES.FLOAT,
-            label: "GAM, Мсм/м",
+            label: "GAM, МСм/м",
             description: "Удельная электропроводность материала",
             default: 0,
             digits: 6,
