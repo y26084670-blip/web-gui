@@ -45,21 +45,25 @@ export default createSchema({
             columnWidth: 320,
         },
 
+        // критический ток
         j_HC0: scalar(FIELD_TYPES.FLOAT, "j_HC0"),
         JC0: scalar(FIELD_TYPES.FLOAT, "JC0"),
         JCa: scalar(FIELD_TYPES.FLOAT, "JCa"),
         JCb: scalar(FIELD_TYPES.FLOAT, "JCb"),
+        // токовая подсистема
         j_type: scalar(FIELD_TYPES.INTEGER, "j_type"),
         j_gmin: scalar(FIELD_TYPES.FLOAT, "j_gmin"),
         j_gmax: scalar(FIELD_TYPES.FLOAT, "j_gmax"),
         j1_delta: scalar(FIELD_TYPES.FLOAT, "j1_delta"),
         j2_n: scalar(FIELD_TYPES.INTEGER, "j2_n"),
+        // магнитная подсистема
         m_type: scalar(FIELD_TYPES.INTEGER, "m_type"),
         m_HC0: scalar(FIELD_TYPES.FLOAT, "m_HC0"),
         m1_delta: scalar(FIELD_TYPES.FLOAT, "m1_delta"),
         m3_Mmax: scalar(FIELD_TYPES.FLOAT, "m3_Mmax"),
         m3_a: scalar(FIELD_TYPES.FLOAT, "m3_a"),
         m3_b: scalar(FIELD_TYPES.FLOAT, "m3_b"),
+        // 3d модель
         KHabc: scalar(
             FIELD_TYPES.FLOAT,
             "KHabc",
@@ -78,7 +82,7 @@ export default createSchema({
             undefined,
             HTC_EFFECTIVE_DEFAULTS.M3D,
         ),
-
+        //
         comment: {
             type: FIELD_TYPES.STRING,
             label: "Комментарий",
