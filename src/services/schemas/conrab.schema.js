@@ -27,6 +27,9 @@ export default createSchema({
     },
 
     properties: {
+
+        // итерационный процесс
+
         EPS: {
             type: FIELD_TYPES.FLOAT,
             label: "EPS — общий критерий",
@@ -68,6 +71,8 @@ export default createSchema({
             textOff: "Не использовать",
         },
 
+        // формирование уравнений
+
         ADMIN: {
             type: FIELD_TYPES.FLOAT,
             label: "ADMIN",
@@ -75,6 +80,8 @@ export default createSchema({
             default: 0.01,
             digits: 6,
         },
+
+        // интегрирование
 
         UZMIN: {
             type: FIELD_TYPES.FLOAT,
@@ -99,10 +106,12 @@ export default createSchema({
             digits: 6,
         },
 
+        // материальные уравнения
+
         KB1: {
             type: FIELD_TYPES.FLOAT,
             label: "KB1",
-            description: "Коэффициент начальной нижней границы поиска E",
+            description: "Коэффициент для начальной нижней границы поиска E: b1=zero1*KB1",
             default: 1,
             digits: 6,
         },
@@ -110,7 +119,7 @@ export default createSchema({
         KB2: {
             type: FIELD_TYPES.FLOAT,
             label: "KB2",
-            description: "Коэффициент начальной верхней границы поиска E",
+            description: "Коэффициент для начальной верхней границы поиска E: b2=B20+(правая часть/ce2)*KB2",
             default: 1,
             digits: 6,
         },
@@ -118,7 +127,7 @@ export default createSchema({
         B20: {
             type: FIELD_TYPES.FLOAT,
             label: "B20",
-            description: "Слагаемое начальной верхней границы поиска E",
+            description: "Слагаемое начальной верхней границы поиска E: b2=B20+(правая часть/ce2)*KB2",
             default: 0,
             digits: 6,
         },
@@ -126,7 +135,7 @@ export default createSchema({
         KEPS1: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS1",
-            description: "Коэффициент критерия выхода из поиска E по интервалу",
+            description: "Коэффициент критерия выхода из поиска E по интервалу: abs(b2-b1) < 1E-6*KEPS1",
             default: 1,
             digits: 6,
         },
@@ -134,7 +143,7 @@ export default createSchema({
         KEPS2: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS2",
-            description: "Коэффициент критерия выхода дополнительной системы по интервалу",
+            description: "Коэффициент для критерия 1 выхода по интервалу: abs(DH) < (1E-11)*KEPS2",
             default: 1,
             digits: 6,
         },
@@ -142,7 +151,7 @@ export default createSchema({
         KEPS3: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS3",
-            description: "Коэффициент критерия выхода дополнительной системы по невязке",
+            description: "Коэффициент для критерия 2 выхода по невязке: abs(CF) < (Jc*1E-4)*KEPS3",
             default: 1,
             digits: 6,
         },
@@ -150,7 +159,7 @@ export default createSchema({
         KEPS4: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS4",
-            description: "Критерий поиска H' по M-невязке в магнитной подсистеме ВТСП, кА/м",
+            description: "ВТСП-модель: Mагнитная подсистема: Параметр критерия выхода из поиска H’ по M-невязке, кА/м [НЕ ИСПОЛЬЗОВАН!]",
             default: 1,
             digits: 6,
         },
@@ -158,7 +167,7 @@ export default createSchema({
         CF_KEPS: {
             type: FIELD_TYPES.FLOAT,
             label: "CF_KEPS",
-            description: "Критерий выхода дополнительной системы ВТСП по невязке, кА/м",
+            description: "ВТСП-модель: Mагнитная подсистема: Параметр критерия выхода по невязке, кА/м: DH <= DHmin && (DH == ZERO || abs(CF) <= CF_KEPS)",
             default: 1,
             digits: 6,
         },
