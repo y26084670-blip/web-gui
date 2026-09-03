@@ -251,6 +251,33 @@ button:hover {
   margin-top: 12px;
 }
 
+.task-load-confirmation {
+  display: inline-block;
+  margin-left: 12px;
+  color: #ffd600;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .55);
+  animation: task-load-confirmation 3s ease-in-out both;
+}
+
+@keyframes task-load-confirmation {
+  0%, 100% {
+    opacity: 0;
+  }
+
+  20%, 70% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-load-confirmation {
+    animation-timing-function: step-end;
+  }
+}
+
 .task-unsaved-dialog {
   max-width: 520px;
   padding: 18px;

@@ -6,6 +6,7 @@ const tasksUrl = new URL("../src/tabs/Tasks.jsx", import.meta.url);
 const appUrl = new URL("../src/App.jsx", import.meta.url);
 const taskInfoBarUrl = new URL("../src/TaskInfoBar.jsx", import.meta.url);
 const taskInfoBarStylesUrl = new URL("../src/TaskInfoBar.css", import.meta.url);
+const tasksStylesUrl = new URL("../src/tabs/Tasks.css", import.meta.url);
 
 test("loaded task path reaches the task bar", async () => {
     const [tasksSource, appSource] = await Promise.all([
@@ -20,6 +21,28 @@ test("loaded task path reaches the task bar", async () => {
     assert.match(
         appSource,
         /<TaskInfoBar[\s\S]*?path=\{selectionService\.loadedTaskPath\(\)\}/u,
+    );
+});
+
+test("successful task load shows a three-second yellow confirmation", async () => {
+    const [source, styles] = await Promise.all([
+        readFile(tasksUrl, "utf8"),
+        readFile(tasksStylesUrl, "utf8"),
+    ]);
+
+    assert.match(
+        source,
+        /commitTaskLoad[\s\S]*?setLoadConfirmation\(\(revision\) => revision \+ 1\);/u,
+    );
+    assert.match(source, /class="task-load-confirmation"/u);
+    assert.match(source, /aria-label="Задание загружено"/u);
+    assert.match(
+        styles,
+        /\.task-load-confirmation\s*\{[^}]*color:\s*#ffd600;[^}]*font-weight:\s*900;[^}]*animation:\s*task-load-confirmation 3s/su,
+    );
+    assert.match(
+        styles,
+        /@keyframes task-load-confirmation\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?opacity:\s*1;/u,
     );
 });
 

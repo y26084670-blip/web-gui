@@ -110,4 +110,12 @@ test("generator keeps its action row reachable when the panel is resized", async
     assert.match(styles, /\.time-generator-editor textarea\s*\{[^}]*min-height:\s*0;/u);
     assert.match(styles, /\.time-generator-editor textarea\s*\{[^}]*font-size:\s*14px;/u);
     assert.match(styles, /\.time-generator-workspace\s*\{[^}]*min-height:\s*0;/u);
+    assert.match(
+        styles,
+        /\.time-generator-history\s*\{[^}]*padding-bottom:\s*35px;/u,
+    );
+    assert.match(
+        styles,
+        /\.time-generator-history select\s*\{[^}]*background:\s*#e7e7e7;/u,
+    );
 });

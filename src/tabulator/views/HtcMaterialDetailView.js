@@ -27,6 +27,10 @@ export class HtcMaterialDetailView {
         if (!this.host || this.table) return undefined;
 
         const columns = TableBuilder.buildColumns(this.schema);
+        columns[0].tooltip = (_event, cell) => {
+            const propertyName = cell.getRow().getData()._property;
+            return this.schema.properties[propertyName]?.description ?? "";
+        };
         for (const column of columns.slice(1)) {
             const editable = column.editable;
             const cellClick = column.cellClick;

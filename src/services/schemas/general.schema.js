@@ -32,6 +32,31 @@ import {
     measurementCoilSummary,
 } from "../references/modelReferenceViews.js";
 
+const mirrorSymmetryOptions = Object.freeze([
+    Object.freeze({
+        value: -1,
+        label: "Нет зеркальной симметрии",
+        description: "Нет зеркальной симметрии",
+        image: new URL("../../../resource/-1.png", import.meta.url).href,
+    }),
+    Object.freeze({
+        value: 0,
+        label: "Нулевая нормальная компонента",
+        description:
+            "Нулевая нормальная компонента напряженности магнитного поля "
+            + "на плоскости симметрии",
+        image: new URL("../../../resource/0.png", import.meta.url).href,
+    }),
+    Object.freeze({
+        value: 1,
+        label: "Нулевая касательная компонента",
+        description:
+            "Нулевая касательная компонента напряженности магнитного поля "
+            + "на плоскости симметрии",
+        image: new URL("../../../resource/+1.png", import.meta.url).href,
+    }),
+]);
+
 export default createSchema({
     id: TABS.GENERAL.id,
     title: TABS.GENERAL.label,
@@ -92,21 +117,19 @@ export default createSchema({
         },
 
         mirrorSymmetryX: {
-            type: FIELD_TYPES.INTEGER,
+            type: FIELD_TYPES.ENUM,
             label: "Зеркальная симметрия по X",
             description: "Зеркальная симметрия по X\n(относительно плоскости ZoY)",
             default: -1,
-            minimum: -1,
-            maximum: 1,
+            enum: mirrorSymmetryOptions,
         },
 
         mirrorSymmetryY: {
-            type: FIELD_TYPES.INTEGER,
+            type: FIELD_TYPES.ENUM,
             label: "Зеркальная симметрия по Y",
             description: "",
             default: -1,
-            minimum: -1,
-            maximum: 1,
+            enum: mirrorSymmetryOptions,
         },
         countTimeSteps: {
             type: FIELD_TYPES.INTEGER,

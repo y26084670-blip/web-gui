@@ -54,6 +54,34 @@ test("HTC detail contract lists eighteen current scalar parameters", () => {
     );
 });
 
+test("material details have content-sized defaults and HTC comments", () => {
+    const registry = readFileSync(
+        new URL("../src/services/materialTabRegistry.js", import.meta.url),
+        "utf8",
+    );
+    const tab = readFileSync(
+        new URL("../src/tabs/MaterialLibraryTab.jsx", import.meta.url),
+        "utf8",
+    );
+    const schema = readFileSync(
+        new URL("../src/services/schemas/htcLibrary.schema.js", import.meta.url),
+        "utf8",
+    );
+    const detailView = readFileSync(
+        new URL("../src/tabulator/views/HtcMaterialDetailView.js", import.meta.url),
+        "utf8",
+    );
+
+    assert.match(registry, /property:\s*"tabl",\s*defaultHeight:\s*400,/u);
+    assert.match(registry, /type:\s*"record",\s*defaultHeight:\s*540,/u);
+    assert.match(tab, /definition\.detail\.defaultHeight \?\? 360/u);
+    assert.match(schema, /"j_HC0",\s*"Критическая индукция/u);
+    assert.match(schema, /"j_type",\s*"Тип модели: 1 — tanh, 2 — степенная"/u);
+    assert.match(schema, /"M3D",\s*"Использовать режим 3D"/u);
+    assert.match(detailView, /columns\[0\]\.tooltip/u);
+    assert.match(detailView, /properties\[propertyName\]\?\.description/u);
+});
+
 test("material library waits for Tabulator before its initial data load", () => {
     const source = readFileSync(
         new URL("../src/tabs/MaterialLibraryTab.jsx", import.meta.url),

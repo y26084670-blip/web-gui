@@ -46,40 +46,101 @@ export default createSchema({
         },
 
         // критический ток
-        j_HC0: scalar(FIELD_TYPES.FLOAT, "j_HC0"),
-        JC0: scalar(FIELD_TYPES.FLOAT, "JC0"),
-        JCa: scalar(FIELD_TYPES.FLOAT, "JCa"),
-        JCb: scalar(FIELD_TYPES.FLOAT, "JCb"),
+        j_HC0: scalar(
+            FIELD_TYPES.FLOAT,
+            "j_HC0",
+            "Критическая индукция как B/μ₀, кА/м",
+        ),
+        JC0: scalar(
+            FIELD_TYPES.FLOAT,
+            "JC0",
+            "Максимальное значение критического тока",
+        ),
+        JCa: scalar(
+            FIELD_TYPES.FLOAT,
+            "JCa",
+            "Первый показатель степени критического тока",
+        ),
+        JCb: scalar(
+            FIELD_TYPES.FLOAT,
+            "JCb",
+            "Второй показатель степени критического тока",
+        ),
         // токовая подсистема
-        j_type: scalar(FIELD_TYPES.INTEGER, "j_type"),
-        j_gmin: scalar(FIELD_TYPES.FLOAT, "j_gmin"),
-        j_gmax: scalar(FIELD_TYPES.FLOAT, "j_gmax"),
-        j1_delta: scalar(FIELD_TYPES.FLOAT, "j1_delta"),
-        j2_n: scalar(FIELD_TYPES.INTEGER, "j2_n"),
+        j_type: scalar(
+            FIELD_TYPES.INTEGER,
+            "j_type",
+            "Тип модели: 1 — tanh, 2 — степенная",
+        ),
+        j_gmin: scalar(
+            FIELD_TYPES.FLOAT,
+            "j_gmin",
+            "Минимальная электропроводность, МСм/м",
+        ),
+        j_gmax: scalar(
+            FIELD_TYPES.FLOAT,
+            "j_gmax",
+            "Максимальная электропроводность, МСм/м",
+        ),
+        j1_delta: scalar(
+            FIELD_TYPES.FLOAT,
+            "j1_delta",
+            "Параметр DELTA модели tanh",
+        ),
+        j2_n: scalar(
+            FIELD_TYPES.INTEGER,
+            "j2_n",
+            "Показатель степени степенной модели",
+        ),
         // магнитная подсистема
-        m_type: scalar(FIELD_TYPES.INTEGER, "m_type"),
-        m_HC0: scalar(FIELD_TYPES.FLOAT, "m_HC0"),
-        m1_delta: scalar(FIELD_TYPES.FLOAT, "m1_delta"),
-        m3_Mmax: scalar(FIELD_TYPES.FLOAT, "m3_Mmax"),
-        m3_a: scalar(FIELD_TYPES.FLOAT, "m3_a"),
-        m3_b: scalar(FIELD_TYPES.FLOAT, "m3_b"),
+        m_type: scalar(
+            FIELD_TYPES.INTEGER,
+            "m_type",
+            "Тип модели: 1 — tanh, 2 — зарезервировано, "
+            + "3 — аппроксимация идеальной характеристики",
+        ),
+        m_HC0: scalar(
+            FIELD_TYPES.FLOAT,
+            "m_HC0",
+            "Напряжённость критического магнитного поля, кА/м",
+        ),
+        m1_delta: scalar(
+            FIELD_TYPES.FLOAT,
+            "m1_delta",
+            "Параметр DELTA модели tanh",
+        ),
+        m3_Mmax: scalar(
+            FIELD_TYPES.FLOAT,
+            "m3_Mmax",
+            "ПК-модель: максимальная намагниченность, кА/м",
+        ),
+        m3_a: scalar(
+            FIELD_TYPES.FLOAT,
+            "m3_a",
+            "ПК-модель: параметр аппроксимации M(H) a (ver202)",
+        ),
+        m3_b: scalar(
+            FIELD_TYPES.FLOAT,
+            "m3_b",
+            "ПК-модель: параметр аппроксимации M(H) b (ver202)",
+        ),
         // 3d модель
         KHabc: scalar(
             FIELD_TYPES.FLOAT,
             "KHabc",
-            undefined,
+            "Соотношение поперечного и основного критических полей",
             HTC_EFFECTIVE_DEFAULTS.KHabc,
         ),
         Diag: scalar(
             FIELD_TYPES.FLOAT,
             "Diag",
-            undefined,
+            "Характер диаграммы направленности, диапазон [0, 1)",
             HTC_EFFECTIVE_DEFAULTS.Diag,
         ),
         M3D: scalar(
             FIELD_TYPES.BOOLEAN,
             "M3D",
-            undefined,
+            "Использовать режим 3D",
             HTC_EFFECTIVE_DEFAULTS.M3D,
         ),
         //

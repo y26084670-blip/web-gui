@@ -64,7 +64,7 @@ export default createSchema({
                 type: FIELD_TYPES.FLOAT,
                 description: "Значение точки характеристики",
                 default: 0,
-                digits: 12,
+                digits: 8,
                 floatFormat: "fixed",
                 readonly: true,
             },

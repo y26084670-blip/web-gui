@@ -14,6 +14,7 @@ export const materialTabRegistry = Object.freeze([
         detail: Object.freeze({
             type: "property",
             property: "tabl",
+            defaultHeight: 400,
         }),
         graphRegion: true,
         loadRecords: options =>
@@ -26,6 +27,7 @@ export const materialTabRegistry = Object.freeze([
         kind: MATERIAL_LIBRARY_KINDS.HTC,
         detail: Object.freeze({
             type: "record",
+            defaultHeight: 540,
         }),
         graphRegion: false,
         loadRecords: options =>

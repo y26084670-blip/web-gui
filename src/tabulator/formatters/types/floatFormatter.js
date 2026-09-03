@@ -1,7 +1,17 @@
 //------------------------------------------------------------------------------
 // Форматтер вещественных чисел.
 //------------------------------------------------------------------------------
+export const MAX_DISPLAY_SIGNIFICANT_DIGITS = 8;
+
+export function displaySignificantDigits(digits = 6) {
+    const normalized = Number.isInteger(digits) && digits > 0
+        ? digits
+        : 6;
+    return Math.min(normalized, MAX_DISPLAY_SIGNIFICANT_DIGITS);
+}
+
 export function formatFixedSignificant(number, digits) {
+    digits = displaySignificantDigits(digits);
     if (!Number.isFinite(number)) return String(number);
     if (number === 0) {
         return digits > 1 ? `0.${"0".repeat(digits - 1)}` : "0";
@@ -37,7 +47,7 @@ export function floatFormatter(
     if (value == null) return "";
     const number = Number(value);
     if (Number.isNaN(number)) return value;
-    const digits = property.digits ?? 6;
+    const digits = displaySignificantDigits(property.digits);
     const floatExp = property.floatExp ?? false;
     if (property.floatFormat === "fixed") {
         return formatFixedSignificant(number, digits);

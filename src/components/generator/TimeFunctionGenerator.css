@@ -81,6 +81,11 @@
   gap: 5px;
 }
 
+.time-generator-history {
+  padding-bottom: 35px;
+  box-sizing: border-box;
+}
+
 .time-generator-editor {
   overflow-y: auto;
   padding-right: 2px;
@@ -108,7 +113,7 @@
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
-  background: #f4f4f4;
+  background: #e7e7e7;
   color: #111;
   font-family: Consolas, "Courier New", monospace;
   font-size: 14px;
@@ -272,5 +277,9 @@
   .time-generator-workspace {
     grid-template-columns: 1fr;
     overflow: auto;
+  }
+
+  .time-generator-history {
+    padding-bottom: 0;
   }
 }

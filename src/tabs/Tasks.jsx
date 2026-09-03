@@ -37,6 +37,7 @@ export function Tasks(props) {
   const [taskErrorMessage, setTaskErrorMessage] = createSignal("");
   const [pendingTaskLoad, setPendingTaskLoad] = createSignal(null);
   const [taskInfo, setTaskInfo] = createSignal(EMPTY_TASK_INFO);
+  const [loadConfirmation, setLoadConfirmation] = createSignal(0);
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -172,6 +173,7 @@ export function Tasks(props) {
     console.log("Выбранное задание:", fullPath);
     selectionService.setLoadedTaskHandle(task.handle);
     selectionService.setLoadedTaskPath(fullPath);
+    setLoadConfirmation((revision) => revision + 1);
   };
 
   const selectTaskCandidate = async (task) => {
@@ -315,6 +317,18 @@ export function Tasks(props) {
             onClick={requestTaskLoad}
           >
             Загрузить для редактирования
+            <Show keyed when={loadConfirmation()}>
+              {() => (
+                <span
+                  class="task-load-confirmation"
+                  role="status"
+                  aria-label="Задание загружено"
+                  title="Задание загружено"
+                >
+                  ✓
+                </span>
+              )}
+            </Show>
           </button>
         </div>
       </div>

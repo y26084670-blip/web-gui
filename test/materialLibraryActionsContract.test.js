@@ -55,7 +55,7 @@ test("material tabs expose copy and FMM-only legacy import actions", async () =>
         source.match(/loadRecords\(\{ source, destination \}\)/gu)?.length,
         1,
     );
-    assert.match(source, /createSignal\(360\)/u);
+    assert.match(source, /definition\.detail\.defaultHeight \?\? 360/u);
     assert.match(source, /\{ primary: true \}/u);
 });
 

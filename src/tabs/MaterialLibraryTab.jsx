@@ -133,7 +133,9 @@ export function MaterialLibraryTab(props) {
   const [deleteRequest, setDeleteRequest] = createSignal(null);
   const [legacyFmmStatus, setLegacyFmmStatus] = createSignal("missing");
   const [tableReady, setTableReady] = createSignal(false);
-  const [lowerHeight, setLowerHeight] = createSignal(360);
+  const [lowerHeight, setLowerHeight] = createSignal(
+    definition.detail.defaultHeight ?? 360,
+  );
   const [detailRatio, setDetailRatio] = createSignal(0.5);
 
   let tableHost;
@@ -1091,10 +1093,12 @@ export function MaterialLibraryTab(props) {
           "material-library-lower": true,
           "with-graph": definition.graphRegion,
         }}
-        style={definition.graphRegion ? {
+        style={{
           "flex-basis": `${lowerHeight()}px`,
-          "--material-detail-percent": `${detailRatio() * 100}%`,
-        } : {}}
+          ...(definition.graphRegion ? {
+            "--material-detail-percent": `${detailRatio() * 100}%`,
+          } : {}),
+        }}
         ref={(element) => (lowerRegionHost = element)}
       >
         <div class="detail-region material-library-detail">
