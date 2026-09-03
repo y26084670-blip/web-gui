@@ -54,7 +54,7 @@ export default createSchema({
         JC0: scalar(
             FIELD_TYPES.FLOAT,
             "JC0",
-            "Максимальное значение критического тока",
+            "Максимальное значение критического тока, А/кв.мм",
         ),
         JCa: scalar(
             FIELD_TYPES.FLOAT,
