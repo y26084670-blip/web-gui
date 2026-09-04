@@ -95,7 +95,7 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(source, /import packageMetadata from "\.\.\/package\.json";/u);
     assert.equal(
         JSON.parse(await readFile(packageUrl, "utf8")).version,
-        "0.10.0",
+        "0.10.1",
     );
     assert.match(source, /class="about-curator-stack"/u);
     assert.match(

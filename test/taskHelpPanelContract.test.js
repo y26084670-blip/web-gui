@@ -50,9 +50,14 @@ test("task help chat is a scrollable dark placeholder with voice control", async
     assert.match(source, /aria-label="Голосовая связь"/u);
     assert.match(source, /<span aria-hidden="true">🔊<\/span>/u);
     assert.match(source, /Отправка будет доступна после подключения справки/u);
+    assert.ok(
+        source.indexOf('class="task-help-chat"')
+        < source.indexOf('class="task-help-topics"'),
+        "chat must be above the topic list",
+    );
     assert.match(
         styles,
-        /\.task-help-panel\s*\{[^}]*grid-template-rows:\s*minmax\(0, 1fr\) minmax\(0, 2fr\);/su,
+        /\.task-help-panel\s*\{[^}]*grid-template-rows:\s*minmax\(240px, 3fr\) minmax\(160px, 2fr\);[^}]*gap:\s*10px;[^}]*padding:\s*20px;/su,
     );
     assert.match(
         styles,

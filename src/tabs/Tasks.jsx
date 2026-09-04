@@ -385,22 +385,6 @@ export function Tasks(props) {
         </div>
       </div>
       <aside class="task-help-panel" aria-label="Справка">
-        <nav class="task-help-topics" aria-label="Темы справки">
-          {HELP_TOPICS.map((topic) => (
-            <button
-              type="button"
-              classList={{
-                "task-help-topic": true,
-                selected: selectedHelpTopic() === topic,
-              }}
-              aria-pressed={selectedHelpTopic() === topic}
-              onClick={() => setSelectedHelpTopic(topic)}
-            >
-              {topic}
-            </button>
-          ))}
-        </nav>
-
         <section class="task-help-chat" aria-label="Чат справки">
           <div
             class="task-help-chat-messages"
@@ -447,6 +431,22 @@ export function Tasks(props) {
             </button>
           </div>
         </section>
+
+        <nav class="task-help-topics" aria-label="Темы справки">
+          {HELP_TOPICS.map((topic) => (
+            <button
+              type="button"
+              classList={{
+                "task-help-topic": true,
+                selected: selectedHelpTopic() === topic,
+              }}
+              aria-pressed={selectedHelpTopic() === topic}
+              onClick={() => setSelectedHelpTopic(topic)}
+            >
+              {topic}
+            </button>
+          ))}
+        </nav>
       </aside>
 
       <dialog
