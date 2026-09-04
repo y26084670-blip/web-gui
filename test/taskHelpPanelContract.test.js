@@ -19,6 +19,9 @@ const HELP_TOPICS = [
     "Как найти/исправить ошибки/неточности",
     "Как осмотреть работу",
     "Как сохранить работу",
+    "Как запустить расчет",
+    "Как посмотреть результаты в 3D",
+    "Как посмотреть результаты в протоколах",
     "Как затребовать нужное, но отсутствующее",
     "Как перестать пользоваться всем этим",
 ];
@@ -36,6 +39,13 @@ test("task help panel exposes the approved topics and selected state", async () 
     assert.match(source, /class="task-help-topics" aria-label="Темы справки"/u);
     assert.match(source, /onClick=\{\(\) => setSelectedHelpTopic\(topic\)\}/u);
     assert.match(source, /aria-pressed=\{selectedHelpTopic\(\) === topic\}/u);
+    const saveIndex = source.indexOf('"Как сохранить работу"');
+    const runIndex = source.indexOf('"Как запустить расчет"');
+    const viewIndex = source.indexOf('"Как посмотреть результаты в 3D"');
+    const logsIndex = source.indexOf(
+        '"Как посмотреть результаты в протоколах"',
+    );
+    assert.ok(saveIndex < runIndex && runIndex < viewIndex && viewIndex < logsIndex);
 });
 
 test("task help chat is a scrollable dark placeholder with voice control", async () => {
