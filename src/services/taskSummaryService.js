@@ -23,6 +23,20 @@ async function hasFile(directoryHandle, fileName) {
   }
 }
 
+async function hasDirectory(directoryHandle, directoryName) {
+  try {
+    await directoryHandle.getDirectoryHandle(directoryName);
+    return true;
+  } catch (error) {
+    if (isMissingEntry(error)) return false;
+    throw error;
+  }
+}
+
+export function hasTaskResults(taskHandle) {
+  return hasDirectory(taskHandle, DIRECTORIES.OUTPUT);
+}
+
 async function readSummaryText(taskHandle) {
   let inputHandle;
   try {
@@ -43,10 +57,16 @@ async function readSummaryText(taskHandle) {
 }
 
 export async function readTaskSummary(taskHandle) {
-  const [summaryText, legacyImportAvailable] = await Promise.all([
-    readSummaryText(taskHandle),
-    hasFile(taskHandle, LEGACY_FILE_NAME),
-  ]);
+  const [summaryText, legacyImportAvailable, resultsAvailable] =
+    await Promise.all([
+      readSummaryText(taskHandle),
+      hasFile(taskHandle, LEGACY_FILE_NAME),
+      hasTaskResults(taskHandle),
+    ]);
 
-  return { summaryText, legacyImportAvailable };
+  return {
+    summaryText,
+    legacyImportAvailable,
+    resultsAvailable,
+  };
 }

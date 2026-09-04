@@ -97,6 +97,9 @@ export default function App() {
           active={props.active}
           admin={admin()}
           onReturnToEditing={props.onReturnToEditing}
+          onValidate={handleModelValidation}
+          onSave={handleSave}
+          onOpenTab={setActiveTab}
         />
       ),
       historyEnabled: false,

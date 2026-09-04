@@ -1,13 +1,15 @@
 //
 // вкладка выбора задания
 //
-import { Show, createSignal } from "solid-js";
+import { Show, createMemo, createSignal } from "solid-js";
 import { selectionService } from "../services/selectionService";
 import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
-import { DIRECTORIES } from "../services/schemas/common/constants";
+import { DIRECTORIES, TABS } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
+import { TaskAgentPanel } from "../components/agent/TaskAgentPanel.jsx";
+import { buildAgentState } from "../services/agentStateAdapter.js";
 import {
   TASK_SUMMARY_TEXT,
   readTaskSummary,
@@ -24,27 +26,8 @@ const PROJECTS_ROOT_NAME = "clark.projects";
 const EMPTY_TASK_INFO = Object.freeze({
   summaryText: "",
   legacyImportAvailable: false,
+  resultsAvailable: false,
 });
-const HELP_TOPICS = Object.freeze([
-  "Куда коня впрягать",
-  "Как установить",
-  "Как пользоваться",
-  "Как пользоваться редактором",
-  "Как выбрать/создать/удалить проект",
-  "Как выбрать/создать/удалить задачу",
-  "Как создать данные",
-  "Как импортировать данные",
-  "Как создать/исправить/удалить геометрию",
-  "Как создать/исправить/удалить свойства",
-  "Как найти/исправить ошибки/неточности",
-  "Как осмотреть работу",
-  "Как сохранить работу",
-  "Как запустить расчет",
-  "Как посмотреть результаты в 3D",
-  "Как посмотреть результаты в протоколах",
-  "Как затребовать нужное, но отсутствующее",
-  "Как перестать пользоваться всем этим",
-]);
 
 export function Tasks(props) {
   // состояние компонента
@@ -59,12 +42,13 @@ export function Tasks(props) {
   const [taskErrorMessage, setTaskErrorMessage] = createSignal("");
   const [pendingTaskLoad, setPendingTaskLoad] = createSignal(null);
   const [taskInfo, setTaskInfo] = createSignal(EMPTY_TASK_INFO);
-  const [selectedHelpTopic, setSelectedHelpTopic] = createSignal("");
 
   let taskErrorDialog;
   let taskErrorCloseButton;
   let unsavedDialog;
   let returnToEditingButton;
+  let projectSelect;
+  let taskList;
   let selectionRevision = 0;
   let taskLoadRevision = 0;
   let taskInfoRevision = 0;
@@ -216,6 +200,7 @@ export function Tasks(props) {
       setTaskInfo({
         summaryText: TASK_SUMMARY_TEXT.NO_INFORMATION,
         legacyImportAvailable: false,
+        resultsAvailable: false,
       });
     }
   };
@@ -269,6 +254,72 @@ export function Tasks(props) {
     unsavedDialog.close();
     props.onReturnToEditing?.();
   };
+
+  const taskLoaded = () =>
+    Boolean(selectedTask()?.handle)
+    && selectedTask()?.handle === loadedTaskHandle();
+
+  const agentState = createMemo(() => buildAgentState({
+    projectName: selectedProject(),
+    taskName: selectedTask()?.name ?? "",
+    taskLoaded: taskLoaded(),
+    model: modelService.getModel(),
+    diagnostics: diagnosticService.diagnostics(),
+    validationChecked: diagnosticService.modelValidationChecked(),
+    dirty: unsavedChangesService.hasDirty(),
+    resultsExists: taskLoaded() && taskInfo().resultsAvailable,
+  }));
+
+  const canExecuteAgentAction = (actionId) => {
+    switch (actionId) {
+      case "select_project":
+        return true;
+      case "select_task":
+        return Boolean(selectedProject());
+      case "load_task":
+        return Boolean(selectedTask()) && !taskLoaded();
+      case "create_data":
+      case "open_geometry":
+      case "open_properties":
+      case "validate_model":
+      case "open_validation":
+      case "save_task":
+        return Boolean(loadedTaskHandle());
+      default:
+        return false;
+    }
+  };
+
+  const handleAgentAction = async (actionId) => {
+    switch (actionId) {
+      case "select_project":
+        projectSelect?.focus();
+        return true;
+      case "select_task":
+        taskList?.focus();
+        return true;
+      case "load_task":
+        await requestTaskLoad();
+        return true;
+      case "create_data":
+        props.onOpenTab?.(TABS.GENERAL.id);
+        return true;
+      case "open_geometry":
+      case "open_properties":
+        props.onOpenTab?.(TABS.ELEMENTS.id);
+        return true;
+      case "validate_model":
+      case "open_validation":
+        await props.onValidate?.();
+        return true;
+      case "save_task":
+        await props.onSave?.();
+        return true;
+      default:
+        return false;
+    }
+  };
+
   return (
     <div
       style={{
@@ -306,6 +357,7 @@ export function Tasks(props) {
         <div class="box">
           <h4>Список проектов</h4>
           <select
+            ref={(element) => (projectSelect = element)}
             id="listProject"
             value={selectedProject()}
             onChange={handleProjectChange}
@@ -318,7 +370,12 @@ export function Tasks(props) {
         </div>
         <div>
           <h4 style="margin-bottom: 10px">Список заданий выбранного проекта</h4>
-          <div id="listTask" class="listTask">
+          <div
+            ref={(element) => (taskList = element)}
+            id="listTask"
+            class="listTask"
+            tabIndex="0"
+          >
             {tasks().map((task) => (
               <div
                 classList={{
@@ -333,10 +390,7 @@ export function Tasks(props) {
           </div>
           <button
             class="task-load-button"
-            disabled={
-              !selectedTask()
-              || selectedTask()?.handle === loadedTaskHandle()
-            }
+            disabled={!selectedTask() || taskLoaded()}
             onClick={requestTaskLoad}
           >
             <span class="task-load-label">
@@ -386,67 +440,13 @@ export function Tasks(props) {
           </Show>
         </div>
       </div>
-      <aside class="task-help-panel" aria-label="Справка">
-        <section class="task-help-chat" aria-label="Чат справки">
-          <div
-            class="task-help-chat-messages"
-            role="log"
-            aria-live="polite"
-          >
-            <Show
-              when={selectedHelpTopic()}
-              fallback={(
-                <p class="task-help-chat-placeholder">
-                  Выберите тему справки или задайте вопрос
-                </p>
-              )}
-            >
-              {(topic) => (
-                <p class="task-help-chat-topic">Тема: {topic()}</p>
-              )}
-            </Show>
-          </div>
 
-          <div class="task-help-chat-composer">
-            <textarea
-              rows="3"
-              aria-label="Вопрос справочной системе"
-              placeholder="Задайте вопрос…"
-            />
-            <button
-              type="button"
-              class="task-help-voice-button"
-              aria-label="Голосовая связь"
-              title="Голосовая связь"
-            >
-              <span aria-hidden="true">🔊</span>
-            </button>
-            <button
-              type="button"
-              class="task-help-send-button"
-              title="Отправить вопрос"
-            >
-              Отправить
-            </button>
-          </div>
-        </section>
-
-        <nav class="task-help-topics" aria-label="Темы справки">
-          {HELP_TOPICS.map((topic) => (
-            <button
-              type="button"
-              classList={{
-                "task-help-topic": true,
-                selected: selectedHelpTopic() === topic,
-              }}
-              aria-pressed={selectedHelpTopic() === topic}
-              onClick={() => setSelectedHelpTopic(topic)}
-            >
-              {topic}
-            </button>
-          ))}
-        </nav>
-      </aside>
+      <TaskAgentPanel
+        state={agentState()}
+        diagnostics={diagnosticService.diagnostics()}
+        canExecuteAction={canExecuteAgentAction}
+        onAction={handleAgentAction}
+      />
 
       <dialog
         class="task-load-error-dialog"

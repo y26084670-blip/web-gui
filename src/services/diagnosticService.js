@@ -37,6 +37,9 @@ const validationLevel = () => {
         : VALIDATION_LEVELS.UNKNOWN;
 };
 
+// Агент различает загрузочную диагностику и подтверждённую ручную проверку.
+const modelValidationChecked = () => modelDiagnostics().length > 0;
+
 function clearDiagnostics() {
     setModelDiagnostics([]);
 }
@@ -66,6 +69,7 @@ function clearLoadResult() {
 
 export const diagnosticService = {
     validationLevel,
+    modelValidationChecked,
     diagnostics,
 
     clearDiagnostics,

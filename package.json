@@ -7,10 +7,12 @@
     "test": "node --test",
     "assets:prepare": "node scripts/default-library-assets.mjs prepare",
     "assets:verify": "node scripts/default-library-assets.mjs verify",
-    "dev": "npm run assets:prepare && vite",
-    "build": "npm run assets:prepare && vite build && npm run assets:verify",
-    "build:release": "npm run assets:prepare && vite build --mode production && npm run assets:verify",
-    "build:pages": "npm run assets:prepare && vite build --mode production --base=/web-gui/ && npm run assets:verify",
+    "agent:prepare": "node scripts/agent-assets.mjs prepare",
+    "agent:verify": "node scripts/agent-assets.mjs verify",
+    "dev": "npm run assets:prepare && npm run agent:prepare && vite",
+    "build": "npm run assets:prepare && npm run agent:prepare && vite build && npm run assets:verify && npm run agent:verify",
+    "build:release": "npm run assets:prepare && npm run agent:prepare && vite build --mode production && npm run assets:verify && npm run agent:verify",
+    "build:pages": "npm run assets:prepare && npm run agent:prepare && vite build --mode production --base=/web-gui/ && npm run assets:verify && npm run agent:verify",
     "preview": "vite preview"
   },
   "dependencies": {
