@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -21,6 +22,20 @@ const tableBuilderPath = new URL(
     "../src/tabulator/builders/TableBuilder.js",
     import.meta.url,
 );
+const mirrorImagePaths = Object.freeze([
+    Object.freeze({
+        url: new URL("../resource/-1.png", import.meta.url),
+        sha256: "44cd41d0688441469dfd87ee1ca1f3aaaa4c5830fec4220e8b49a29e2b703cba",
+    }),
+    Object.freeze({
+        url: new URL("../resource/0.png", import.meta.url),
+        sha256: "49600375e02f2c6cacbdad5e22adc6efe1fa0362208de600b1decf8e1e4af723",
+    }),
+    Object.freeze({
+        url: new URL("../resource/+1.png", import.meta.url),
+        sha256: "8e211b2adbcbf53e2facccb41b76b97afa8e0e3dc3ac09f9d49f50cae21ccd3b",
+    }),
+]);
 
 test("material model labels expose the supported choices", () => {
     assert.equal(EN_MODEL[0].label, "ФММ M(H)");
@@ -67,6 +82,14 @@ test("mirror symmetry uses image values with one white tooltip", async () => {
         styles,
         /\.tabulator-tooltip\.image-enum-tooltip\s*\{[^}]*background:\s*#fff;[^}]*color:\s*#111;/su,
     );
+});
+
+test("mirror symmetry uses the updated image assets", async () => {
+    for (const image of mirrorImagePaths) {
+        const bytes = await readFile(image.url);
+        const digest = createHash("sha256").update(bytes).digest("hex");
+        assert.equal(digest, image.sha256);
+    }
 });
 
 test("Tabulator tooltips use the enlarged bold font", async () => {

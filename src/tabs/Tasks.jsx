@@ -25,6 +25,24 @@ const EMPTY_TASK_INFO = Object.freeze({
   summaryText: "",
   legacyImportAvailable: false,
 });
+const HELP_TOPICS = Object.freeze([
+  "Куда коня впрягать",
+  "Как установить",
+  "Как пользоваться",
+  "Как пользоваться редактором",
+  "Как выбрать/создать/удалить проект",
+  "Как выбрать/создать/удалить задачу",
+  "Как создать данные",
+  "Как импортировать данные",
+  "Как создать/исправить/удалить геометрию",
+  "Как создать/исправить/удалить свойства",
+  "Как добавить/исправить/удалить свойства",
+  "Как найти/исправить ошибки/неточности",
+  "Как осмотреть работу",
+  "Как сохранить работу",
+  "Как затребовать нужное, но отсутствующее",
+  "Как перестать пользоваться всем этим",
+]);
 
 export function Tasks(props) {
   // состояние компонента
@@ -39,6 +57,7 @@ export function Tasks(props) {
   const [taskErrorMessage, setTaskErrorMessage] = createSignal("");
   const [pendingTaskLoad, setPendingTaskLoad] = createSignal(null);
   const [taskInfo, setTaskInfo] = createSignal(EMPTY_TASK_INFO);
+  const [selectedHelpTopic, setSelectedHelpTopic] = createSignal("");
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -365,15 +384,70 @@ export function Tasks(props) {
           </Show>
         </div>
       </div>
-      <div
-        style={{
-          border: "3px solid #161414",
-          padding: "20px",
-          background: "lightgray",
-        }}
-      >
-        <h4> Третья ячейка 1 (пустая) </h4>
-      </div>
+      <aside class="task-help-panel" aria-label="Справка">
+        <nav class="task-help-topics" aria-label="Темы справки">
+          {HELP_TOPICS.map((topic) => (
+            <button
+              type="button"
+              classList={{
+                "task-help-topic": true,
+                selected: selectedHelpTopic() === topic,
+              }}
+              aria-pressed={selectedHelpTopic() === topic}
+              onClick={() => setSelectedHelpTopic(topic)}
+            >
+              {topic}
+            </button>
+          ))}
+        </nav>
+
+        <section class="task-help-chat" aria-label="Чат справки">
+          <div
+            class="task-help-chat-messages"
+            role="log"
+            aria-live="polite"
+          >
+            <Show
+              when={selectedHelpTopic()}
+              fallback={(
+                <p class="task-help-chat-placeholder">
+                  Выберите тему справки или задайте вопрос
+                </p>
+              )}
+            >
+              {(topic) => (
+                <p class="task-help-chat-topic">Тема: {topic()}</p>
+              )}
+            </Show>
+          </div>
+
+          <div class="task-help-chat-composer">
+            <textarea
+              rows="2"
+              aria-label="Вопрос справочной системе"
+              placeholder="Задайте вопрос…"
+              disabled
+            />
+            <button
+              type="button"
+              class="task-help-voice-button"
+              aria-label="Голосовая связь"
+              title="Голосовая связь будет доступна после подключения справки"
+              disabled
+            >
+              <span aria-hidden="true">🔊</span>
+            </button>
+            <button
+              type="button"
+              class="task-help-send-button"
+              title="Отправка будет доступна после подключения справки"
+              disabled
+            >
+              Отправить
+            </button>
+          </div>
+        </section>
+      </aside>
 
       <dialog
         class="task-load-error-dialog"

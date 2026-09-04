@@ -40,11 +40,15 @@ test("task bar opens geometry viewer only for a loaded task", async () => {
     assert.match(source, /Закрыть 3D-просмотр геометрии/u);
     assert.match(
         styles,
-        /\.geometry-button\s*\{[^}]*color:\s*#ffd600;[^}]*background:\s*#1565c0;[^}]*font-weight:\s*700;/su,
+        /\.geometry-button\s*\{[^}]*height:\s*26px;[^}]*color:\s*#fff;[^}]*background:\s*#2563eb;[^}]*font-weight:\s*700;/su,
     );
     assert.match(
         styles,
-        /\.geometry-button:hover:not\(:disabled\),\s*\.geometry-button\[aria-pressed="true"\]\s*\{[^}]*background:\s*#0d47a1;/su,
+        /\.geometry-button:hover:not\(:disabled\),\s*\.geometry-button\[aria-pressed="true"\]\s*\{[^}]*background:\s*#1d4ed8;/su,
+    );
+    assert.match(
+        styles,
+        /\.task-info-path\s*\{[^}]*font-size:\s*15px;/su,
     );
 });
 
@@ -91,7 +95,7 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(source, /import packageMetadata from "\.\.\/package\.json";/u);
     assert.equal(
         JSON.parse(await readFile(packageUrl, "utf8")).version,
-        "0.9.0",
+        "0.10.0",
     );
     assert.match(source, /class="about-curator-stack"/u);
     assert.match(

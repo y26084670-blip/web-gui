@@ -20,6 +20,7 @@
     flex: 1;
     min-width: 0;
     font-family: monospace;
+    font-size: 15px;
 }
 
 .task-info-path-value,
@@ -72,20 +73,21 @@
 
 .geometry-button {
     flex: 0 0 auto;
+    box-sizing: border-box;
+    height: 26px;
     min-width: 38px;
     padding: 3px 8px;
-    border: 1px solid #0d47a1;
-    border-radius: 3px;
-    color: #ffd600;
-    background: #1565c0;
+    border: 0;
+    border-radius: 6px;
+    color: #fff;
+    background: #2563eb;
     font-weight: 700;
     cursor: pointer;
 }
 
 .geometry-button:hover:not(:disabled),
 .geometry-button[aria-pressed="true"] {
-    border-color: #082f73;
-    background: #0d47a1;
+    background: #1d4ed8;
 }
 
 .geometry-button:disabled {

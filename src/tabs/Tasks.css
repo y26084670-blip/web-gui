@@ -243,6 +243,124 @@ button:hover {
   line-height: 1.4;
 }
 
+.task-help-panel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 8px;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px;
+  overflow: hidden;
+  border: 3px solid #161414;
+  background: lightgray;
+}
+
+.task-help-topics {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid #8a8a8a;
+  border-radius: 4px;
+  background: #f5f5f5;
+}
+
+.task-help-topic {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 3px;
+  color: #111;
+  background: transparent;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.task-help-topic:hover,
+.task-help-topic:focus-visible {
+  background: #d7e5f7;
+}
+
+.task-help-topic.selected {
+  background: #bcd4f4;
+}
+
+.task-help-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #596773;
+  border-radius: 4px;
+  background: #20262d;
+  color: #edf2f7;
+}
+
+.task-help-chat-messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.task-help-chat-placeholder,
+.task-help-chat-topic {
+  margin: 0;
+}
+
+.task-help-chat-placeholder {
+  color: #aeb8c2;
+}
+
+.task-help-chat-topic {
+  font-weight: 700;
+}
+
+.task-help-chat-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px auto;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 8px;
+  border-top: 1px solid #596773;
+}
+
+.task-help-chat-composer textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  resize: none;
+  border: 1px solid #7d8994;
+  border-radius: 4px;
+  background: #11171d;
+  color: #edf2f7;
+  font-size: 16px;
+}
+
+.task-help-chat-composer button {
+  align-self: stretch;
+  height: auto;
+  padding: 4px 9px;
+}
+
+.task-help-voice-button {
+  min-width: 42px;
+  font-size: 20px;
+}
+
+.task-help-chat-composer textarea:disabled,
+.task-help-chat-composer button:disabled {
+  opacity: .65;
+  cursor: default;
+}
+
 .task-legacy-import {
   flex: 0 0 auto;
   color: #000;
