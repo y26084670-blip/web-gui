@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
     GEOMETRY_CAMERA_COMMANDS,
+    geometryCameraCommandFromKeyboardEvent,
     geometryCameraFrame,
+    isGeometryCameraShortcutTarget,
     normalizeGeometryCameraCommand,
 } from "../src/services/visualization/geometryCameraView.js";
 
@@ -97,4 +99,48 @@ test("camera frames are independent mutable values for Three.js consumers", () =
             up: [0, 0, 1],
         },
     );
+});
+
+test("camera keyboard shortcuts map plain axes and Ctrl axes", () => {
+    assert.equal(
+        geometryCameraCommandFromKeyboardEvent({ key: "A" }),
+        GEOMETRY_CAMERA_COMMANDS.FIT_ALL,
+    );
+
+    for (const [key, positive, negative] of [
+        ["x", "VIEW_POSITIVE_X", "VIEW_NEGATIVE_X"],
+        ["Y", "VIEW_POSITIVE_Y", "VIEW_NEGATIVE_Y"],
+        ["z", "VIEW_POSITIVE_Z", "VIEW_NEGATIVE_Z"],
+    ]) {
+        assert.equal(
+            geometryCameraCommandFromKeyboardEvent({ key }),
+            GEOMETRY_CAMERA_COMMANDS[positive],
+        );
+        assert.equal(
+            geometryCameraCommandFromKeyboardEvent({ key, ctrlKey: true }),
+            GEOMETRY_CAMERA_COMMANDS[negative],
+        );
+    }
+});
+
+test("camera shortcuts ignore modifier conflicts and editable controls", () => {
+    for (const event of [
+        { key: "a", ctrlKey: true },
+        { key: "x", altKey: true },
+        { key: "y", metaKey: true },
+        { key: "z", shiftKey: true },
+        { key: "q" },
+        null,
+    ]) {
+        assert.equal(geometryCameraCommandFromKeyboardEvent(event), null);
+    }
+
+    for (const tagName of ["INPUT", "SELECT", "TEXTAREA"]) {
+        assert.equal(isGeometryCameraShortcutTarget({ tagName }), false);
+    }
+    assert.equal(
+        isGeometryCameraShortcutTarget({ tagName: "DIV", isContentEditable: true }),
+        false,
+    );
+    assert.equal(isGeometryCameraShortcutTarget({ tagName: "CANVAS" }), true);
 });

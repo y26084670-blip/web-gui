@@ -839,11 +839,25 @@ function worldUnitsPerPixel(camera, target, viewportHeight) {
   return 2 * distance * Math.tan(verticalFov / 2) / height;
 }
 
-function fitCameraToBounds(THREE, camera, controls, bounds, targetOverride) {
+function normalizeFramePadding(value) {
+  return Number.isFinite(value) && value >= 1
+    ? value
+    : CAMERA_FRAME_PADDING;
+}
+
+function fitCameraToBounds(
+  THREE,
+  camera,
+  controls,
+  bounds,
+  targetOverride,
+  framePadding,
+) {
   if (!bounds || bounds.isEmpty()) return false;
 
   const sphere = bounds.getBoundingSphere(new THREE.Sphere());
   const target = targetOverride?.clone?.() ?? sphere.center;
+  const padding = normalizeFramePadding(framePadding);
   const radius = Math.max(
     sphere.radius + sphere.center.distanceTo(target),
     1e-6,
@@ -855,7 +869,7 @@ function fitCameraToBounds(THREE, camera, controls, bounds, targetOverride) {
       (camera.right - camera.left) / (camera.top - camera.bottom),
       1e-6,
     );
-    const halfHeight = CAMERA_FRAME_PADDING * radius * Math.max(1, 1 / aspect);
+    const halfHeight = padding * radius * Math.max(1, 1 / aspect);
     camera.left = -halfHeight * aspect;
     camera.right = halfHeight * aspect;
     camera.top = halfHeight;
@@ -867,7 +881,7 @@ function fitCameraToBounds(THREE, camera, controls, bounds, targetOverride) {
     const horizontalFov = 2 * Math.atan(
       Math.tan(verticalFov / 2) * camera.aspect,
     );
-    distance = CAMERA_FRAME_PADDING * Math.max(
+    distance = padding * Math.max(
       radius / Math.tan(verticalFov / 2),
       radius / Math.tan(Math.max(horizontalFov, 1e-6) / 2),
     );
@@ -1678,7 +1692,14 @@ export function ThreeGeometryViewport(props) {
 
   const fitAll = () => {
     if (!ready() || !currentBounds) return;
-    fitCameraToBounds(THREE, camera, controls, currentBounds);
+    fitCameraToBounds(
+      THREE,
+      camera,
+      controls,
+      currentBounds,
+      undefined,
+      props.fitAllPadding,
+    );
     requestRender();
   };
 

@@ -79,6 +79,21 @@ test("toolbar exposes option panels and transient camera commands", async () => 
   assert.match(source, /sequence:\s*\(previous\?\.sequence \?\? 0\) \+ 1/u);
   assert.match(source, /closePanel\(true\)/u);
   assert.match(source, /setViewRequest\(null\)/u);
+  assert.match(source, /tabIndex="0"/u);
+  assert.match(source, /geometryCameraCommandFromKeyboardEvent\(event\)/u);
+  assert.match(source, /isGeometryCameraShortcutTarget\(event\.target\)/u);
+  assert.match(source, /fitAllPadding=\{FLOATING_FIT_ALL_PADDING\}/u);
+  for (const shortcut of [
+    "A",
+    "X",
+    "Ctrl-X",
+    "Y",
+    "Ctrl-Y",
+    "Z",
+    "Ctrl-Z",
+  ]) {
+    assert.match(source, new RegExp(`title="или нажмите ${shortcut}"`, "u"));
+  }
   assert.doesNotMatch(source, /aria-label="Детализация геометрии"/u);
   assert.doesNotMatch(source, /aria-label="Тип проекции"/u);
 
@@ -236,6 +251,8 @@ test("Three viewport uses tight framing and supports persistent preview fitting"
   const source = await readFile(viewportUrl, "utf8");
 
   assert.match(source, /CAMERA_FRAME_PADDING = 1\.08/u);
+  assert.match(source, /const padding = normalizeFramePadding\(framePadding\)/u);
+  assert.match(source, /props\.fitAllPadding/u);
   assert.match(
     source,
     /props\.autoFit === true[\s\S]*?fitCameraToBounds\(THREE, camera, controls, currentBounds\);/u,

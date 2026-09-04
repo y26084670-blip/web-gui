@@ -208,6 +208,15 @@ button:hover {
   background: #141a20;
 }
 
+.task-geometry-preview:focus {
+  outline: none;
+}
+
+.task-geometry-preview:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
 .task-geometry-preview-overlay {
   position: absolute;
   inset: 0;
@@ -345,20 +354,14 @@ button:hover {
 }
 
 .task-help-chat-composer button {
-  align-self: stretch;
-  height: auto;
-  padding: 4px 9px;
+  align-self: center;
+  height: 34px;
+  padding: 2px 9px;
 }
 
 .task-help-voice-button {
-  min-width: 42px;
-  font-size: 20px;
-}
-
-.task-help-chat-composer textarea:disabled,
-.task-help-chat-composer button:disabled {
-  opacity: .65;
-  cursor: default;
+  min-width: 38px;
+  font-size: 18px;
 }
 
 .task-legacy-import {

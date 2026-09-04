@@ -1,6 +1,10 @@
 import { Show, createEffect, createSignal, onCleanup } from "solid-js";
 
 import { loadTaskGeometryPreview } from "../../services/taskGeometryPreviewService.js";
+import {
+  geometryCameraCommandFromKeyboardEvent,
+  isGeometryCameraShortcutTarget,
+} from "../../services/visualization/geometryCameraView.js";
 import { buildGeometryScene } from "../../services/visualization/geometrySceneModel.js";
 import { ThreeGeometryViewport } from "./ThreeGeometryViewport.jsx";
 import "./GeometryViewerWindow.css";
@@ -26,7 +30,24 @@ export function TaskGeometryPreview(props) {
   const [scene, setScene] = createSignal(null);
   const [loading, setLoading] = createSignal(false);
   const [message, setMessage] = createSignal("Выберите задание для просмотра");
+  const [viewRequest, setViewRequest] = createSignal(null);
+  let previewElement;
   let loadRevision = 0;
+
+  const requestView = (command) => {
+    setViewRequest((previous) => ({
+      command,
+      sequence: (previous?.sequence ?? 0) + 1,
+    }));
+  };
+
+  const handleKeyDown = (event) => {
+    if (!isGeometryCameraShortcutTarget(event.target)) return;
+    const command = geometryCameraCommandFromKeyboardEvent(event);
+    if (!command) return;
+    event.preventDefault();
+    requestView(command);
+  };
 
   createEffect(() => {
     const taskHandle = props.taskHandle;
@@ -34,6 +55,7 @@ export function TaskGeometryPreview(props) {
     const revision = ++loadRevision;
 
     setScene(null);
+    setViewRequest(null);
     setLoading(false);
     setMessage(taskHandle ? "" : "Выберите задание для просмотра");
     if (!taskHandle || !active) return;
@@ -71,9 +93,17 @@ export function TaskGeometryPreview(props) {
 
   return (
     <section
+      ref={(element) => (previewElement = element)}
       class="task-geometry-preview"
       aria-label="Предварительный просмотр геометрии выбранного задания"
       aria-busy={loading()}
+      tabIndex="0"
+      onPointerDown={(event) => {
+        if (isGeometryCameraShortcutTarget(event.target)) {
+          previewElement?.focus({ preventScroll: true });
+        }
+      }}
+      onKeyDown={handleKeyDown}
     >
       <Show when={scene()} keyed>
         {(sceneModel) => (
@@ -87,6 +117,7 @@ export function TaskGeometryPreview(props) {
             showCentersAndNodes={false}
             projection="orthographic"
             autoFit={true}
+            viewRequest={viewRequest()}
           />
         )}
       </Show>

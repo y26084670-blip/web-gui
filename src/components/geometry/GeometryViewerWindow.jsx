@@ -8,7 +8,11 @@ import {
 } from "solid-js";
 
 import { buildGeometryScene } from "../../services/visualization/geometrySceneModel.js";
-import { GEOMETRY_CAMERA_COMMANDS } from "../../services/visualization/geometryCameraView.js";
+import {
+  GEOMETRY_CAMERA_COMMANDS,
+  geometryCameraCommandFromKeyboardEvent,
+  isGeometryCameraShortcutTarget,
+} from "../../services/visualization/geometryCameraView.js";
 import { FloatingWindow } from "../window/FloatingWindow.jsx";
 import {
   GEOMETRY_INSTANCE_BUDGET,
@@ -54,6 +58,7 @@ const OBJECT_MODE_LABELS = Object.freeze({
 });
 
 const OPTIONS_PANEL_ID = "geometry-viewer-options-panel";
+const FLOATING_FIT_ALL_PADDING = 1 + 0.08 / 3;
 
 function diagnosticDetail(diagnostic) {
   if (typeof diagnostic === "string") return diagnostic;
@@ -190,18 +195,26 @@ export function GeometryViewerWindow(props) {
     if (restoreFocus) activePanelButton?.focus();
   };
 
-  const handlePanelKeyDown = (event) => {
-    if (event.key !== "Escape") return;
-    event.preventDefault();
-    closePanel(true);
-  };
-
-  const requestView = (command) => {
+  const requestView = (command, restoreFocus = false) => {
     setViewRequest((previous) => ({
       command,
       sequence: (previous?.sequence ?? 0) + 1,
     }));
-    closePanel(true);
+    closePanel(restoreFocus);
+  };
+
+  const handleViewerKeyDown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePanel(true);
+      return;
+    }
+
+    if (!isGeometryCameraShortcutTarget(event.target)) return;
+    const command = geometryCameraCommandFromKeyboardEvent(event);
+    if (!command) return;
+    event.preventDefault();
+    requestView(command);
   };
 
   onCleanup(() => viewerResizeObserver?.disconnect());
@@ -246,7 +259,13 @@ export function GeometryViewerWindow(props) {
       <section
         ref={setViewerElement}
         class="geometry-viewer-window"
-        onKeyDown={handlePanelKeyDown}
+        tabIndex="0"
+        onPointerDown={(event) => {
+          if (isGeometryCameraShortcutTarget(event.target)) {
+            viewerElement?.focus({ preventScroll: true });
+          }
+        }}
+        onKeyDown={handleViewerKeyDown}
       >
         <div
           ref={(element) => (toolbarElement = element)}
@@ -363,15 +382,21 @@ export function GeometryViewerWindow(props) {
               <button
                 type="button"
                 class="geometry-viewer-view-command"
-                onClick={() => requestView(GEOMETRY_CAMERA_COMMANDS.FIT_ALL)}
+                title="или нажмите A"
+                onClick={() => requestView(
+                  GEOMETRY_CAMERA_COMMANDS.FIT_ALL,
+                  true,
+                )}
               >
                 Показать все
               </button>
               <button
                 type="button"
                 class="geometry-viewer-view-command"
+                title="или нажмите X"
                 onClick={() => requestView(
                   GEOMETRY_CAMERA_COMMANDS.VIEW_POSITIVE_X,
+                  true,
                 )}
               >
                 вид по X
@@ -379,8 +404,10 @@ export function GeometryViewerWindow(props) {
               <button
                 type="button"
                 class="geometry-viewer-view-command"
+                title="или нажмите Ctrl-X"
                 onClick={() => requestView(
                   GEOMETRY_CAMERA_COMMANDS.VIEW_NEGATIVE_X,
+                  true,
                 )}
               >
                 вид против X
@@ -388,8 +415,10 @@ export function GeometryViewerWindow(props) {
               <button
                 type="button"
                 class="geometry-viewer-view-command"
+                title="или нажмите Y"
                 onClick={() => requestView(
                   GEOMETRY_CAMERA_COMMANDS.VIEW_POSITIVE_Y,
+                  true,
                 )}
               >
                 вид по Y
@@ -397,8 +426,10 @@ export function GeometryViewerWindow(props) {
               <button
                 type="button"
                 class="geometry-viewer-view-command"
+                title="или нажмите Ctrl-Y"
                 onClick={() => requestView(
                   GEOMETRY_CAMERA_COMMANDS.VIEW_NEGATIVE_Y,
+                  true,
                 )}
               >
                 вид против Y
@@ -406,8 +437,10 @@ export function GeometryViewerWindow(props) {
               <button
                 type="button"
                 class="geometry-viewer-view-command"
+                title="или нажмите Z"
                 onClick={() => requestView(
                   GEOMETRY_CAMERA_COMMANDS.VIEW_POSITIVE_Z,
+                  true,
                 )}
               >
                 вид по Z
@@ -415,8 +448,10 @@ export function GeometryViewerWindow(props) {
               <button
                 type="button"
                 class="geometry-viewer-view-command"
+                title="или нажмите Ctrl-Z"
                 onClick={() => requestView(
                   GEOMETRY_CAMERA_COMMANDS.VIEW_NEGATIVE_Z,
+                  true,
                 )}
               >
                 вид против Z
@@ -599,6 +634,7 @@ export function GeometryViewerWindow(props) {
             showCentersAndNodes={showCentersAndNodes()}
             projection={orthographicView() ? "orthographic" : "perspective"}
             viewRequest={viewRequest()}
+            fitAllPadding={FLOATING_FIT_ALL_PADDING}
             instanceBudget={GEOMETRY_INSTANCE_BUDGET}
             onRenderStats={setRenderStats}
             onError={setViewportError}

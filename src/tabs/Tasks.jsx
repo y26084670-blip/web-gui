@@ -36,7 +36,6 @@ const HELP_TOPICS = Object.freeze([
   "Как импортировать данные",
   "Как создать/исправить/удалить геометрию",
   "Как создать/исправить/удалить свойства",
-  "Как добавить/исправить/удалить свойства",
   "Как найти/исправить ошибки/неточности",
   "Как осмотреть работу",
   "Как сохранить работу",
@@ -407,25 +406,22 @@ export function Tasks(props) {
 
           <div class="task-help-chat-composer">
             <textarea
-              rows="2"
+              rows="3"
               aria-label="Вопрос справочной системе"
               placeholder="Задайте вопрос…"
-              disabled
             />
             <button
               type="button"
               class="task-help-voice-button"
               aria-label="Голосовая связь"
-              title="Голосовая связь будет доступна после подключения справки"
-              disabled
+              title="Голосовая связь"
             >
               <span aria-hidden="true">🔊</span>
             </button>
             <button
               type="button"
               class="task-help-send-button"
-              title="Отправка будет доступна после подключения справки"
-              disabled
+              title="Отправить вопрос"
             >
               Отправить
             </button>

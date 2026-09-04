@@ -16,7 +16,6 @@ const HELP_TOPICS = [
     "Как импортировать данные",
     "Как создать/исправить/удалить геометрию",
     "Как создать/исправить/удалить свойства",
-    "Как добавить/исправить/удалить свойства",
     "Как найти/исправить ошибки/неточности",
     "Как осмотреть работу",
     "Как сохранить работу",
@@ -30,6 +29,7 @@ test("task help panel exposes the approved topics and selected state", async () 
     for (const topic of HELP_TOPICS) {
         assert.ok(source.includes(`"${topic}"`), `missing topic: ${topic}`);
     }
+    assert.doesNotMatch(source, /Как добавить\/исправить\/удалить свойства/u);
     assert.match(source, /const HELP_TOPICS = Object\.freeze/u);
     assert.match(source, /const \[selectedHelpTopic, setSelectedHelpTopic\]/u);
     assert.match(source, /class="task-help-panel" aria-label="Справка"/u);
@@ -49,7 +49,13 @@ test("task help chat is a scrollable dark placeholder with voice control", async
     assert.match(source, /role="log"/u);
     assert.match(source, /aria-label="Голосовая связь"/u);
     assert.match(source, /<span aria-hidden="true">🔊<\/span>/u);
-    assert.match(source, /Отправка будет доступна после подключения справки/u);
+    assert.match(source, /rows="3"/u);
+    const composerStart = source.indexOf('class="task-help-chat-composer"');
+    const composerEnd = source.indexOf("</div>", composerStart);
+    const composer = source.slice(composerStart, composerEnd);
+    assert.doesNotMatch(composer, /disabled/u);
+    assert.match(source, /title="Голосовая связь"/u);
+    assert.match(source, /title="Отправить вопрос"/u);
     assert.ok(
         source.indexOf('class="task-help-chat"')
         < source.indexOf('class="task-help-topics"'),
@@ -70,5 +76,9 @@ test("task help chat is a scrollable dark placeholder with voice control", async
     assert.match(
         styles,
         /\.task-help-chat-messages\s*\{[^}]*overflow-y:\s*auto;[^}]*font-size:\s*18px;/su,
+    );
+    assert.match(
+        styles,
+        /\.task-help-chat-composer button\s*\{[^}]*align-self:\s*center;[^}]*height:\s*34px;/su,
     );
 });
