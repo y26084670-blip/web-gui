@@ -191,6 +191,35 @@ button:hover {
 }
 
 .task-summary-panel {
+  display: grid;
+  grid-template-rows: minmax(240px, 3fr) minmax(160px, 2fr);
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.task-geometry-preview {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #596773;
+  border-radius: 4px;
+  background: #141a20;
+}
+
+.task-geometry-preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: #dce5ec;
+  text-align: center;
+  pointer-events: none;
+}
+
+.task-summary-content {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -202,7 +231,7 @@ button:hover {
   box-sizing: border-box;
   width: 100%;
   flex: 1 1 auto;
-  min-height: 160px;
+  min-height: 0;
   padding: 10px;
   resize: none;
   border: 1px solid #888;
@@ -253,13 +282,26 @@ button:hover {
 
 .task-load-label {
   position: relative;
-  display: inline-block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+}
+
+.task-load-leading,
+.task-load-trailing {
+  align-self: stretch;
+  min-width: 0;
+}
+
+.task-load-leading {
+  position: relative;
 }
 
 .task-load-confirmation {
   position: absolute;
   top: 50%;
-  right: calc(100% + 10px);
+  right: 33.333%;
   color: #ffd600;
   font-size: 22px;
   font-weight: 900;

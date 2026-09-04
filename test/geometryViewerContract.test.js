@@ -232,6 +232,17 @@ test("Three viewport switches orthographic and perspective cameras", async () =>
   assert.match(source, /fitCameraToBounds\(THREE, camera, controls, currentBounds\)/u);
 });
 
+test("Three viewport uses tight framing and supports persistent preview fitting", async () => {
+  const source = await readFile(viewportUrl, "utf8");
+
+  assert.match(source, /CAMERA_FRAME_PADDING = 1\.08/u);
+  assert.match(
+    source,
+    /props\.autoFit === true[\s\S]*?fitCameraToBounds\(THREE, camera, controls, currentBounds\);/u,
+  );
+  assert.match(source, /!hasFramedGeometry \|\| props\.autoFit === true/u);
+});
+
 test("Three viewport applies repeatable fixed camera-view requests", async () => {
   const source = await readFile(viewportUrl, "utf8");
 

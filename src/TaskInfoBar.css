@@ -172,6 +172,13 @@
     border-top: 1px dashed rgba(240, 244, 247, .38);
 }
 
+.about-version {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+}
+
 .about-credits {
     align-self: stretch;
     display: flex;

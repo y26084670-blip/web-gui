@@ -47,7 +47,7 @@ export const GEOMETRY_DISCRETIZATION_POINT_BUDGET =
 const INSTANCE_CATEGORIES = Object.freeze(["base", "copy", "mirror"]);
 const DEFAULT_PROJECTION = "orthographic";
 const PERSPECTIVE_FOV = 45;
-const CAMERA_FRAME_PADDING = 1.25;
+const CAMERA_FRAME_PADDING = 1.08;
 const AXES_GIZMO_SIZE = 104;
 const AXES_GIZMO_MARGIN = 8;
 const VERTEX_POINT_SIZE = 9;
@@ -1082,6 +1082,14 @@ export function ThreeGeometryViewport(props) {
     viewportHeight = Math.max(1, Math.floor(host.clientHeight));
     renderer.setSize(viewportWidth, viewportHeight, false);
     resizeCameraProjection(camera, viewportWidth / viewportHeight);
+    if (
+      props.autoFit === true
+      && controls
+      && currentBounds
+      && !currentBounds.isEmpty()
+    ) {
+      fitCameraToBounds(THREE, camera, controls, currentBounds);
+    }
     setHoverTooltip(null);
     requestRender();
   };
@@ -1638,7 +1646,7 @@ export function ThreeGeometryViewport(props) {
 
     currentBounds = new THREE.Box3().setFromObject(geometryRoot);
     if (!currentBounds.isEmpty()) {
-      if (!hasFramedGeometry) {
+      if (!hasFramedGeometry || props.autoFit === true) {
         fitCameraToBounds(THREE, camera, controls, currentBounds);
         hasFramedGeometry = true;
       }

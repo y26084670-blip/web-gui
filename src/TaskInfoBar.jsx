@@ -7,6 +7,7 @@ import {
   isFilePickerCancellation,
 } from "./services/fileSystemAccessSupport";
 import aboutIconUrl from "./assets/zaica.BMP";
+import packageMetadata from "../package.json";
 import "./TaskInfoBar.css";
 
 export function TaskInfoBar(props) {
@@ -252,6 +253,7 @@ export function TaskInfoBar(props) {
           <span>и характеристики материалов.</span>
         </p>
         <div class="about-separator" aria-hidden="true" />
+        <div class="about-version">Версия: {packageMetadata.version}</div>
         <div class="about-credits">
           <div>Разработчик: ChatGPT 5.6 Sol</div>
           <div class="about-curator-stack">

@@ -7,6 +7,7 @@ import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
+import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
 import {
   TASK_SUMMARY_TEXT,
   readTaskSummary,
@@ -318,19 +319,22 @@ export function Tasks(props) {
             onClick={requestTaskLoad}
           >
             <span class="task-load-label">
-              <Show keyed when={loadedTaskPath()}>
-                {() => (
-                  <span
-                    class="task-load-confirmation"
-                    role="status"
-                    aria-label="Задание загружено"
-                    title="Задание загружено"
-                  >
-                    ✓
-                  </span>
-                )}
-              </Show>
-              Загрузить для редактирования
+              <span class="task-load-leading">
+                <Show keyed when={loadedTaskPath()}>
+                  {() => (
+                    <span
+                      class="task-load-confirmation"
+                      role="status"
+                      aria-label="Задание загружено"
+                      title="Задание загружено"
+                    >
+                      ✓
+                    </span>
+                  )}
+                </Show>
+              </span>
+              <span class="task-load-text">Загрузить для редактирования</span>
+              <span class="task-load-trailing" aria-hidden="true" />
             </span>
           </button>
         </div>
@@ -343,17 +347,23 @@ export function Tasks(props) {
           background: "lightgray",
         }}
       >
-        <textarea
-          class="task-summary-text"
-          aria-label="Информация о выбранном задании"
-          readOnly
-          value={taskInfo().summaryText}
+        <TaskGeometryPreview
+          taskHandle={selectedTask()?.handle}
+          active={props.active}
         />
-        <Show when={taskInfo().legacyImportAvailable}>
-          <div class="task-legacy-import">
-            {TASK_SUMMARY_TEXT.LEGACY_IMPORT}
-          </div>
-        </Show>
+        <div class="task-summary-content">
+          <textarea
+            class="task-summary-text"
+            aria-label="Информация о выбранном задании"
+            readOnly
+            value={taskInfo().summaryText}
+          />
+          <Show when={taskInfo().legacyImportAvailable}>
+            <div class="task-legacy-import">
+              {TASK_SUMMARY_TEXT.LEGACY_IMPORT}
+            </div>
+          </Show>
+        </div>
       </div>
       <div
         style={{

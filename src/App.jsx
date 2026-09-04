@@ -79,6 +79,7 @@ export default function App() {
       label: "Задачи и результаты",
       component: (props) => (
         <Tasks
+          active={props.active}
           admin={admin()}
           onReturnToEditing={props.onReturnToEditing}
         />

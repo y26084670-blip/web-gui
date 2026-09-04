@@ -37,11 +37,18 @@ test("task path and confirmation use one successful-load signal", async () => {
     assert.match(source, /<Show keyed when=\{loadedTaskPath\(\)\}>/u);
     assert.doesNotMatch(source, /loadConfirmation|setLoadConfirmation/u);
     assert.match(source, /class="task-load-label"/u);
+    assert.match(source, /class="task-load-leading"/u);
+    assert.match(source, /class="task-load-text"/u);
+    assert.match(source, /class="task-load-trailing"/u);
     assert.match(source, /class="task-load-confirmation"/u);
     assert.match(source, /aria-label="Задание загружено"/u);
     assert.match(
         styles,
-        /\.task-load-confirmation\s*\{[^}]*position:\s*absolute;[^}]*right:\s*calc\(100% \+ 10px\);[^}]*color:\s*#ffd600;[^}]*font-weight:\s*900;[^}]*animation:\s*task-load-confirmation 3s/su,
+        /\.task-load-confirmation\s*\{[^}]*position:\s*absolute;[^}]*right:\s*33\.333%;[^}]*color:\s*#ffd600;[^}]*font-weight:\s*900;[^}]*animation:\s*task-load-confirmation 3s/su,
+    );
+    assert.match(
+        styles,
+        /\.task-load-label\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\);/su,
     );
     assert.match(
         styles,

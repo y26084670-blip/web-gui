@@ -5,6 +5,7 @@ import test from "node:test";
 const appUrl = new URL("../src/App.jsx", import.meta.url);
 const taskInfoBarUrl = new URL("../src/TaskInfoBar.jsx", import.meta.url);
 const taskInfoBarStylesUrl = new URL("../src/TaskInfoBar.css", import.meta.url);
+const packageUrl = new URL("../package.json", import.meta.url);
 const aboutIconUrl = new URL("../src/assets/zaica.BMP", import.meta.url);
 
 test("App hosts one global modeless geometry viewer", async () => {
@@ -72,6 +73,15 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(source, /Куратор: Кулаев Ю\./u);
     assert.match(source, /<div>2026 г\.<\/div>/u);
     assert.match(source, /class="about-separator" aria-hidden="true"/u);
+    assert.match(
+        source,
+        /class="about-separator" aria-hidden="true"[\s\S]*?class="about-version">Версия: \{packageMetadata\.version\}<\/div>/u,
+    );
+    assert.match(source, /import packageMetadata from "\.\.\/package\.json";/u);
+    assert.equal(
+        JSON.parse(await readFile(packageUrl, "utf8")).version,
+        "0.8.0",
+    );
     assert.match(source, /class="about-curator-stack"/u);
     assert.match(
         styles,
@@ -88,6 +98,10 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(
         styles,
         /\.about-separator\s*\{[^}]*border-top:\s*1px dashed rgba\(240, 244, 247, \.38\);/su,
+    );
+    assert.match(
+        styles,
+        /\.about-version\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*600;/su,
     );
     assert.match(
         styles,
