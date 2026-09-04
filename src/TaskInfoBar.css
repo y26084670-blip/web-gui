@@ -74,18 +74,18 @@
     flex: 0 0 auto;
     min-width: 38px;
     padding: 3px 8px;
-    border: 1px solid #77808a;
+    border: 1px solid #0d47a1;
     border-radius: 3px;
-    color: #17202a;
-    background: #dce7f3;
-    font-weight: 600;
+    color: #ffd600;
+    background: #1565c0;
+    font-weight: 700;
     cursor: pointer;
 }
 
 .geometry-button:hover:not(:disabled),
 .geometry-button[aria-pressed="true"] {
-    border-color: #466c91;
-    background: #bcd4ea;
+    border-color: #082f73;
+    background: #0d47a1;
 }
 
 .geometry-button:disabled {

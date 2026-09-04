@@ -36,14 +36,17 @@ export function ValidationIndicator() {
   }
 
   return (
-    <div class="validation-indicator">
+    <div
+      class="validation-indicator"
+      style={{ "--diagnostic-color": COLORS[level()] }}
+    >
       <div
         title={TOOLTIPS[level()]}
         style={{
           width: "14px",
           height: "14px",
           "border-radius": "50%",
-          "background-color": COLORS[level()],
+          "background-color": "var(--diagnostic-color)",
           border: "1px solid #666",
           "box-shadow": "0 0 0 2px white",
           cursor: "pointer",

@@ -6,6 +6,10 @@ const componentUrl = new URL(
     "../src/tabs/MaterialLibraryTab.jsx",
     import.meta.url,
 );
+const stylesUrl = new URL(
+    "../src/tabs/MaterialLibraryTab.css",
+    import.meta.url,
+);
 const appUrl = new URL("../src/App.jsx", import.meta.url);
 
 test("material tabs expose copy and FMM-only legacy import actions", async () => {
@@ -57,6 +61,29 @@ test("material tabs expose copy and FMM-only legacy import actions", async () =>
     );
     assert.match(source, /definition\.detail\.defaultHeight \?\? 360/u);
     assert.match(source, /\{ primary: true \}/u);
+});
+
+test("FMM name search keeps row selection when the filter is cleared", async () => {
+    const [source, styles] = await Promise.all([
+        readFile(componentUrl, "utf8"),
+        readFile(stylesUrl, "utf8"),
+    ]);
+
+    assert.match(source, /const \[nameFilter, setNameFilter\] = createSignal\(""\)/u);
+    assert.match(source, /<Show when=\{isFmm\}>[\s\S]*?class="material-library-search"/u);
+    assert.match(source, /placeholder="Поиск по имени"/u);
+    assert.match(source, /aria-label="Поиск характеристики ФММ по имени"/u);
+    assert.match(source, /toLocaleLowerCase\("ru-RU"\)/u);
+    assert.match(source, /\.includes\(normalized\)/u);
+    assert.match(source, /table\.setFilter\(record =>/u);
+    assert.match(source, /table\.clearFilter\(\)/u);
+    assert.match(source, /selectableRowsPersistence:\s*true/u);
+    assert.match(source, /title="Очистить поиск"/u);
+    assert.match(source, /onClick=\{clearNameFilter\}/u);
+    assert.match(
+        styles,
+        /\.material-library-search \.material-library-search-clear\s*\{[^}]*position:\s*absolute;[^}]*right:\s*3px;/su,
+    );
 });
 
 test("material tabs route side-panel history outside task BaseModel", async () => {

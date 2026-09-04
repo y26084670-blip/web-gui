@@ -28,13 +28,24 @@ test("App hosts one global modeless geometry viewer", async () => {
 });
 
 test("task bar opens geometry viewer only for a loaded task", async () => {
-    const source = await readFile(taskInfoBarUrl, "utf8");
+    const [source, styles] = await Promise.all([
+        readFile(taskInfoBarUrl, "utf8"),
+        readFile(taskInfoBarStylesUrl, "utf8"),
+    ]);
 
     assert.match(source, /class="geometry-button"/u);
     assert.match(source, /disabled=\{!props\.path\}/u);
     assert.match(source, /onClick=\{props\.onGeometryViewerToggle\}/u);
     assert.match(source, /aria-pressed=\{props\.geometryViewerOpen\}/u);
     assert.match(source, /Закрыть 3D-просмотр геометрии/u);
+    assert.match(
+        styles,
+        /\.geometry-button\s*\{[^}]*color:\s*#ffd600;[^}]*background:\s*#1565c0;[^}]*font-weight:\s*700;/su,
+    );
+    assert.match(
+        styles,
+        /\.geometry-button:hover:not\(:disabled\),\s*\.geometry-button\[aria-pressed="true"\]\s*\{[^}]*background:\s*#0d47a1;/su,
+    );
 });
 
 test("task bar exposes an always available modal about dialog", async () => {
@@ -80,7 +91,7 @@ test("task bar exposes an always available modal about dialog", async () => {
     assert.match(source, /import packageMetadata from "\.\.\/package\.json";/u);
     assert.equal(
         JSON.parse(await readFile(packageUrl, "utf8")).version,
-        "0.8.0",
+        "0.9.0",
     );
     assert.match(source, /class="about-curator-stack"/u);
     assert.match(

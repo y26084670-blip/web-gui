@@ -129,6 +129,7 @@ export function MaterialLibraryTab(props) {
   const [actionMessage, setActionMessage] = createSignal("");
   const [actionError, setActionError] = createSignal("");
   const [librarySource, setLibrarySource] = createSignal("default");
+  const [nameFilter, setNameFilter] = createSignal("");
   const [dirtyRecords, setDirtyRecords] = createSignal([]);
   const [deleteRequest, setDeleteRequest] = createSignal(null);
   const [legacyFmmStatus, setLegacyFmmStatus] = createSignal("missing");
@@ -169,6 +170,33 @@ export function MaterialLibraryTab(props) {
 
   function selectedTableRecords(rows) {
     return rows.map(row => row.getData());
+  }
+
+  function applyNameFilter(value) {
+    const normalized = String(value ?? "").trim().toLocaleLowerCase("ru-RU");
+    if (!table) return;
+
+    if (normalized === "") {
+      table.clearFilter();
+      return;
+    }
+
+    table.setFilter(record =>
+      String(record?.name ?? "")
+        .toLocaleLowerCase("ru-RU")
+        .includes(normalized)
+    );
+  }
+
+  function handleNameFilterInput(event) {
+    const value = event.currentTarget.value;
+    setNameFilter(value);
+    applyNameFilter(value);
+  }
+
+  function clearNameFilter() {
+    setNameFilter("");
+    applyNameFilter("");
   }
 
   function taskRecordKey(record) {
@@ -385,6 +413,7 @@ export function MaterialLibraryTab(props) {
       columns,
       selectableRows: true,
       selectableRowsRangeMode: "click",
+      selectableRowsPersistence: true,
     });
 
     table.on("tableBuilt", () => {
@@ -977,6 +1006,29 @@ export function MaterialLibraryTab(props) {
             <option value="task">Локальная библиотека задания</option>
           </select>
         </label>
+        <Show when={isFmm}>
+          <label class="material-library-search">
+            <span class="visually-hidden">Поиск характеристики ФММ по имени</span>
+            <input
+              type="text"
+              value={nameFilter()}
+              disabled={loading()}
+              placeholder="Поиск по имени"
+              aria-label="Поиск характеристики ФММ по имени"
+              onInput={handleNameFilterInput}
+            />
+            <button
+              type="button"
+              class="material-library-search-clear"
+              disabled={nameFilter() === ""}
+              title="Очистить поиск"
+              aria-label="Очистить поиск"
+              onClick={clearNameFilter}
+            >
+              ×
+            </button>
+          </label>
+        </Show>
         <Show when={!isTaskSource()}>
           <button
             disabled={

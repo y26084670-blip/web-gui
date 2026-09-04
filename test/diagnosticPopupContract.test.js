@@ -30,11 +30,15 @@ test("diagnostic rows expose static source labels without navigation", async () 
     ]);
 
     assert.match(source, /function diagnosticSourceLabel\(diagnostic\)/u);
+    assert.match(source, /groupDiagnostics\(diagnosticService\.diagnostics\(\)\)/u);
+    assert.match(source, /<For each=\{displayedDiagnostics\(\)\}>/u);
     assert.match(source, /TABS\.ELEMENTS\.id/u);
     assert.match(source, /TABS\.REGIONS\.id/u);
-    assert.match(source, /`Элемент №\$\{diagnostic\.row\}`/u);
-    assert.match(source, /`Область №\$\{diagnostic\.row\}`/u);
-    assert.match(source, /`Строка №\$\{diagnostic\.row\}`/u);
+    assert.match(source, /`Элемент № \$\{rows\[0\]\}`/u);
+    assert.match(source, /`Элементы № \$\{rows\.join\(", "\)\}`/u);
+    assert.match(source, /`Область № \$\{rows\[0\]\}`/u);
+    assert.match(source, /`Области № \$\{rows\.join\(", "\)\}`/u);
+    assert.match(source, /`Строка № \$\{rows\[0\]\}`/u);
     assert.match(
         source,
         /<Show when=\{diagnosticSourceLabel\(diagnostic\)\}>\s*/u,
@@ -45,6 +49,11 @@ test("diagnostic rows expose static source labels without navigation", async () 
     assert.doesNotMatch(source, /props\.onSelect/u);
     assert.doesNotMatch(styles, /diagnostic-navigation-link/u);
     assert.match(indicator, /export function ValidationIndicator\(\)/u);
+    assert.match(
+        indicator,
+        /style=\{\{ "--diagnostic-color": COLORS\[level\(\)\] \}\}/u,
+    );
+    assert.match(indicator, /"background-color": "var\(--diagnostic-color\)"/u);
     assert.match(indicator, /<DiagnosticPopup open=\{popupOpen\} \/>/u);
     assert.doesNotMatch(indicator, /onDiagnosticSelect|handleDiagnosticSelect/u);
     assert.match(taskInfo, /<ValidationIndicator \/>/u);
@@ -65,6 +74,18 @@ test("diagnostic popup scrolls the list while keeping its title visible", async 
     assert.match(
         styles,
         /\.diagnostic-popup\s*\{[^}]*max-height:\s*calc\(100vh - 48px\);/su,
+    );
+    assert.match(
+        styles,
+        /\.diagnostic-popup\s*\{[^}]*width:\s*min\(1250px, calc\(100vw - 32px\)\);/su,
+    );
+    assert.match(
+        styles,
+        /\.diagnostic-popup\s*\{[^}]*border:\s*4px solid var\(--diagnostic-color, #9e9e9e\);/su,
+    );
+    assert.match(
+        styles,
+        /\.diagnostic-popup\s*\{[^}]*font-size:\s*18px;/su,
     );
     assert.match(
         styles,

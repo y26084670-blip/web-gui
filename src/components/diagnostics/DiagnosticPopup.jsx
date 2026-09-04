@@ -1,4 +1,4 @@
-import { Show, For } from "solid-js";
+import { Show, For, createMemo } from "solid-js";
 import { diagnosticService } from "../../services/diagnosticService";
 import {
   TABS,
@@ -6,6 +6,7 @@ import {
 } from "../../services/schemas/common/constants";
 import { tabRegistry } from "../../services/tabRegistry";
 import { materialTabRegistry } from "../../services/materialTabRegistry";
+import { groupDiagnostics } from "./diagnosticGrouping.js";
 import "./DiagnosticPopup.css";
 
 const LEVEL_LABELS = {
@@ -29,6 +30,12 @@ function nonEmptyLabel(value) {
     : null;
 }
 
+function diagnosticTabId(diagnostic) {
+  return typeof diagnostic?.tab === "string"
+    ? diagnostic.tab
+    : diagnostic?.tab?.id;
+}
+
 function diagnosticPropertyLabel(diagnostic) {
   const property = diagnostic?.property;
 
@@ -41,9 +48,7 @@ function diagnosticPropertyLabel(diagnostic) {
   const propertyId = typeof property === "string"
     ? property
     : property?.id;
-  const tabId = typeof diagnostic?.tab === "string"
-    ? diagnostic.tab
-    : diagnostic?.tab?.id;
+  const tabId = diagnosticTabId(diagnostic);
   const schema = SCHEMAS_BY_TAB_ID.get(tabId);
 
   if (!schema || !nonEmptyLabel(propertyId)) return null;
@@ -53,6 +58,10 @@ function diagnosticPropertyLabel(diagnostic) {
 }
 
 export function DiagnosticPopup(props) {
+  const displayedDiagnostics = createMemo(() =>
+    groupDiagnostics(diagnosticService.diagnostics())
+  );
+
   function displayValue(value) {
     if (value === undefined || value === null) {
       return "";
@@ -66,22 +75,29 @@ export function DiagnosticPopup(props) {
   }
 
   function diagnosticSourceLabel(diagnostic) {
-    if (
-      diagnostic?.row === undefined
-      || diagnostic?.row === null
-    ) {
-      return null;
+    const rows = diagnostic?.rows ?? (
+      diagnostic?.row === undefined || diagnostic?.row === null
+        ? []
+        : [diagnostic.row]
+    );
+    if (rows.length === 0) return null;
+    const tabId = diagnosticTabId(diagnostic);
+
+    if (tabId === TABS.ELEMENTS.id) {
+      return rows.length === 1
+        ? `Элемент № ${rows[0]}`
+        : `Элементы № ${rows.join(", ")}`;
     }
 
-    if (diagnostic.tab?.id === TABS.ELEMENTS.id) {
-      return `Элемент №${diagnostic.row}`;
+    if (tabId === TABS.REGIONS.id) {
+      return rows.length === 1
+        ? `Область № ${rows[0]}`
+        : `Области № ${rows.join(", ")}`;
     }
 
-    if (diagnostic.tab?.id === TABS.REGIONS.id) {
-      return `Область №${diagnostic.row}`;
-    }
-
-    return `Строка №${diagnostic.row}`;
+    return rows.length === 1
+      ? `Строка № ${rows[0]}`
+      : `Строки № ${rows.join(", ")}`;
   }
 
   return (
@@ -90,7 +106,7 @@ export function DiagnosticPopup(props) {
         <div class="diagnostic-title">Диагностика модели</div>
 
         <div class="diagnostic-list">
-          <For each={diagnosticService.diagnostics()}>
+          <For each={displayedDiagnostics()}>
             {(diagnostic) => (
               <div class="diagnostic-item">
                 <div class={`diagnostic-level level-${diagnostic.level}`}>
