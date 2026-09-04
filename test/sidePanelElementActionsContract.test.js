@@ -5,6 +5,16 @@ import test from "node:test";
 const appUrl = new URL("../src/App.jsx", import.meta.url);
 const panelUrl = new URL("../src/components/SidePanel.jsx", import.meta.url);
 
+test("computed columns heading explains their derived values", async () => {
+    const source = await readFile(panelUrl, "utf8");
+
+    assert.match(
+        source,
+        /вторичные колонки, зависимые от значений пользовательских/u,
+    );
+    assert.match(source, /редактируемых колонок/u);
+});
+
 test("element side panel explains material selection", async () => {
     const source = await readFile(panelUrl, "utf8");
 

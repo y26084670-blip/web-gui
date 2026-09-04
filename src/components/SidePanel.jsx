@@ -76,7 +76,13 @@ export function SidePanel(props) {
         </div>
 
         <section class="side-panel-section">
-          <div class="side-panel-section-title">
+          <div
+            class="side-panel-section-title"
+            title={
+              "вторичные колонки, зависимые от значений пользовательских "
+              + "редактируемых колонок"
+            }
+          >
             Вычисляемые колонки
           </div>
 
