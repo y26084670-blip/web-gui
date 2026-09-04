@@ -9,7 +9,10 @@ import { TaskInfoBar } from "./TaskInfoBar";
 import { SidePanel } from "./components/SidePanel";
 import { MaterialSelectionDialog } from "./components/materials/MaterialSelectionDialog.jsx";
 import { GeometryViewerWindow } from "./components/geometry/GeometryViewerWindow.jsx";
-import { TABS } from "./services/schemas/common/constants";
+import {
+  TABS,
+  VALIDATION_LEVELS,
+} from "./services/schemas/common/constants";
 import { selectionService } from "./services/selectionService";
 import { modelService } from "./services/modelService";
 import { materialLibraryHistoryService } from "./services/materialLibraryHistoryService.js";
@@ -19,6 +22,7 @@ import { dataService } from "./services/dataService";
 import { viewSettingsService } from "./services/viewSettingsService";
 import { selectionContextService } from "./services/selectionContextService.js";
 import { unsavedChangesService } from "./services/unsavedChangesService.js";
+import { taskApprovalService } from "./services/taskApprovalService.js";
 import {
   assignSelectedElementMaterial,
   clearSelectedElementMaterials,
@@ -44,26 +48,37 @@ export default function App() {
   let modelValidationRevision = 0;
   let observedGeometryTaskHandle;
 
-  async function handleModelValidation() {
-    const revision = ++modelValidationRevision;
-    const taskHandle = selectionService.loadedTaskHandle();
-    if (!taskHandle) return;
-
+  async function collectModelDiagnostics(taskHandle, modelSnapshot) {
     const materialResult = await loadMaterialReferenceCatalog(taskHandle);
-    if (
-      revision !== modelValidationRevision
-      || taskHandle !== selectionService.loadedTaskHandle()
-    ) {
-      return;
-    }
-    const diagnostics = modelValidator(modelService, {
-      materialCatalog: materialResult.catalog,
-    });
+    const diagnostics = modelValidator(
+      { getModel: () => modelSnapshot },
+      { materialCatalog: materialResult.catalog },
+    );
     diagnostics.push(...materialResult.errors.map(message => createError({
       tab: TABS.ELEMENTS,
       property: "xapName",
       message: `Проверка ссылок на характеристики не завершена: ${message}`,
     })));
+    return diagnostics;
+  }
+
+  async function handleModelValidation() {
+    const revision = ++modelValidationRevision;
+    const taskHandle = selectionService.loadedTaskHandle();
+    if (!taskHandle) return;
+
+    const modelSnapshot = modelService.getModel();
+    const diagnostics = await collectModelDiagnostics(
+      taskHandle,
+      modelSnapshot,
+    );
+    if (
+      revision !== modelValidationRevision
+      || taskHandle !== selectionService.loadedTaskHandle()
+      || modelSnapshot !== modelService.getModel()
+    ) {
+      return;
+    }
     diagnosticService.setValidationResult(diagnostics);
   }
 
@@ -228,15 +243,76 @@ export default function App() {
   async function handleSave() {
     const dirHandle = selectionService.loadedTaskHandle();
     if (!dirHandle) return;
+
+    const modelSnapshot = modelService.getModel();
+    const validationRevision = ++modelValidationRevision;
+
+    try {
+      await taskApprovalService.markUnapproved(dirHandle);
+    } catch (error) {
+      console.error(
+        "Сохранение отменено: не удалось создать маркер проверки",
+        error,
+      );
+      return;
+    }
+
+    let saveFailed = false;
     for (const schema of tabRegistry) {
+      const itemModel = modelSnapshot[schema.id];
       try {
-        const baseModel = modelService.getModel();
-        const itemModel = baseModel[schema.id];
-        await dataService.save(dirHandle, schema, itemModel);
+        const saved = await dataService.save(
+          dirHandle,
+          schema,
+          itemModel,
+        );
+        if (!saved) {
+          saveFailed = true;
+          console.warn(`Не сохранена вкладка '${schema.id}'`);
+          continue;
+        }
         unsavedChangesService.setBaseline(schema.id, itemModel);
       } catch (error) {
+        saveFailed = true;
         console.warn(`Не удалось сохранить '${schema.id}'`, error);
       }
+    }
+    if (saveFailed) return;
+
+    let diagnostics;
+    try {
+      diagnostics = await collectModelDiagnostics(
+        dirHandle,
+        modelSnapshot,
+      );
+    } catch (error) {
+      console.error(
+        "Маркер проверки сохранён: проверка модели не завершена",
+        error,
+      );
+      return;
+    }
+
+    if (
+      validationRevision === modelValidationRevision
+      && dirHandle === selectionService.loadedTaskHandle()
+      && modelSnapshot === modelService.getModel()
+    ) {
+      diagnosticService.setValidationResult(diagnostics);
+    }
+
+    const hasErrors = diagnostics.some(
+      diagnostic => diagnostic.level === VALIDATION_LEVELS.ERROR,
+    );
+    if (hasErrors) return;
+
+    try {
+      await taskApprovalService.clearUnapproved(dirHandle);
+    } catch (error) {
+      console.error(
+        "Данные сохранены без ошибок, но маркер проверки не удалён",
+        error,
+      );
     }
   }
 

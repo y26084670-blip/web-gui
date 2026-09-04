@@ -99,6 +99,9 @@ export const DIRECTORIES = Object.freeze({
     OUTPUT: "output3XX",
 });
 
+// Источник: julia, src/base/defines.jl — TaskUnapprovedFile.
+export const TASK_UNAPPROVED_FILE = "_nogo.e3d";
+
 // Имена файлов исходных данных.
 // Источник: julia, src/base/defines.jl — InputGeneral, InputConrab,
 // InputAmplitudes, InputMoves, InputKvs, InputTks, InputMhj. Снимок 2026-08.
