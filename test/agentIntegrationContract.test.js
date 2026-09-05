@@ -1,41 +1,31 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-
-const files = {
-  tasks: new URL("../src/tabs/Tasks.jsx", import.meta.url),
-  panel: new URL(
-    "../src/components/agent/TaskAgentPanel.jsx",
-    import.meta.url,
-  ),
-  package: new URL("../package.json", import.meta.url),
-};
-
-test("task tab delegates passive next-step reasoning to the agent library", async () => {
-  const [tasks, panel, packageText] = await Promise.all([
-    readFile(files.tasks, "utf8"),
-    readFile(files.panel, "utf8"),
-    readFile(files.package, "utf8"),
+const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
+test("task tab supplies root-aware state and passive advice without importing the agent", async () => {
+  const [tasks, panel, client, packageText, vite, localCaddy] = await Promise.all([
+    read("src/tabs/Tasks.jsx"), read("src/components/agent/TaskAgentPanel.jsx"),
+    read("src/services/agentClient.js"), read("package.json"), read("vite.config.js"), read("deploy/caddy/Caddyfile.local")
   ]);
-  const packageData = JSON.parse(packageText);
-
-  assert.match(tasks, /buildAgentState/u);
+  const pkg = JSON.parse(packageText);
   assert.match(tasks, /projectsRootName:\s*rootHandle\(\)\?\.name/u);
   assert.match(tasks, /projectsRootSelected:\s*Boolean\(rootHandle\(\)\)/u);
   assert.match(tasks, /<TaskAgentPanel state=\{agentState\(\)\} \/>/u);
-  assert.doesNotMatch(tasks, /canExecuteAgentAction/u);
-  assert.doesNotMatch(tasks, /handleAgentAction/u);
-  assert.doesNotMatch(tasks, /canExecuteAction=/u);
-  assert.doesNotMatch(tasks, /onAction=/u);
-  assert.doesNotMatch(tasks, /const HELP_TOPICS/u);
-
+  assert.doesNotMatch(tasks, /canExecuteAgentAction|handleAgentAction|canExecuteAction=|onAction=/u);
+  assert.match(panel, /analyzeBuiltin\(state\)/u);
   assert.match(panel, /agentClient\.analyze/u);
-  assert.match(panel, /agentClient\.findHelpTopic/u);
-  assert.match(panel, /Следующий шаг/u);
-  assert.doesNotMatch(panel, /executeAction/u);
-  assert.doesNotMatch(panel, /actionButton/u);
-  assert.doesNotMatch(panel, /task-agent-actions/u);
-
-  assert.match(packageData.scripts.dev, /agent:prepare/u);
-  assert.match(packageData.scripts["build:release"], /agent:verify/u);
+  assert.match(panel, /connection\.available/u);
+  assert.match(panel, /revision !== recommendationRevision/u);
+  assert.doesNotMatch(panel, /executeAction|actionButton|task-agent-actions/u);
+  assert.doesNotMatch(client, /manifest\.json|importModule|@clark\/agent/u);
+  assert.match(client, /agent\.hello/u);
+  assert.match(client, /agent\.analyze/u);
+  for (const script of ["dev", "build", "build:release", "build:pages"]) {
+    assert.doesNotMatch(pkg.scripts[script], /agent:prepare|agent:verify/u);
+    assert.match(pkg.scripts[script], /assets:prepare/u);
+  }
+  assert.match(vite, /\/agent\/rpc/u);
+  assert.match(localCaddy, /bind 127\.0\.0\.1/u);
+  assert.match(localCaddy, /header_up Host 127\.0\.0\.1:8765/u);
+  assert.doesNotMatch(localCaddy, /header_up Origin/u);
 });
