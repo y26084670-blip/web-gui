@@ -4,6 +4,7 @@ import {
     mkdtemp,
     mkdir,
     readFile,
+    readdir,
     rm,
     writeFile,
 } from "node:fs/promises";
@@ -129,14 +130,29 @@ test("default-library verification rejects a modified copied material", async ()
 
 test("canonical web-gui default library contains the transferred solver snapshot", async () => {
     const root = path.resolve("data", "default");
+    const htcRoot = path.join(root, "xapLibHTC");
+    const expectedHtcFiles = [
+        "ВТСП Jc(H) базовая.txt",
+        "ВТСП пресет 2.txt",
+        "ВТСП пресет 3.txt",
+    ];
     const fmm = JSON.parse(
         await readFile(path.join(root, "xapLibFMM", "STAL3.txt"), "utf8"),
     );
-    const htc = JSON.parse(
-        await readFile(path.join(root, "xapLibHTC", "имя 1.txt"), "utf8"),
+    const htcFiles = (await readdir(htcRoot))
+        .filter(fileName => path.extname(fileName).toLowerCase() === ".txt")
+        .sort();
+    const htcMaterials = await Promise.all(
+        expectedHtcFiles.map(async fileName => JSON.parse(
+            await readFile(path.join(htcRoot, fileName), "utf8"),
+        )),
     );
 
     assert.equal(Array.isArray(fmm.tabl), true);
     assert.equal(fmm.tabl.length, 24);
-    assert.equal(typeof htc.comment, "string");
+    assert.deepEqual(htcFiles, expectedHtcFiles);
+    assert.equal(
+        htcMaterials.every(material => typeof material.comment === "string"),
+        true,
+    );
 });
