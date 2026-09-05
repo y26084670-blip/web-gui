@@ -50,6 +50,9 @@ import { recordsActions } from "../../tabulator/actions/recordsActions";
 import { viewRegistry } from "../../tabulator/views/viewRegistry";
 import { COMMON_TABLE_OPTIONS } from "../../tabulator/tableOptions";
 import { diagnosticService } from "../../services/diagnosticService";
+import {
+  schemaConstraintDiagnostics,
+} from "../../services/modelConstraintDiagnostics.js";
 import { viewSettingsService } from "../../services/viewSettingsService";
 import {
   hasRecordColumnsView,
@@ -1010,6 +1013,7 @@ export function DataEditor(props) {
       if (!hasActiveTask()) return;
 
       setHasActiveTask(false);
+      diagnosticService.setConstraintResult(schema.id, []);
       if (table) {
         await replaceEditorData(null);
       }
@@ -1026,6 +1030,7 @@ export function DataEditor(props) {
       diagnosticService.setLoadResult(schema.id, diagnostics);
 
       if (baseModel === null) {
+        diagnosticService.setConstraintResult(schema.id, []);
         const update = modelService.setModelPart(
           schema,
           null,
@@ -1041,6 +1046,10 @@ export function DataEditor(props) {
         baseModel,
         { source: modelSource },
       );
+      diagnosticService.setConstraintResult(
+        schema.id,
+        schemaConstraintDiagnostics(schema, update.data),
+      );
       unsavedChangesService.setBaseline(schema.id, update.data);
       await replaceEditorData(update.data);
     } catch (err) {
@@ -1052,6 +1061,7 @@ export function DataEditor(props) {
         null,
         { source: modelSource },
       );
+      diagnosticService.setConstraintResult(schema.id, []);
       unsavedChangesService.setBaseline(schema.id, update.data);
       await replaceEditorData(null);
     }

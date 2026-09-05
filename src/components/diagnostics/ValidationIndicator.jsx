@@ -1,7 +1,12 @@
 import { createSignal } from "solid-js";
 import { DiagnosticPopup } from "./DiagnosticPopup";
 import { diagnosticService } from "../../services/diagnosticService";
+import { modelService } from "../../services/modelService";
+import { tabRegistry } from "../../services/tabRegistry";
 import { VALIDATION_LEVELS } from "../../services/schemas/common/constants";
+import {
+  collectModelConstraintDiagnostics,
+} from "../../services/modelConstraintDiagnostics.js";
 
 import "./ValidationIndicator.css";
 
@@ -32,6 +37,12 @@ export function ValidationIndicator() {
   const level = () => diagnosticService.validationLevel();
 
   function handleClick() {
+    diagnosticService.setConstraintResults(
+      collectModelConstraintDiagnostics(
+        tabRegistry,
+        modelService.getModel(),
+      ),
+    );
     setPopupOpen(!popupOpen());
   }
 

@@ -168,7 +168,7 @@ export function TaskAgentPanel(props) {
             }}
             title={status().reason || ""}
           >
-            {statusText(status())}
+            {statusText(status())}{" [Экспериментальная функциональность: пока ничего не работает]"}
           </div>
 
           <Show

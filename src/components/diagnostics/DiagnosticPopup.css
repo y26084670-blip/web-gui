@@ -24,6 +24,9 @@
 }
 
 .diagnostic-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25em;
     min-height: 0;
     overflow-y: auto;
 }
@@ -34,11 +37,22 @@
 }
 
 .diagnostic-item {
-    margin-bottom: 8px;
+    flex: 0 0 auto;
+    margin-bottom: 0;
     padding: 8px;
     border: 1px solid #c0c0c0;
     border-radius: 4px;
     cursor: default;
+}
+
+.diagnostic-item.constraint-summary {
+    padding: 0;
+    border: 0;
+    line-height: 1.25;
+}
+
+.constraint-summary .diagnostic-message {
+    margin: 0;
 }
 
 .level-error {

@@ -51,6 +51,10 @@ test("diagnostic rows expose static source labels without navigation", async () 
     assert.match(indicator, /export function ValidationIndicator\(\)/u);
     assert.match(
         indicator,
+        /collectModelConstraintDiagnostics\(\s*tabRegistry,\s*modelService\.getModel\(\),\s*\)/u,
+    );
+    assert.match(
+        indicator,
         /style=\{\{ "--diagnostic-color": COLORS\[level\(\)\] \}\}/u,
     );
     assert.match(indicator, /"background-color": "var\(--diagnostic-color\)"/u);
@@ -90,6 +94,10 @@ test("diagnostic popup scrolls the list while keeping its title visible", async 
     assert.match(
         styles,
         /\.diagnostic-list\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/su,
+    );
+    assert.match(
+        styles,
+        /\.diagnostic-list\s*\{[^}]*gap:\s*1\.25em;/su,
     );
 });
 

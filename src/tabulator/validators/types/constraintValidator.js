@@ -2,21 +2,21 @@
 // Проверка ограничений JSON Schema
 //==============================================================================
 
-import { FIELD_TYPES } from "../../../services/schemas/common/constants";
-import { numericMinimumValidator } from "../constraints/numericMinimumValidator";
-import { numericMaximumValidator } from "../constraints/numericMaximumValidator";
-import { numericExclusiveMinimumValidator } from "../constraints/numericExclusiveMinimumValidator";
-import { numericExclusiveMaximumValidator } from "../constraints/numericExclusiveMaximumValidator";
-import { numericMultipleOfValidator } from "../constraints/numericMultipleOfValidator";
-import { stringMinLengthValidator } from "../constraints/stringMinLengthValidator";
-import { stringMaxLengthValidator } from "../constraints/stringMaxLengthValidator";
-import { stringPatternValidator } from "../constraints/stringPatternValidator";
-import { valueEnumValidator } from "../constraints/valueEnumValidator";
-import { valueConstValidator } from "../constraints/valueConstValidator";
-import { arrayMinItemsValidator } from "../constraints/arrayMinItemsValidator";
-import { arrayMaxItemsValidator } from "../constraints/arrayMaxItemsValidator";
-import { arrayUniqueItemsValidator } from "../constraints/arrayUniqueItemsValidator";
-import { resolveProperty } from "../../schema/propertyResolver";
+import { FIELD_TYPES } from "../../../services/schemas/common/constants.js";
+import { numericMinimumValidator } from "../constraints/numericMinimumValidator.js";
+import { numericMaximumValidator } from "../constraints/numericMaximumValidator.js";
+import { numericExclusiveMinimumValidator } from "../constraints/numericExclusiveMinimumValidator.js";
+import { numericExclusiveMaximumValidator } from "../constraints/numericExclusiveMaximumValidator.js";
+import { numericMultipleOfValidator } from "../constraints/numericMultipleOfValidator.js";
+import { stringMinLengthValidator } from "../constraints/stringMinLengthValidator.js";
+import { stringMaxLengthValidator } from "../constraints/stringMaxLengthValidator.js";
+import { stringPatternValidator } from "../constraints/stringPatternValidator.js";
+import { valueEnumValidator } from "../constraints/valueEnumValidator.js";
+import { valueConstValidator } from "../constraints/valueConstValidator.js";
+import { arrayMinItemsValidator } from "../constraints/arrayMinItemsValidator.js";
+import { arrayMaxItemsValidator } from "../constraints/arrayMaxItemsValidator.js";
+import { arrayUniqueItemsValidator } from "../constraints/arrayUniqueItemsValidator.js";
+import { resolveProperty } from "../../schema/propertyResolver.js";
 
 
 //==============================================================================
@@ -103,27 +103,10 @@ constraintRegistry.set(FIELD_TYPES.OBJECT, [
 ]);
 
 //==============================================================================
-// Проверка ограничений
-//
-// Единый канал получения описания поля:
-//   1) property — дескриптор, переданный колонкой явно
-//      (элемент связанного представления);
-//   2) resolveProperty(cell, schema) — иначе.
+// Проверка ограничений непосредственно по значению и дескриптору.
 //==============================================================================
 
-export function constraintValidator(
-    cell,
-    value,
-    schema,
-    property = undefined,
-) {
-
-    const descriptor =
-        property ?? resolveProperty(
-            cell,
-            schema,
-        );
-
+export function validateConstraintValue(value, descriptor) {
     if (!descriptor) {
         return true;
     }
@@ -138,5 +121,24 @@ export function constraintValidator(
     }
 
     return true;
+
+}
+
+// Обёртка Tabulator. Дескриптор передаётся колонкой вложенной таблицы явно,
+// а для основной таблицы определяется по ячейке и схеме.
+export function constraintValidator(
+    cell,
+    value,
+    schema,
+    property = undefined,
+) {
+
+    const descriptor =
+        property ?? resolveProperty(
+            cell,
+            schema,
+        );
+
+    return validateConstraintValue(value, descriptor);
 
 }

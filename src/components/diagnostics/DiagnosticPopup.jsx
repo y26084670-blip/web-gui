@@ -108,24 +108,33 @@ export function DiagnosticPopup(props) {
         <div class="diagnostic-list">
           <For each={displayedDiagnostics()}>
             {(diagnostic) => (
-              <div class="diagnostic-item">
-                <div class={`diagnostic-level level-${diagnostic.level}`}>
-                  {LEVEL_LABELS[diagnostic.level]}
-                </div>
+              <div
+                class="diagnostic-item"
+                classList={{
+                  "constraint-summary": diagnostic.presentation === "constraint-summary",
+                }}
+              >
+                <Show when={diagnostic.presentation !== "constraint-summary"}>
+                  <div class={`diagnostic-level level-${diagnostic.level}`}>
+                    {LEVEL_LABELS[diagnostic.level]}
+                  </div>
+                </Show>
                 <div class="diagnostic-message">{diagnostic.message}</div>
-                <div class="diagnostic-source">
-                  {diagnostic.tab && (
-                    <span>Вкладка: {displayValue(diagnostic.tab)}</span>
-                  )}
+                <Show when={diagnostic.presentation !== "constraint-summary"}>
+                  <div class="diagnostic-source">
+                    {diagnostic.tab && (
+                      <span>Вкладка: {displayValue(diagnostic.tab)}</span>
+                    )}
 
-                  <Show when={diagnosticSourceLabel(diagnostic)}>
-                    {(label) => <span>{label()}</span>}
-                  </Show>
+                    <Show when={diagnosticSourceLabel(diagnostic)}>
+                      {(label) => <span>{label()}</span>}
+                    </Show>
 
-                  <Show when={diagnosticPropertyLabel(diagnostic)}>
-                    {(label) => <span>Поле: {label()}</span>}
-                  </Show>
-                </div>
+                    <Show when={diagnosticPropertyLabel(diagnostic)}>
+                      {(label) => <span>Поле: {label()}</span>}
+                    </Show>
+                  </div>
+                </Show>
               </div>
             )}
           </For>

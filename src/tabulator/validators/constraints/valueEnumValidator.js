@@ -2,7 +2,7 @@
 // Проверка ограничения enum
 //==============================================================================
 
-import { findNamedEnumOption } from "../../../services/schemas/common/enumOptions";
+import { findNamedEnumOption } from "../../../services/schemas/common/enumOptions.js";
 
 export function valueEnumValidator(value, property) {
     if (property.enum === undefined) {

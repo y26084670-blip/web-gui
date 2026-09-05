@@ -1,4 +1,4 @@
-import { FIELD_TYPES } from "../../services/schemas/common/constants";
+import { FIELD_TYPES } from "../../services/schemas/common/constants.js";
 
 /*
 Все подсистемы получают описание свойства исключительно через resolveProperty().

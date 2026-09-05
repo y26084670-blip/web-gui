@@ -4,7 +4,7 @@
 
 import {
     VALIDATION_LEVELS,
-} from "../../../services/schemas/common/constants";
+} from "../../../services/schemas/common/constants.js";
 
 //==============================================================================
 // Определение общего результата диагностики

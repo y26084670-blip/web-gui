@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import { VALIDATION_LEVELS } from "./schemas/common/constants";
+import { VALIDATION_LEVELS } from "./schemas/common/constants.js";
 import { createSuccess } from "../tabulator/validators/common/createDiagnostic.js";
 import { getValidationLevel } from "../tabulator/validators/common/diagnosticLevel.js";
 
@@ -9,10 +9,14 @@ const [modelDiagnostics, setModelDiagnostics] = createSignal([]);
 // Диагностика загрузки по идентификатору вкладки.
 const [loadDiagnostics, setLoadDiagnostics] = createSignal({});
 
+// Сводные ошибки ограничений по идентификатору вкладки.
+const [constraintDiagnostics, setConstraintDiagnostics] = createSignal({});
+
 const diagnostics = () => {
     const combined = [
         ...Object.values(loadDiagnostics()).flat(),
         ...modelDiagnostics(),
+        ...Object.values(constraintDiagnostics()).flat(),
     ];
     const hasProblems = combined.some(
         diagnostic =>
@@ -63,8 +67,20 @@ function setLoadResult(schemaId, messages) {
     }));
 }
 
+function setConstraintResult(schemaId, messages) {
+    setConstraintDiagnostics(current => ({
+        ...current,
+        [schemaId]: messages ?? [],
+    }));
+}
+
+function setConstraintResults(results) {
+    setConstraintDiagnostics(results ?? {});
+}
+
 function clearLoadResult() {
     setLoadDiagnostics({});
+    setConstraintDiagnostics({});
 }
 
 export const diagnosticService = {
@@ -78,4 +94,7 @@ export const diagnosticService = {
 
     setLoadResult,
     clearLoadResult,
+
+    setConstraintResult,
+    setConstraintResults,
 };
