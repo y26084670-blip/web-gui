@@ -1,0 +1,30 @@
+name: Apply approved agent documentation delta once
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: write
+jobs:
+  docs:
+    if: github.head_ref == 'feature/agent-sync-01' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/agent-sync-01
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Apply only the reviewed documentation additions
+        run: node scripts/sync-agent-docs-once.mjs
+      - name: Commit only the five approved documents to the feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "feature/agent-sync-01"
+          git add README.md docs/Architecture.md docs/BUILD_AND_RUNTIME.md docs/IMPLEMENTATION_PROTOCOL.md docs/resume.md
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'docs: synchronize agent integration without changing editor contracts'
+            git push origin HEAD:refs/heads/feature/agent-sync-01
+          fi
