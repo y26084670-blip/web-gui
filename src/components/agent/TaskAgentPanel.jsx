@@ -46,8 +46,6 @@ export function TaskAgentPanel(props) {
   const [selectedTopicId, setSelectedTopicId] = createSignal("");
   const [answer, setAnswer] = createSignal(null);
   const [question, setQuestion] = createSignal("");
-  const [showDiagnostics, setShowDiagnostics] = createSignal(false);
-  const [actionError, setActionError] = createSignal("");
   let recommendationRevision = 0;
 
   onMount(async () => {
@@ -116,42 +114,6 @@ export function TaskAgentPanel(props) {
     setQuestion("");
   }
 
-  async function executeAction(action) {
-    if (!action || !props.canExecuteAction?.(action.id)) return;
-    setActionError("");
-    if (action.id === "open_validation" || action.id === "validate_model") {
-      setShowDiagnostics(true);
-    }
-
-    try {
-      const handled = await props.onAction?.(action.id);
-      if (handled === false) {
-        setActionError("Это действие пока не подключено к интерфейсу.");
-      }
-    } catch (error) {
-      console.error("Ошибка выполнения действия агента", error);
-      setActionError(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  function actionButton(action, className = "") {
-    if (!action) return null;
-    const enabled = Boolean(props.canExecuteAction?.(action.id));
-    return (
-      <button
-        type="button"
-        class={className}
-        disabled={!enabled}
-        title={enabled ? action.label : "Действие пока не подключено"}
-        onClick={() => executeAction(action)}
-      >
-        {action.label}
-      </button>
-    );
-  }
-
   return (
     <aside class="task-help-panel" aria-label="Справка агента">
       <section class="task-help-chat" aria-label="Диалог с агентом">
@@ -188,12 +150,6 @@ export function TaskAgentPanel(props) {
               >
                 <div class="task-agent-caption">Следующий шаг</div>
                 <p class="task-agent-message">{item().message}</p>
-                <div class="task-agent-actions">
-                  {actionButton(item().action, "task-agent-primary-action")}
-                  <For each={item().alternatives}>
-                    {(action) => actionButton(action)}
-                  </For>
-                </div>
               </div>
             )}
           </Show>
@@ -208,25 +164,6 @@ export function TaskAgentPanel(props) {
                 <p class="task-agent-answer-text">{item().summary}</p>
               </div>
             )}
-          </Show>
-
-          <Show when={showDiagnostics() && props.diagnostics?.length}>
-            <div class="task-agent-diagnostics">
-              <div class="task-agent-caption">Диагностика</div>
-              <ul>
-                <For each={props.diagnostics}>
-                  {(diagnostic) => (
-                    <li data-level={diagnostic.level}>
-                      {diagnostic.message}
-                    </li>
-                  )}
-                </For>
-              </ul>
-            </div>
-          </Show>
-
-          <Show when={actionError()}>
-            <p class="task-agent-action-error">{actionError()}</p>
           </Show>
         </div>
 

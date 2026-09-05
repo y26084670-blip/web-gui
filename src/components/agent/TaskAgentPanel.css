@@ -13,8 +13,7 @@
 }
 
 .task-agent-recommendation,
-.task-agent-answer,
-.task-agent-diagnostics {
+.task-agent-answer {
   margin-bottom: 12px;
   padding: 10px;
   border: 1px solid #596773;
@@ -42,8 +41,7 @@
 .task-agent-message,
 .task-agent-answer-title,
 .task-agent-answer-text,
-.task-agent-question,
-.task-agent-action-error {
+.task-agent-question {
   margin: 6px 0 0;
 }
 
@@ -51,39 +49,8 @@
   color: #b8cce0;
 }
 
-.task-agent-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.task-agent-actions button {
-  min-height: 30px;
-  padding: 4px 8px;
-  font-size: 14px;
-}
-
-.task-agent-actions button:disabled,
 .task-help-chat-composer button:disabled,
 .task-help-chat-composer textarea:disabled {
   cursor: not-allowed;
   opacity: .5;
-}
-
-.task-agent-diagnostics ul {
-  margin: 8px 0 0;
-  padding-left: 22px;
-}
-
-.task-agent-diagnostics li[data-level="error"] {
-  color: #ff9a9a;
-}
-
-.task-agent-diagnostics li[data-level="warning"] {
-  color: #f3d17a;
-}
-
-.task-agent-action-error {
-  color: #ff9a9a;
 }

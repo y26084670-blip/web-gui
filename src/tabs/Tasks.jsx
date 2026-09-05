@@ -6,7 +6,7 @@ import { selectionService } from "../services/selectionService";
 import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
-import { DIRECTORIES, TABS } from "../services/schemas/common/constants";
+import { DIRECTORIES } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
 import { TaskAgentPanel } from "../components/agent/TaskAgentPanel.jsx";
 import { buildAgentState } from "../services/agentStateAdapter.js";
@@ -47,8 +47,6 @@ export function Tasks(props) {
   let taskErrorCloseButton;
   let unsavedDialog;
   let returnToEditingButton;
-  let projectSelect;
-  let taskList;
   let selectionRevision = 0;
   let taskLoadRevision = 0;
   let taskInfoRevision = 0;
@@ -260,6 +258,8 @@ export function Tasks(props) {
     && selectedTask()?.handle === loadedTaskHandle();
 
   const agentState = createMemo(() => buildAgentState({
+    projectsRootName: rootHandle()?.name ?? "",
+    projectsRootSelected: Boolean(rootHandle()),
     projectName: selectedProject(),
     taskName: selectedTask()?.name ?? "",
     taskLoaded: taskLoaded(),
@@ -269,56 +269,6 @@ export function Tasks(props) {
     dirty: unsavedChangesService.hasDirty(),
     resultsExists: taskLoaded() && taskInfo().resultsAvailable,
   }));
-
-  const canExecuteAgentAction = (actionId) => {
-    switch (actionId) {
-      case "select_project":
-        return true;
-      case "select_task":
-        return Boolean(selectedProject());
-      case "load_task":
-        return Boolean(selectedTask()) && !taskLoaded();
-      case "create_data":
-      case "open_geometry":
-      case "open_properties":
-      case "validate_model":
-      case "open_validation":
-      case "save_task":
-        return Boolean(loadedTaskHandle());
-      default:
-        return false;
-    }
-  };
-
-  const handleAgentAction = async (actionId) => {
-    switch (actionId) {
-      case "select_project":
-        projectSelect?.focus();
-        return true;
-      case "select_task":
-        taskList?.focus();
-        return true;
-      case "load_task":
-        await requestTaskLoad();
-        return true;
-      case "create_data":
-        props.onOpenTab?.(TABS.GENERAL.id);
-        return true;
-      case "open_geometry":
-      case "open_properties":
-        props.onOpenTab?.(TABS.ELEMENTS.id);
-        return true;
-      case "validate_model":
-      case "open_validation":
-        await props.onValidate?.();
-        return true;
-      case "save_task":
-        await props.onSave?.();
-        return true;
-      default:
-        return false;
-    }
-  };
 
   return (
     <div
@@ -357,7 +307,6 @@ export function Tasks(props) {
         <div class="box">
           <h4>Список проектов</h4>
           <select
-            ref={(element) => (projectSelect = element)}
             id="listProject"
             value={selectedProject()}
             onChange={handleProjectChange}
@@ -371,7 +320,6 @@ export function Tasks(props) {
         <div>
           <h4 style="margin-bottom: 10px">Список заданий выбранного проекта</h4>
           <div
-            ref={(element) => (taskList = element)}
             id="listTask"
             class="listTask"
             tabIndex="0"
@@ -441,12 +389,7 @@ export function Tasks(props) {
         </div>
       </div>
 
-      <TaskAgentPanel
-        state={agentState()}
-        diagnostics={diagnosticService.diagnostics()}
-        canExecuteAction={canExecuteAgentAction}
-        onAction={handleAgentAction}
-      />
+      <TaskAgentPanel state={agentState()} />
 
       <dialog
         class="task-load-error-dialog"

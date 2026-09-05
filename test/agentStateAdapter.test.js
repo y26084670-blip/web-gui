@@ -18,13 +18,36 @@ const warning = {
   message: "Проверить форму.",
 };
 
+test("adapter reports whether the projects root is selected", () => {
+  const missingRoot = buildAgentState();
+  const selectedRoot = buildAgentState({
+    projectsRootName: "clark.projects",
+    projectsRootSelected: true,
+  });
+
+  assert.deepEqual(missingRoot.projectsRoot, {
+    selected: false,
+    name: null,
+  });
+  assert.deepEqual(selectedRoot.projectsRoot, {
+    selected: true,
+    name: "clark.projects",
+  });
+});
+
 test("adapter distinguishes selected and loaded task", () => {
   const state = buildAgentState({
+    projectsRootName: "clark.projects",
+    projectsRootSelected: true,
     projectName: "demo",
     taskName: "task-001",
     taskLoaded: false,
   });
 
+  assert.deepEqual(state.projectsRoot, {
+    selected: true,
+    name: "clark.projects",
+  });
   assert.deepEqual(state.project, { selected: true, name: "demo" });
   assert.deepEqual(state.task, {
     selected: true,
@@ -37,6 +60,8 @@ test("adapter distinguishes selected and loaded task", () => {
 
 test("adapter summarizes model, validation and unsaved state", () => {
   const state = buildAgentState({
+    projectsRootName: "clark.projects",
+    projectsRootSelected: true,
     projectName: "demo",
     taskName: "task-001",
     taskLoaded: true,
@@ -70,6 +95,8 @@ test("adapter summarizes model, validation and unsaved state", () => {
 
 test("adapter does not claim missing properties before validation", () => {
   const state = buildAgentState({
+    projectsRootName: "clark.projects",
+    projectsRootSelected: true,
     projectName: "demo",
     taskName: "task-001",
     taskLoaded: true,

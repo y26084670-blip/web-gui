@@ -82,7 +82,7 @@ test("task help panel exposes the approved topics and selected state", async () 
     assert.ok(saveIndex < runIndex && runIndex < viewIndex && viewIndex < logsIndex);
 });
 
-test("task help chat is interactive and preserves the approved layout", async () => {
+test("task help chat keeps passive next-step guidance and interactive questions", async () => {
     const [source, taskStyles, panelStyles] = await Promise.all([
         readFile(panelComponentUrl, "utf8"),
         readFile(taskStylesUrl, "utf8"),
@@ -97,6 +97,12 @@ test("task help chat is interactive and preserves the approved layout", async ()
     assert.match(source, /role="log"/u);
     assert.match(source, /agentClient\.analyze/u);
     assert.match(source, /agentClient\.findHelpTopic/u);
+    assert.match(source, /class="task-agent-caption">Следующий шаг</u);
+    assert.doesNotMatch(source, /task-agent-actions/u);
+    assert.doesNotMatch(source, /executeAction/u);
+    assert.doesNotMatch(source, /actionButton/u);
+    assert.doesNotMatch(source, /props\.onAction/u);
+    assert.doesNotMatch(source, /props\.canExecuteAction/u);
     assert.match(
         source,
         /aria-label="Голосовая связь пока не подключена"/u,
@@ -136,5 +142,7 @@ test("task help chat is interactive and preserves the approved layout", async ()
         /\.task-help-chat-composer button\s*\{[^}]*align-self:\s*center;[^}]*height:\s*34px;/su,
     );
     assert.match(panelStyles, /\.task-agent-recommendation/u);
-    assert.match(panelStyles, /button:disabled/u);
+    assert.match(panelStyles, /\.task-help-chat-composer button:disabled/u);
+    assert.doesNotMatch(panelStyles, /\.task-agent-actions/u);
+    assert.doesNotMatch(panelStyles, /\.task-agent-diagnostics/u);
 });

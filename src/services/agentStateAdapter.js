@@ -57,6 +57,8 @@ function isMissingPropertyDiagnostic(diagnostic) {
  * The adapter has no UI or file-system side effects.
  */
 export function buildAgentState({
+  projectsRootName = "",
+  projectsRootSelected = Boolean(projectsRootName),
   projectName = "",
   taskName = "",
   taskLoaded = false,
@@ -77,6 +79,7 @@ export function buildAgentState({
 
   return {
     schemaVersion: 1,
+    projectsRoot: entity(projectsRootName, projectsRootSelected),
     project: entity(projectName),
     task: {
       ...entity(taskName),
