@@ -25,12 +25,3 @@ jobs:
         run: npm test
       - name: Build independent editor
         run: npm run build:release
-      - name: Retain reviewed documentation snapshot
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-sync-documentation
-          path: |
-            README.md
-            docs/
-          retention-days: 3
