@@ -111,7 +111,7 @@ export default createSchema({
         KB1: {
             type: FIELD_TYPES.FLOAT,
             label: "KB1",
-            description: "Коэффициент для начальной нижней границы поиска E: b1=zero1*KB1",
+            description: "Коэффициент для начальной нижней границы поиска J: b1=zero1*KB1",
             default: 1,
             digits: 6,
         },
@@ -119,7 +119,7 @@ export default createSchema({
         KB2: {
             type: FIELD_TYPES.FLOAT,
             label: "KB2",
-            description: "Коэффициент для начальной верхней границы поиска E: b2=B20+(правая часть/ce2)*KB2",
+            description: "не используется",
             default: 1,
             digits: 6,
         },
@@ -127,7 +127,7 @@ export default createSchema({
         B20: {
             type: FIELD_TYPES.FLOAT,
             label: "B20",
-            description: "Слагаемое начальной верхней границы поиска E: b2=B20+(правая часть/ce2)*KB2",
+            description: "не используется",
             default: 0,
             digits: 6,
         },
@@ -135,7 +135,7 @@ export default createSchema({
         KEPS1: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS1",
-            description: "Коэффициент критерия выхода из поиска E по интервалу: abs(b2-b1) < 1E-6*KEPS1",
+            description: "Коэффициент критерия выхода из поиска J по интервалу: abs(b2-b1) < KEPS1",
             default: 1,
             digits: 6,
         },
@@ -143,7 +143,7 @@ export default createSchema({
         KEPS2: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS2",
-            description: "Коэффициент для критерия 1 выхода по интервалу: abs(DH) < (1E-11)*KEPS2",
+            description: "не используется",
             default: 1,
             digits: 6,
         },
@@ -151,7 +151,7 @@ export default createSchema({
         KEPS3: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS3",
-            description: "Коэффициент для критерия 2 выхода по невязке: abs(CF) < (Jc*1E-4)*KEPS3",
+            description: "не используется",
             default: 1,
             digits: 6,
         },
@@ -159,7 +159,7 @@ export default createSchema({
         KEPS4: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS4",
-            description: "ВТСП-модель: Mагнитная подсистема: Параметр критерия выхода из поиска H’ по M-невязке, кА/м [НЕ ИСПОЛЬЗОВАН!]",
+            description: "не используется",
             default: 1,
             digits: 6,
         },
