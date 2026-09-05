@@ -1,217 +1,167 @@
-import { For, Show, createEffect, createSignal, onMount } from "solid-js";
-
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { agentClient } from "../../services/agentClient.js";
+import { BUILTIN_TOPICS, analyzeBuiltin, findBuiltinTopic, getBuiltinTopic } from "../../assistant/builtinAssistant.js";
 import "./TaskAgentPanel.css";
 
-// Сохраняет прежний список тем, если отдельный пакет не попал в сборку.
-// Содержимое ответов и сценарии при наличии пакета поступают из clark.agent.
-const FALLBACK_TOPICS = Object.freeze([
-  ["getting_started", "Куда коня впрягать"],
-  ["install", "Как установить"],
-  ["usage", "Как пользоваться"],
-  ["editor", "Как пользоваться редактором"],
-  ["projects", "Как выбрать/создать/удалить проект"],
-  ["tasks", "Как выбрать/создать/удалить задачу"],
-  ["data_create", "Как создать данные"],
-  ["data_import", "Как импортировать данные"],
-  ["geometry", "Как создать/исправить/удалить геометрию"],
-  ["properties", "Как создать/исправить/удалить свойства"],
-  ["validation", "Как найти/исправить ошибки/неточности"],
-  ["inspect", "Как осмотреть работу"],
-  ["save", "Как сохранить работу"],
-  ["run", "Как запустить расчет"],
-  ["results_3d", "Как посмотреть результаты в 3D"],
-  ["results_protocols", "Как посмотреть результаты в протоколах"],
-  ["request_missing", "Как затребовать нужное, но отсутствующее"],
-  ["exit", "Как перестать пользоваться всем этим"],
-].map(([id, title]) => Object.freeze({ id, title, summary: "" })));
-
+const CONNECTION_KEY = "clark.agent.connection.v2";
 function statusText(status) {
-  if (status.loading) return "Подключение агента…";
-  if (status.available) {
-    return status.version ? `Агент ${status.version} подключён` : "Агент подключён";
-  }
-  return "Агент недоступен";
+  if (status.available) return `Локальный агент ${status.version ?? ""} подключён`;
+  return status.loading ? "Встроенный помощник; подключение агента…" : "Встроенный помощник";
 }
-
+function validTopic(topic) {
+  return topic && typeof topic.id === "string" && typeof topic.title === "string" && typeof topic.summary === "string";
+}
 export function TaskAgentPanel(props) {
-  const [status, setStatus] = createSignal({
-    loading: true,
-    available: false,
-    version: null,
-    reason: "",
-  });
-  const [topics, setTopics] = createSignal(FALLBACK_TOPICS);
+  const [status, setStatus] = createSignal(agentClient.getStatus());
+  const [topics, setTopics] = createSignal(BUILTIN_TOPICS);
   const [recommendation, setRecommendation] = createSignal(null);
   const [selectedTopicId, setSelectedTopicId] = createSignal("");
   const [answer, setAnswer] = createSignal(null);
   const [question, setQuestion] = createSignal("");
-  let recommendationRevision = 0;
+  const [endpoint, setEndpoint] = createSignal("/agent/rpc");
+  const [key, setKey] = createSignal("");
+  const [connectionError, setConnectionError] = createSignal("");
+  const [memoryWarning, setMemoryWarning] = createSignal(false);
+  let recommendationRevision = 0, answerRevision = 0, timer;
+  let previousState = "", previousConnection = "";
+  let disposed = false;
 
-  onMount(async () => {
-    const loaded = await agentClient.load();
-    setStatus({
-      loading: false,
-      available: loaded.available,
-      version: loaded.version,
-      reason: loaded.reason,
-    });
+  onMount(() => {
+    const unsubscribe = agentClient.subscribe(setStatus);
+    onCleanup(() => { disposed = true; recommendationRevision++; answerRevision++;
+      clearTimeout(timer); unsubscribe(); agentClient.disconnect(); });
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(CONNECTION_KEY) || "null");
+      if (saved?.token) { setEndpoint(saved.endpoint || "/agent/rpc"); void agentClient.configure(saved); }
+    } catch { /* Private mode or obsolete settings must not disable local help. */ }
+  });
 
-    if (!loaded.available) return;
-    const loadedTopics = await agentClient.listHelpTopics();
-    if (Array.isArray(loadedTopics) && loadedTopics.length) {
-      setTopics(loadedTopics);
-    }
+  createEffect(() => {
+    const current = status();
+    if (!current.available) { setTopics(BUILTIN_TOPICS); return; }
+    const generation = current.generation;
+    void agentClient.listHelpTopics().then((items) => {
+      if (disposed || generation !== status().generation) return;
+      if (Array.isArray(items) && items.length && items.every(validTopic)) setTopics(items);
+    }).catch(() => {});
   });
 
   createEffect(() => {
     const state = props.state;
-    if (!status().available) return;
-
+    const stateKey = JSON.stringify(state);
+    const connection = status();
+    const connectionKey = `${connection.generation}:${connection.available}`;
+    if (stateKey === previousState && connectionKey === previousConnection) return;
+    if (stateKey !== previousState) { answerRevision++; setAnswer(null); }
+    previousState = stateKey; previousConnection = connectionKey;
     const revision = ++recommendationRevision;
-    void agentClient.analyze(state).then((value) => {
-      if (revision !== recommendationRevision) return;
-      setRecommendation(value);
-    }).catch((error) => {
-      if (revision !== recommendationRevision) return;
-      console.error("Ошибка анализа состояния агентом", error);
-      setRecommendation(null);
-    });
+    clearTimeout(timer);
+    setRecommendation(analyzeBuiltin(state));
+    setMemoryWarning(false);
+    if (!connection.available) return;
+    // Coalesce short bursts; the local recommendation is already visible.
+    timer = setTimeout(() => {
+      void agentClient.analyze(state).then((value) => {
+        if (disposed || revision !== recommendationRevision) return;
+        if (value?.schemaVersion !== 1 || typeof value.message !== "string"
+            || typeof value.recommendationId !== "string") return;
+        setRecommendation({ ...value, source: "agent" });
+        setMemoryWarning(value.storage?.recorded === false);
+      }).catch(() => {
+        if (!disposed && revision === recommendationRevision) setRecommendation(analyzeBuiltin(state));
+      });
+    }, 150);
   });
 
   async function selectTopic(topic) {
+    const revision = ++answerRevision;
     setSelectedTopicId(topic.id);
-    const fullTopic = status().available
-      ? await agentClient.getHelpTopic(topic.id)
-      : topic;
-    setAnswer({
-      question: "",
-      title: fullTopic?.title ?? topic.title,
-      summary: fullTopic?.summary || "Содержание темы пока не подключено.",
-    });
+    let fullTopic = getBuiltinTopic(topic.id) ?? topic;
+    if (status().available) {
+      try { const value = await agentClient.getHelpTopic(topic.id); if (validTopic(value)) fullTopic = value; }
+      catch { /* Keep the local content. */ }
+    }
+    if (disposed || revision !== answerRevision) return;
+    setAnswer({ question: "", title: fullTopic.title, summary: fullTopic.summary });
   }
-
   async function submitQuestion(event) {
     event.preventDefault();
     const value = question().trim();
-    if (!value || !status().available) return;
-
-    const topic = await agentClient.findHelpTopic(value);
-    const current = recommendation();
-    setAnswer(topic
-      ? {
-          question: value,
-          title: topic.title,
-          summary: topic.summary,
-        }
-      : {
-          question: value,
-          title: "По текущему состоянию",
-          summary: current?.message
-            ?? "Подходящая тема не найдена. Уточните действие или объект модели.",
-        });
+    if (!value) return;
+    const revision = ++answerRevision;
+    let topic = findBuiltinTopic(value);
+    if (status().available) {
+      try { const remote = await agentClient.findHelpTopic(value); if (validTopic(remote)) topic = remote; }
+      catch { /* Offline questions use built-in help. */ }
+    }
+    if (disposed || revision !== answerRevision) return;
+    setAnswer({ question: value, title: topic?.title ?? "По текущему состоянию",
+      summary: topic?.summary ?? recommendation()?.message ?? "Уточните действие или объект модели." });
     if (topic) setSelectedTopicId(topic.id);
     setQuestion("");
+  }
+  async function connect(event) {
+    event.preventDefault(); setConnectionError("");
+    const config = { endpoint: endpoint().trim() || "/agent/rpc", token: key().trim() };
+    try {
+      const promise = agentClient.configure(config);
+      try { sessionStorage.setItem(CONNECTION_KEY, JSON.stringify(config)); } catch { /* in-memory session still works */ }
+      setKey(""); await promise;
+    } catch (error) { setConnectionError(error.message); }
+  }
+  function disconnect() {
+    agentClient.disconnect(); setKey("");
+    try { sessionStorage.removeItem(CONNECTION_KEY); } catch { /* optional browser storage */ }
   }
 
   return (
     <aside class="task-help-panel" aria-label="Справка агента">
       <section class="task-help-chat" aria-label="Диалог с агентом">
-        <div
-          class="task-help-chat-messages"
-          role="log"
-          aria-live="polite"
-        >
-          <div
-            classList={{
-              "task-agent-status": true,
-              available: status().available,
-              unavailable: !status().loading && !status().available,
-            }}
-            title={status().reason || ""}
-          >
+        <div class="task-help-chat-messages" role="log" aria-live="polite">
+          <div classList={{ "task-agent-status": true, available: status().available,
+            unavailable: !status().loading && !status().available }} title={status().reason}>
             {statusText(status())}{" [Экспериментальная функциональность: пока ничего не работает]"}
           </div>
-
-          <Show
-            when={recommendation()}
-            fallback={
-              <Show when={!status().loading && !status().available}>
-                <p class="task-help-chat-placeholder">
-                  {status().reason || "Пакет clark.agent не включён в сборку."}
-                </p>
-              </Show>
-            }
-          >
-            {(item) => (
-              <div
-                class="task-agent-recommendation"
-                data-level={item().level}
-              >
-                <div class="task-agent-caption">Следующий шаг</div>
-                <p class="task-agent-message">{item().message}</p>
-              </div>
-            )}
-          </Show>
-
-          <Show when={answer()}>
-            {(item) => (
-              <div class="task-agent-answer">
-                <Show when={item().question}>
-                  <p class="task-agent-question">Вы: {item().question}</p>
-                </Show>
-                <p class="task-agent-answer-title">{item().title}</p>
-                <p class="task-agent-answer-text">{item().summary}</p>
-              </div>
-            )}
-          </Show>
+          <details class="task-agent-connection">
+            <summary>Подключение локального агента</summary>
+            <p>Ключ доступен на локальной странице настроек агента. LAN-профиль использует только встроенную помощь.</p>
+            <form onSubmit={connect}>
+              <label>WebSocket-адрес<input value={endpoint()} onInput={(event) => setEndpoint(event.currentTarget.value)} /></label>
+              <label>Ключ редактора<input type="password" autocomplete="off" value={key()} onInput={(event) => setKey(event.currentTarget.value)} /></label>
+              <button type="submit" disabled={!key().trim()}>Подключить</button>
+              <button type="button" onClick={disconnect}>Отключить</button>
+            </form>
+            <Show when={connectionError()}><p role="alert">{connectionError()}</p></Show>
+          </details>
+          <Show when={recommendation()}>{(item) => (
+            <div class="task-agent-recommendation" data-level={item().level}>
+              <div class="task-agent-caption">Следующий шаг</div>
+              <div class="task-agent-source">{item().source === "agent" ? "Локальный агент" : "Встроенная помощь"}</div>
+              <p class="task-agent-message">{item().message}</p>
+            </div>
+          )}</Show>
+          <Show when={memoryWarning()}><p role="status">Ответ получен, но локальная запись истории недоступна.</p></Show>
+          <Show when={answer()}>{(item) => (
+            <div class="task-agent-answer">
+              <Show when={item().question}><p class="task-agent-question">Вы: {item().question}</p></Show>
+              <p class="task-agent-answer-title">{item().title}</p>
+              <p class="task-agent-answer-text">{item().summary}</p>
+            </div>
+          )}</Show>
         </div>
-
         <form class="task-help-chat-composer" onSubmit={submitQuestion}>
-          <textarea
-            rows="3"
-            aria-label="Вопрос агенту"
-            placeholder="Задайте вопрос…"
-            value={question()}
-            disabled={!status().available}
-            onInput={(event) => setQuestion(event.currentTarget.value)}
-          />
-          <button
-            type="button"
-            class="task-help-voice-button"
-            aria-label="Голосовая связь пока не подключена"
-            title="Голосовая связь пока не подключена"
-            disabled
-          >
-            <span aria-hidden="true">🔊</span>
-          </button>
-          <button
-            type="submit"
-            class="task-help-send-button"
-            title="Отправить вопрос"
-            disabled={!status().available || !question().trim()}
-          >
-            Отправить
-          </button>
+          <textarea rows="3" maxlength="4000" aria-label="Вопрос агенту" placeholder="Задайте вопрос…"
+            value={question()} onInput={(event) => setQuestion(event.currentTarget.value)} />
+          <button type="button" class="task-help-voice-button" aria-label="Голосовая связь пока не подключена"
+            title="Голосовая связь пока не подключена" disabled><span aria-hidden="true">🔊</span></button>
+          <button type="submit" class="task-help-send-button" title="Отправить вопрос" disabled={!question().trim()}>Отправить</button>
         </form>
       </section>
-
       <nav class="task-help-topics" aria-label="Темы справки">
-        <For each={topics()}>
-          {(topic) => (
-            <button
-              type="button"
-              classList={{
-                "task-help-topic": true,
-                selected: selectedTopicId() === topic.id,
-              }}
-              aria-pressed={selectedTopicId() === topic.id}
-              onClick={() => selectTopic(topic)}
-            >
-              {topic.title}
-            </button>
-          )}
-        </For>
+        <For each={topics()}>{(topic) => (
+          <button type="button" classList={{ "task-help-topic": true, selected: selectedTopicId() === topic.id }}
+            aria-pressed={selectedTopicId() === topic.id} onClick={() => selectTopic(topic)}>{topic.title}</button>
+        )}</For>
       </nav>
     </aside>
   );

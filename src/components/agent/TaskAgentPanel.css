@@ -1,56 +1,21 @@
-.task-agent-status {
-  margin-bottom: 10px;
-  color: #aeb8c2;
-  font-size: 13px;
-}
-
-.task-agent-status.available {
-  color: #9fe0ad;
-}
-
-.task-agent-status.unavailable {
-  color: #f0c47a;
-}
-
+.task-agent-status { margin-bottom: 10px; color: #aeb8c2; font-size: 13px; }
+.task-agent-status.available { color: #9fe0ad; }
+.task-agent-status.unavailable { color: #f0c47a; }
 .task-agent-recommendation,
-.task-agent-answer {
-  margin-bottom: 12px;
-  padding: 10px;
-  border: 1px solid #596773;
-  border-radius: 4px;
-  background: #151b21;
-}
-
-.task-agent-recommendation[data-level="error"] {
-  border-left: 4px solid #e45b5b;
-}
-
-.task-agent-recommendation[data-level="warning"] {
-  border-left: 4px solid #e0b04c;
-}
-
-.task-agent-recommendation[data-level="success"] {
-  border-left: 4px solid #69b879;
-}
-
+.task-agent-answer { margin-bottom: 12px; padding: 10px; border: 1px solid #596773; border-radius: 4px; background: #151b21; }
+.task-agent-recommendation[data-level="error"] { border-left: 4px solid #e45b5b; }
+.task-agent-recommendation[data-level="warning"] { border-left: 4px solid #e0b04c; }
+.task-agent-recommendation[data-level="success"] { border-left: 4px solid #69b879; }
 .task-agent-caption,
-.task-agent-answer-title {
-  font-weight: 700;
-}
-
+.task-agent-answer-title { font-weight: 700; }
 .task-agent-message,
 .task-agent-answer-title,
 .task-agent-answer-text,
-.task-agent-question {
-  margin: 6px 0 0;
-}
-
-.task-agent-question {
-  color: #b8cce0;
-}
-
-.task-help-chat-composer button:disabled,
-.task-help-chat-composer textarea:disabled {
-  cursor: not-allowed;
-  opacity: .5;
-}
+.task-agent-question { margin: 6px 0 0; }
+.task-agent-question { color: #b8cce0; }
+.task-help-chat-composer button:disabled { cursor: not-allowed; opacity: .5; }
+.task-agent-source { font-size: 13px; color: #aeb8c2; margin-top: 4px; }
+.task-agent-connection { margin: 10px 0; font-size: 14px; }
+.task-agent-connection label { display: block; margin: 6px 0; }
+.task-agent-connection input { display: block; width: 100%; max-width: 100%; box-sizing: border-box; }
+.task-agent-connection button { margin: 6px 6px 6px 0; }
