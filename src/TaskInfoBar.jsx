@@ -15,6 +15,8 @@ export function TaskInfoBar(props) {
   const [aboutOpen, setAboutOpen] = createSignal(false);
   const [adminPassword, setAdminPassword] = createSignal("");
   const [adminError, setAdminError] = createSignal("");
+  const saveButtonTitle = () => props.saveFeedback?.message
+    ?? (props.saveBusy ? "Сохранение модели…" : "Сохранить модель");
 
   let noticeDialog;
   let noticeButton;
@@ -195,12 +197,27 @@ export function TaskInfoBar(props) {
 
         <button
           class="save-button"
-          disabled={!props.path}
+          classList={{
+            "save-button-saving": props.saving,
+            "save-button-success": props.saveFeedback?.status === "success",
+            "save-button-error": props.saveFeedback?.status === "error",
+          }}
+          disabled={!props.path || props.saveBusy}
           onClick={props.onSave}
-          title="Сохранить модель"
+          title={saveButtonTitle()}
+          aria-label="Сохранить модель"
+          aria-busy={Boolean(props.saving)}
         >
-          💾
+          <span class="save-button-symbol" aria-hidden="true">💾</span>
+          <Show when={props.saveFeedback}>
+            <span class="save-button-confirmation" aria-hidden="true">
+              {props.saveFeedback?.status === "success" ? "✓" : "!"}
+            </span>
+          </Show>
         </button>
+        <span class="save-feedback-announcement" role="status" aria-live="polite">
+          {props.saveFeedback?.message ?? (props.saving ? "Сохранение модели…" : "")}
+        </span>
 
         <button
           ref={(el) => (aboutButton = el)}

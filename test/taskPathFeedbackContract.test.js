@@ -89,6 +89,11 @@ test("loaded path is announced and softly highlighted once", async () => {
     const keyframes = styles.match(
         /@keyframes task-path-attention\s*\{[\s\S]*?\n\}/u,
     )?.[0] ?? "";
+    // Ограничение относится к пути задания. Кнопка сохранения пульсирует
+    // всё время своей асинхронной операции в этой же таблице стилей.
+    const pathStyles = styles.match(
+        /\.task-info-path(?:-value|-empty)?[^{}]*\{[^{}]*\}/gu,
+    )?.join("\n") ?? "";
 
     assert.match(
         styles,
@@ -99,7 +104,10 @@ test("loaded path is announced and softly highlighted once", async () => {
         /0%,\s*100%\s*\{[^}]*color:\s*#000;[^}]*background-color:\s*transparent;[^}]*\}\s*50%\s*\{[^}]*color:\s*#b00020;[^}]*background-color:\s*rgba\(255, 235, 59, \.72\);/su,
     );
     assert.doesNotMatch(keyframes, /rgba\(144, 211, 156/u);
-    assert.doesNotMatch(styles, /animation:[^;]*(?:infinite|transform)/u);
+    assert.doesNotMatch(
+        pathStyles,
+        /animation(?:-[\w-]+)?\s*:[^;]*(?:infinite|transform)/u,
+    );
     assert.doesNotMatch(keyframes, /transform\s*:/u);
     assert.match(
         styles,

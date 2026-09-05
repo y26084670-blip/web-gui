@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup } from "solid-js";
 
 import { Tasks } from "./tabs/Tasks.jsx";
 import { DataEditor } from "./components/editors/DataEditor.jsx";
@@ -47,6 +47,41 @@ export default function App() {
   let geometryViewerButton;
   let modelValidationRevision = 0;
   let observedGeometryTaskHandle;
+
+  const [savePending, setSavePending] = createSignal(null);
+  const [saveFeedback, setSaveFeedback] = createSignal(null);
+  let saveFeedbackTimer;
+  let saveContextVersion = 0;
+
+  function clearSaveFeedback() {
+    clearTimeout(saveFeedbackTimer);
+    saveFeedbackTimer = undefined;
+    setSaveFeedback(null);
+  }
+
+  createEffect(() => {
+    selectionService.loadedTaskHandle();
+    modelService.getModel();
+    saveContextVersion += 1;
+    clearSaveFeedback();
+  });
+
+  onCleanup(() => {
+    saveContextVersion += 1;
+    clearSaveFeedback();
+  });
+
+  function showSaveFeedback(context, status, message) {
+    if (
+      context.version !== saveContextVersion
+      || context.taskHandle !== selectionService.loadedTaskHandle()
+      || context.modelSnapshot !== modelService.getModel()
+    ) return;
+
+    clearSaveFeedback();
+    setSaveFeedback({ status, message });
+    saveFeedbackTimer = setTimeout(clearSaveFeedback, 3000);
+  }
 
   async function collectModelDiagnostics(taskHandle, modelSnapshot) {
     const materialResult = await loadMaterialReferenceCatalog(taskHandle);
@@ -245,77 +280,114 @@ export default function App() {
 
   async function handleSave() {
     const dirHandle = selectionService.loadedTaskHandle();
-    if (!dirHandle) return;
+    if (!dirHandle || savePending()) return;
 
     const modelSnapshot = modelService.getModel();
     const validationRevision = ++modelValidationRevision;
+    const context = {
+      version: saveContextVersion,
+      taskHandle: dirHandle,
+      modelSnapshot,
+    };
+    let feedbackResult;
+    setSavePending(context);
+    clearSaveFeedback();
 
     try {
-      await taskApprovalService.markUnapproved(dirHandle);
-    } catch (error) {
-      console.error(
-        "Сохранение отменено: не удалось создать маркер проверки",
-        error,
-      );
-      return;
-    }
-
-    let saveFailed = false;
-    for (const schema of tabRegistry) {
-      const itemModel = modelSnapshot[schema.id];
       try {
-        const saved = await dataService.save(
-          dirHandle,
-          schema,
-          itemModel,
-        );
-        if (!saved) {
-          saveFailed = true;
-          console.warn(`Не сохранена вкладка '${schema.id}'`);
-          continue;
-        }
-        unsavedChangesService.setBaseline(schema.id, itemModel);
+        await taskApprovalService.markUnapproved(dirHandle);
       } catch (error) {
-        saveFailed = true;
-        console.warn(`Не удалось сохранить '${schema.id}'`, error);
+        feedbackResult = {
+          status: "error",
+          message: "Сохранение отменено: не удалось подготовить запись. "
+            + (error?.message ?? String(error)),
+        };
+        console.error(
+          "Сохранение отменено: не удалось создать маркер проверки",
+          error,
+        );
+        return;
       }
-    }
-    if (saveFailed) return;
 
-    let diagnostics;
-    try {
-      diagnostics = await collectModelDiagnostics(
-        dirHandle,
-        modelSnapshot,
+      let saveFailed = false;
+      let savedCount = 0;
+      const saveErrors = [];
+      for (const schema of tabRegistry) {
+        const itemModel = modelSnapshot[schema.id];
+        try {
+          const saved = await dataService.save(
+            dirHandle,
+            schema,
+            itemModel,
+          );
+          if (!saved) {
+            saveFailed = true;
+            // Отсутствующая необязательная вкладка не требует записи.
+            if (itemModel != null || schema.config.required) {
+              saveErrors.push(schema.title);
+            }
+            console.warn(`Не сохранена вкладка '${schema.id}'`);
+            continue;
+          }
+          savedCount += 1;
+          unsavedChangesService.setBaseline(schema.id, itemModel);
+        } catch (error) {
+          saveFailed = true;
+          saveErrors.push(`${schema.title}: ${error?.message ?? String(error)}`);
+          console.warn(`Не удалось сохранить '${schema.id}'`, error);
+        }
+      }
+
+      feedbackResult = saveErrors.length > 0 || savedCount === 0
+        ? {
+          status: "error",
+          message: saveErrors.length > 0
+            ? `Не удалось сохранить вкладки: ${saveErrors.join("; ")}`
+            : "Нет данных для сохранения",
+        }
+        : { status: "success", message: "Данные модели сохранены" };
+      if (saveFailed) return;
+
+      let diagnostics;
+      try {
+        diagnostics = await collectModelDiagnostics(
+          dirHandle,
+          modelSnapshot,
+        );
+      } catch (error) {
+        console.error(
+          "Маркер проверки сохранён: проверка модели не завершена",
+          error,
+        );
+        return;
+      }
+
+      if (
+        validationRevision === modelValidationRevision
+        && dirHandle === selectionService.loadedTaskHandle()
+        && modelSnapshot === modelService.getModel()
+      ) {
+        diagnosticService.setValidationResult(diagnostics);
+      }
+
+      const hasErrors = diagnostics.some(
+        diagnostic => diagnostic.level === VALIDATION_LEVELS.ERROR,
       );
-    } catch (error) {
-      console.error(
-        "Маркер проверки сохранён: проверка модели не завершена",
-        error,
-      );
-      return;
-    }
+      if (hasErrors) return;
 
-    if (
-      validationRevision === modelValidationRevision
-      && dirHandle === selectionService.loadedTaskHandle()
-      && modelSnapshot === modelService.getModel()
-    ) {
-      diagnosticService.setValidationResult(diagnostics);
-    }
-
-    const hasErrors = diagnostics.some(
-      diagnostic => diagnostic.level === VALIDATION_LEVELS.ERROR,
-    );
-    if (hasErrors) return;
-
-    try {
-      await taskApprovalService.clearUnapproved(dirHandle);
-    } catch (error) {
-      console.error(
-        "Данные сохранены без ошибок, но маркер проверки не удалён",
-        error,
-      );
+      try {
+        await taskApprovalService.clearUnapproved(dirHandle);
+      } catch (error) {
+        console.error(
+          "Данные сохранены без ошибок, но маркер проверки не удалён",
+          error,
+        );
+      }
+    } finally {
+      setSavePending(null);
+      if (feedbackResult) {
+        showSaveFeedback(context, feedbackResult.status, feedbackResult.message);
+      }
     }
   }
 
@@ -340,6 +412,10 @@ export default function App() {
         onAdminUnlock={handleAdminUnlock}
         onValidate={handleModelValidation}
         onSave={handleSave}
+        saveBusy={Boolean(savePending())}
+        saving={Boolean(savePending())
+          && savePending().taskHandle === selectionService.loadedTaskHandle()}
+        saveFeedback={saveFeedback()}
         menuOpen={sidePanelOpen()}
         onMenuToggle={() => setSidePanelOpen((open) => !open)}
         geometryViewerOpen={geometryViewerOpen()}

@@ -71,6 +71,92 @@
     gap: 8px;
 }
 
+.save-button {
+    position: relative;
+}
+
+.save-button-saving {
+    animation: model-save-pulse .8s ease-in-out infinite;
+}
+
+.save-button-success {
+    animation: model-save-success 3s ease-in-out both;
+}
+
+.save-button-error {
+    animation: model-save-error 3s ease-in-out both;
+}
+
+.save-button-success .save-button-symbol,
+.save-button-error .save-button-symbol {
+    visibility: hidden;
+}
+
+.save-button-confirmation {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd600;
+    font-size: 24px;
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .65);
+    pointer-events: none;
+    animation: model-save-confirmation 3s ease-in-out both;
+}
+
+.save-button-error .save-button-confirmation {
+    color: #ffb4ab;
+}
+
+.save-feedback-announcement {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+@keyframes model-save-pulse {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255, 214, 0, .35); }
+    50% { box-shadow: 0 0 0 3px #ffd600; }
+}
+
+@keyframes model-save-success {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    20%, 70% { box-shadow: 0 0 0 3px #ffd600; }
+}
+
+@keyframes model-save-error {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    20%, 70% { box-shadow: 0 0 0 3px #dc2626; }
+}
+
+@keyframes model-save-confirmation {
+    0%, 100% { opacity: 0; }
+    20%, 70% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .save-button-saving,
+    .save-button-success {
+        animation: none;
+        box-shadow: 0 0 0 3px #ffd600;
+    }
+
+    .save-button-error {
+        animation: none;
+        box-shadow: 0 0 0 3px #dc2626;
+    }
+
+    .save-button-confirmation {
+        animation: none;
+    }
+}
+
 .geometry-button {
     flex: 0 0 auto;
     box-sizing: border-box;
