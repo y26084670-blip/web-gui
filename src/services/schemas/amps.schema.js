@@ -97,7 +97,7 @@ export default createSchema({
                 value: "amplitude",
                 label: "Амплитуда",
                 property: "impuls",
-                x: { column: 0, title: "Время, сек" },
+                x: { column: 0, title: "Время" },
                 y: { title: "Амплитуда" },
                 series: [{ column: 1, label: "Амплитуда" }],
             }],
@@ -114,7 +114,7 @@ export default createSchema({
             default: [],
             digits: 6,
             nColumns: 2,
-            columns: ["Время, сек", "Амплитуда",],
+            columns: ["Время", "Амплитуда",],
             items: {
                 type: FIELD_TYPES.FLOAT,
                 default: 0,

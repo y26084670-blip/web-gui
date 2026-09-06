@@ -201,8 +201,8 @@ test("elements reports every failed solver geometry flag separately", () => {
     assert.deepEqual(
         diagnostics.map(({ message }) => message),
         [
-            "Длина ребра 26 не превышает 0,03 мм",
-            "Ориентированный объём не превышает 0,000027 мм³",
+            "Длина ребра 26 не превышает 0,03",
+            "Ориентированный объём не превышает 0,000027",
         ],
     );
     assert.equal(diagnostics.every(item => item.row === 1), true);

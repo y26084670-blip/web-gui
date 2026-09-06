@@ -107,9 +107,9 @@ export default createSchema({
             nColumns: 3,
             order: "column",
             columns: [
-                "Mx [кА/м] / Jx [А/кв.мм]",
-                "My [кА/м] / Jy [А/кв.мм]",
-                "Mz [кА/м] / Jz [А/кв.мм]",
+                "Mx / Jx",
+                "My / Jy",
+                "Mz / Jz",
             ],
             items: {
                 type: FIELD_TYPES.FLOAT,

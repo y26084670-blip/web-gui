@@ -94,7 +94,7 @@ function GeneratorPreviewGraph(props) {
               type: "linear",
               title: {
                 display: true,
-                text: "Время, сек",
+                text: "Время",
                 color: "#dce4ec",
               },
               ticks: { color: "#b8c3cd" },
@@ -502,7 +502,7 @@ export function TimeFunctionGenerator(props) {
 
           <div class="time-generator-range">
             <label>
-              <span>Начало действия, сек</span>
+              <span>Начало действия</span>
               <input
                 type="number"
                 step="any"
@@ -514,7 +514,7 @@ export function TimeFunctionGenerator(props) {
               />
             </label>
             <label>
-              <span>Конец действия, сек</span>
+              <span>Конец действия</span>
               <input
                 type="number"
                 step="any"

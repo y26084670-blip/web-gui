@@ -19,7 +19,7 @@ const ampsSchema = {
             modes: [{
                 value: "amplitude",
                 property: "impuls",
-                x: { column: 0, title: "Время, сек" },
+                x: { column: 0, title: "Время" },
                 y: { title: "Амплитуда" },
                 series: [{ column: 1, label: "Амплитуда" }],
             }],
@@ -41,8 +41,8 @@ const movesSchema = {
                 {
                     value: "position",
                     property: "position",
-                    x: { column: 0, title: "Время, сек" },
-                    y: { title: "Смещение, мм" },
+                    x: { column: 0, title: "Время" },
+                    y: { title: "Смещение" },
                     series: [
                         { column: 1, label: "X" },
                         { column: 2, label: "Y" },
@@ -52,8 +52,8 @@ const movesSchema = {
                 {
                     value: "angle",
                     property: "angle",
-                    x: { column: 0, title: "Время, сек" },
-                    y: { title: "Угол, град" },
+                    x: { column: 0, title: "Время" },
+                    y: { title: "Угол" },
                     series: [
                         { column: 1, label: "aX" },
                         { column: 2, label: "aY" },
@@ -126,7 +126,7 @@ test("trajectory angle mode uses angle values and degree axis", () => {
         { x: 0, y: 1 },
         { x: 1, y: 2 },
     ]);
-    assert.equal(config.options.scales.y.title.text, "Угол, град");
+    assert.equal(config.options.scales.y.title.text, "Угол");
     assert.equal(
         recordGraphModeForProperty(movesSchema, "angle").value,
         "angle",

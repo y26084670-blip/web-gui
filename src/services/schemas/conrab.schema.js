@@ -85,7 +85,7 @@ export default createSchema({
 
         UZMIN: {
             type: FIELD_TYPES.FLOAT,
-            label: "UZMIN, мм",
+            label: "UZMIN",
             description: "Регуляризирующее ограничение на расстояние от точки наблюдения до площадки",
             default: 0.005,
             digits: 6,

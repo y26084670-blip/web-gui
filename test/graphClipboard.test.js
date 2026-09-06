@@ -13,10 +13,10 @@ const moveProperty = {
     label: "Положение",
     nColumns: 4,
     columns: [
-        "Время, сек",
-        "X0, мм",
-        "Y0, мм",
-        "Z0, мм",
+        "Время",
+        "X0",
+        "Y0",
+        "Z0",
     ],
 };
 
@@ -39,12 +39,12 @@ test("graph table TSV reproduces detail titles, headers, and rows", () => {
         graphTablesToTsv([first, second]),
         [
             "Положение — запись 2",
-            "#\tВремя, сек\tX0, мм\tY0, мм\tZ0, мм",
+            "#\tВремя\tX0\tY0\tZ0",
             "1\t0\t1\t2\t3",
             "2\t0.5\t4\t5\t6",
             "",
             "Положение — запись 5",
-            "#\tВремя, сек\tX0, мм\tY0, мм\tZ0, мм",
+            "#\tВремя\tX0\tY0\tZ0",
             "1\t0\t7\t8\t9",
         ].join("\n"),
     );
@@ -68,7 +68,7 @@ test("generator TSV keeps the source detail table shape", () => {
         graphTablesToTsv([table]),
         [
             "Положение — предпросмотр",
-            "#\tВремя, сек\tX0, мм\tY0, мм\tZ0, мм",
+            "#\tВремя\tX0\tY0\tZ0",
             "1\t0\t\t12\t",
             "2\t0.5\t\t18\t",
         ].join("\n"),
@@ -82,7 +82,7 @@ test("table copy writes TSV to the system clipboard", async () => {
         property: {
             label: "Amplitude",
             nColumns: 2,
-            columns: ["Время, сек", "Амплитуда"],
+            columns: ["Время", "Амплитуда"],
         },
         rows: [[0, 1]],
     });
@@ -96,7 +96,7 @@ test("table copy writes TSV to the system clipboard", async () => {
     });
 
     assert.equal(writes.length, 1);
-    assert.match(writes[0], /#\tВремя, сек\tАмплитуда/u);
+    assert.match(writes[0], /#\tВремя\tАмплитуда/u);
 });
 
 test("image copy creates a PNG with the visible graph background", async () => {

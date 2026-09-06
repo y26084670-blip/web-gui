@@ -125,8 +125,8 @@ export default createSchema({
                     value: "position",
                     label: "Смещение",
                     property: "position",
-                    x: { column: 0, title: "Время, сек" },
-                    y: { title: "Смещение, мм" },
+                    x: { column: 0, title: "Время" },
+                    y: { title: "Смещение" },
                     series: [
                         { column: 1, label: "X" },
                         { column: 2, label: "Y" },
@@ -137,8 +137,8 @@ export default createSchema({
                     value: "angle",
                     label: "Углы",
                     property: "angle",
-                    x: { column: 0, title: "Время, сек" },
-                    y: { title: "Угол, град" },
+                    x: { column: 0, title: "Время" },
+                    y: { title: "Угол" },
                     series: [
                         { column: 1, label: "aX" },
                         { column: 2, label: "aY" },
@@ -159,10 +159,10 @@ export default createSchema({
             default: [],
             nColumns: 4,
             columns: [
-                "Время, сек",
-                "aX, град",
-                "aY, град",
-                "aZ, град",
+                "Время",
+                "aX",
+                "aY",
+                "aZ",
             ],
             items: {
                 type: FIELD_TYPES.FLOAT,
@@ -181,10 +181,10 @@ export default createSchema({
             default: [],
             nColumns: 4,
             columns: [
-                "Время, сек",
-                "X0, мм",
-                "Y0, мм",
-                "Z0, мм",
+                "Время",
+                "X0",
+                "Y0",
+                "Z0",
             ],
             items: {
                 type: FIELD_TYPES.FLOAT,

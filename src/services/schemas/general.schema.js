@@ -140,7 +140,7 @@ export default createSchema({
         },
         timeStep: {
             type: FIELD_TYPES.FLOAT,
-            label: "Шаг по времени, сек",
+            label: "Шаг по времени",
             description: "",
             default: 0,
             minimum: 0,
@@ -148,21 +148,21 @@ export default createSchema({
 
         polusForceX: {
             type: FIELD_TYPES.FLOAT,
-            label: "X - полюс для моментов, мм",
+            label: "X - полюс для моментов",
             description: "",
             default: 0,
         },
 
         polusForceY: {
             type: FIELD_TYPES.FLOAT,
-            label: "Y - полюс для моментов, мм",
+            label: "Y - полюс для моментов",
             description: "",
             default: 0,
         },
 
         polusForceZ: {
             type: FIELD_TYPES.FLOAT,
-            label: "Z - полюс для моментов, мм",
+            label: "Z - полюс для моментов",
             description: "",
             default: 0,
         },
