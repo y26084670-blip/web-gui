@@ -4,7 +4,7 @@ const SUMMARY_FILE_NAME = "_summary.txt";
 const LEGACY_FILE_NAME = "kv.in";
 
 export const TASK_SUMMARY_TEXT = Object.freeze({
-  NO_INFORMATION: "нет информации",
+  NO_INFORMATION: "нет информации, т.к. расчет не проводился",
   NO_CURRENT_FORMAT: "не содержит данных актуального формата",
   LEGACY_IMPORT: "доступен импорт из legacy - формата",
 });
