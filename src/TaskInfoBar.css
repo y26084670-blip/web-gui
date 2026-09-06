@@ -71,28 +71,35 @@
     gap: 8px;
 }
 
-.save-button {
+.save-button,
+.model-validation-button {
     position: relative;
 }
 
-.save-button-saving {
+.save-button-saving,
+.validation-button-running {
     animation: model-save-pulse .8s ease-in-out infinite;
 }
 
-.save-button-success {
+.save-button-success,
+.validation-button-success {
     animation: model-save-success 3s ease-in-out both;
 }
 
-.save-button-error {
+.save-button-error,
+.validation-button-error {
     animation: model-save-error 3s ease-in-out both;
 }
 
 .save-button-success .save-button-symbol,
-.save-button-error .save-button-symbol {
+.save-button-error .save-button-symbol,
+.validation-button-success .validation-button-label,
+.validation-button-error .validation-button-label {
     visibility: hidden;
 }
 
-.save-button-confirmation {
+.save-button-confirmation,
+.validation-button-confirmation {
     position: absolute;
     inset: 0;
     display: flex;
@@ -107,11 +114,13 @@
     animation: model-save-confirmation 3s ease-in-out both;
 }
 
-.save-button-error .save-button-confirmation {
+.save-button-error .save-button-confirmation,
+.validation-button-error .validation-button-confirmation {
     color: #ffb4ab;
 }
 
-.save-feedback-announcement {
+.save-feedback-announcement,
+.validation-feedback-announcement {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -142,17 +151,21 @@
 
 @media (prefers-reduced-motion: reduce) {
     .save-button-saving,
-    .save-button-success {
+    .save-button-success,
+    .validation-button-running,
+    .validation-button-success {
         animation: none;
         box-shadow: 0 0 0 3px #ffd600;
     }
 
-    .save-button-error {
+    .save-button-error,
+    .validation-button-error {
         animation: none;
         box-shadow: 0 0 0 3px #dc2626;
     }
 
-    .save-button-confirmation {
+    .save-button-confirmation,
+    .validation-button-confirmation {
         animation: none;
     }
 }

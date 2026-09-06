@@ -29,19 +29,9 @@ export function selectedElementsRequest(table) {
 export function selectedElementMaterialRequest(table) {
     const request = selectedElementsRequest(table);
 
-    const kinds = new Set(
-        request.rows.map(row => materialKindForModel(row.getData()?.model)),
-    );
-    if (kinds.size !== 1) {
-        throw new Error(
-            "Выбранные элементы относятся к разным видам характеристик "
-            + "ФММ и ВТСП.",
-        );
-    }
-
     return {
         ...request,
-        kind: [...kinds][0],
+        kind: materialKindForModel(request.rows[0].getData()?.model),
     };
 }
 

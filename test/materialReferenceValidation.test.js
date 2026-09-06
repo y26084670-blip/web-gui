@@ -6,6 +6,10 @@ import {
     loadMaterialReferenceCatalog,
     validateElementMaterialReferences,
 } from "../src/services/materialReferenceValidation.js";
+import {
+    assignSelectedElementMaterial,
+    selectedElementMaterialRequest,
+} from "../src/tabulator/actions/elementMaterialActions.js";
 
 test("material references respect model kind and report missing files", () => {
     const catalog = createMaterialReferenceCatalog({
@@ -18,15 +22,66 @@ test("material references respect model kind and report missing files", () => {
         { model: 2, xapName: "Сталь" },
         { model: 0, xapName: "Нет файла" },
         { model: 0, xapName: "" },
+        { model: 2, xapName: "ВТСП" },
+        { model: 0, xapName: "ВТСП" },
     ], catalog, diagnostics);
 
-    assert.equal(diagnostics.length, 2);
+    assert.equal(diagnostics.length, 3);
     assert.match(
         diagnostics[0].message,
         /найдена только в локальной библиотеке FMM/u,
     );
     assert.match(diagnostics[1].message, /не найдена в локальной библиотеке/u);
-    assert.deepEqual(diagnostics.map(item => item.row), [2, 3]);
+    assert.match(
+        diagnostics[2].message,
+        /найдена только в локальной библиотеке HTC.*model = 0 требует FMM/u,
+    );
+    assert.deepEqual(diagnostics.map(item => item.row), [2, 3, 6]);
+});
+
+test("the same material name in both libraries is valid for each model", () => {
+    const catalog = createMaterialReferenceCatalog({
+        FMM: [{ name: "Материал" }],
+        HTC: [{ name: "Материал" }],
+    });
+    const diagnostics = [];
+    validateElementMaterialReferences(
+        [0, 1, 2].map(model => ({ model, xapName: "Материал" })),
+        catalog,
+        diagnostics,
+    );
+    assert.deepEqual(diagnostics, []);
+});
+
+test("a mixed material assignment is subsequently validated against each row's model", async () => {
+    const catalog = createMaterialReferenceCatalog({
+        FMM: [{ name: "Сталь" }],
+        HTC: [{ name: "ВТСП" }],
+    });
+    for (const [models, name, expectedKind] of [
+        [[0, 2], "Сталь", "HTC"],
+        [[2, 0], "ВТСП", "FMM"],
+    ]) {
+        const records = models.map(model => ({ model }));
+        const request = selectedElementMaterialRequest({
+            _gui: {
+                schema: { id: "elements" },
+                model: {
+                    async setRecordsValue(items, field, value) {
+                        items.forEach(item => { item[field] = value; });
+                    },
+                },
+            },
+            getSelectedRows: () => records.map(data => ({ getData: () => data })),
+        });
+        await assignSelectedElementMaterial(request, name);
+        const diagnostics = [];
+        validateElementMaterialReferences(records, catalog, diagnostics);
+
+        assert.deepEqual(records.map(item => item.model), models);
+        assert.deepEqual(diagnostics.map(item => item.row), [2]);
+        assert.match(diagnostics[0].message, new RegExp(`требует ${expectedKind}`, "u"));
+    }
 });
 
 test("repeated identical local names are not a collision", () => {

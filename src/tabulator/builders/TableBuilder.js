@@ -65,6 +65,7 @@ function wordLinesHeaderFormatter(cell) {
 function textTooltip(text) {
     const element = document.createElement("div");
     element.textContent = text;
+    element.style.whiteSpace = "pre-line";
     return element;
 }
 

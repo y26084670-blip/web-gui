@@ -17,6 +17,8 @@ export function TaskInfoBar(props) {
   const [adminError, setAdminError] = createSignal("");
   const saveButtonTitle = () => props.saveFeedback?.message
     ?? (props.saveBusy ? "Сохранение модели…" : "Сохранить модель");
+  const validationButtonTitle = () => props.validationFeedback?.message
+    ?? (props.validationBusy ? "Проверка модели…" : "Проверить модель");
 
   let noticeDialog;
   let noticeButton;
@@ -186,12 +188,28 @@ export function TaskInfoBar(props) {
         </button>
 
         <button
-          class="validate-button"
-          disabled={!props.path}
+          class="validate-button model-validation-button"
+          classList={{
+            "validation-button-running": props.validating,
+            "validation-button-success": props.validationFeedback?.status === "success",
+            "validation-button-error": props.validationFeedback?.status === "error",
+          }}
+          disabled={!props.path || props.validationBusy}
           onClick={props.onValidate}
+          title={validationButtonTitle()}
+          aria-label="Проверить модель"
+          aria-busy={Boolean(props.validating)}
         >
-          Проверить модель
+          <span class="validation-button-label">Проверить модель</span>
+          <Show when={props.validationFeedback}>
+            <span class="validation-button-confirmation" aria-hidden="true">
+              {props.validationFeedback?.status === "success" ? "✓" : "!"}
+            </span>
+          </Show>
         </button>
+        <span class="validation-feedback-announcement" role="status" aria-live="polite">
+          {props.validationFeedback?.message ?? (props.validating ? "Проверка модели…" : "")}
+        </span>
 
         <ValidationIndicator />
 

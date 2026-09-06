@@ -48,6 +48,44 @@ export default function App() {
   let modelValidationRevision = 0;
   let observedGeometryTaskHandle;
 
+  const [validationPending, setValidationPending] = createSignal(null);
+  const [validationFeedback, setValidationFeedback] = createSignal(null);
+  let validationFeedbackTimer;
+  let validationContextVersion = 0;
+
+  function clearValidationFeedback() {
+    clearTimeout(validationFeedbackTimer);
+    validationFeedbackTimer = undefined;
+    setValidationFeedback(null);
+  }
+
+  createEffect(() => {
+    selectionService.loadedTaskHandle();
+    modelService.getModel();
+    validationContextVersion += 1;
+    clearValidationFeedback();
+  });
+
+  onCleanup(() => {
+    validationContextVersion += 1;
+    clearValidationFeedback();
+  });
+
+  function isValidationContextCurrent(context) {
+    return context.version === validationContextVersion
+      && context.revision === modelValidationRevision
+      && context.taskHandle === selectionService.loadedTaskHandle()
+      && context.modelSnapshot === modelService.getModel();
+  }
+
+  function showValidationFeedback(context, status, message) {
+    if (!isValidationContextCurrent(context)) return;
+
+    clearValidationFeedback();
+    setValidationFeedback({ status, message });
+    validationFeedbackTimer = setTimeout(clearValidationFeedback, 3000);
+  }
+
   const [savePending, setSavePending] = createSignal(null);
   const [saveFeedback, setSaveFeedback] = createSignal(null);
   let saveFeedbackTimer;
@@ -98,23 +136,43 @@ export default function App() {
   }
 
   async function handleModelValidation() {
-    const revision = ++modelValidationRevision;
     const taskHandle = selectionService.loadedTaskHandle();
-    if (!taskHandle) return;
+    if (!taskHandle || validationPending()) return;
 
     const modelSnapshot = modelService.getModel();
-    const diagnostics = await collectModelDiagnostics(
+    const context = {
+      version: validationContextVersion,
+      revision: ++modelValidationRevision,
       taskHandle,
       modelSnapshot,
-    );
-    if (
-      revision !== modelValidationRevision
-      || taskHandle !== selectionService.loadedTaskHandle()
-      || modelSnapshot !== modelService.getModel()
-    ) {
-      return;
+    };
+    setValidationPending(context);
+    clearValidationFeedback();
+
+    try {
+      const diagnostics = await collectModelDiagnostics(
+        taskHandle,
+        modelSnapshot,
+      );
+      if (!isValidationContextCurrent(context)) return;
+
+      diagnosticService.setValidationResult(diagnostics);
+      showValidationFeedback(
+        context,
+        "success",
+        "Проверка модели завершена. Результат — в диагностике.",
+      );
+    } catch (error) {
+      if (!isValidationContextCurrent(context)) return;
+
+      const message = "Не удалось завершить проверку модели: "
+        + (error?.message ?? String(error));
+      diagnosticService.setValidationResult([createError({ message })]);
+      showValidationFeedback(context, "error", message);
+      console.error("Не удалось завершить проверку модели", error);
+    } finally {
+      setValidationPending(null);
     }
-    diagnosticService.setValidationResult(diagnostics);
   }
 
   function handleAdminUnlock(password) {
@@ -411,6 +469,10 @@ export default function App() {
         path={selectionService.loadedTaskPath()}
         onAdminUnlock={handleAdminUnlock}
         onValidate={handleModelValidation}
+        validationBusy={Boolean(validationPending())}
+        validating={Boolean(validationPending())
+          && validationPending().taskHandle === selectionService.loadedTaskHandle()}
+        validationFeedback={validationFeedback()}
         onSave={handleSave}
         saveBusy={Boolean(savePending())}
         saving={Boolean(savePending())

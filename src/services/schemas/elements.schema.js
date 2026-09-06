@@ -482,7 +482,12 @@ export default createSchema({
         targ: {
             type: FIELD_TYPES.ENUM,
             label: "Назначение элемента",
-            description: "Роль объёмного элемента в расчёте",
+            description:
+                "Роль элемента в расчетах:\n"
+                + "Unknown -> Неизвестные источники\n"
+                + "M-const -> Заданная намагниченность\n"
+                + "J-const -> Заданная плотность тока\n"
+                + "Virtual -> Виртуальный (поле/катушка)",
             default: 0,
             enum: EN_TARG,
         },

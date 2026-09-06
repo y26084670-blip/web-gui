@@ -47,16 +47,44 @@ test("one FMM name is assigned to every selected element in one model call", asy
     assert.deepEqual(records.map(item => item.xapName), ["Сталь 3", "Сталь 3"]);
 });
 
-test("HTC elements use the HTC library and mixed selections are rejected", () => {
-    assert.equal(
-        selectedElementMaterialRequest(tableFor([{ model: 2 }]).table).kind,
-        "HTC",
-    );
+test("mixed selections use the first selected row and assign every row without changing models", async () => {
+    for (const [models, kind] of [
+        [[0, 2], "FMM"],
+        [[2, 0], "HTC"],
+        [[1, 2], "FMM"],
+    ]) {
+        const records = models.map((model, index) => ({
+            num: 20 - index,
+            model,
+            xapName: "Прежняя характеристика",
+        }));
+        const { table, calls } = tableFor(records);
+        const request = selectedElementMaterialRequest(table);
+
+        assert.equal(request.kind, kind);
+        assert.equal(request.count, records.length);
+        assert.deepEqual(request.rows.map(item => item.getData()), records);
+        assert.equal(await assignSelectedElementMaterial(request, "Материал"), 2);
+        assert.deepEqual(calls, [{
+            items: records,
+            field: "xapName",
+            value: "Материал",
+        }]);
+        assert.deepEqual(records.map(item => item.xapName), ["Материал", "Материал"]);
+        assert.deepEqual(records.map(item => item.model), models);
+    }
+});
+
+test("material selection preserves the element table and nonempty selection guards", () => {
     assert.throws(
-        () => selectedElementMaterialRequest(
-            tableFor([{ model: 0 }, { model: 2 }]).table,
-        ),
-        /разным видам характеристик/,
+        () => selectedElementMaterialRequest(tableFor([]).table),
+        /Выберите хотя бы один элемент модели/u,
+    );
+    const { table } = tableFor([{ model: 0 }]);
+    table._gui.schema.id = "nodes";
+    assert.throws(
+        () => selectedElementMaterialRequest(table),
+        /доступно только для элементов модели/u,
     );
 });
 

@@ -25,10 +25,10 @@ export const EN_MODEL = [
     { value: 2, label: "ВТСП 2-го рода" },
 ];
 export const EN_TARG = [
-    { value: 0, label: "Неизвестные источники" },
-    { value: 1, label: "Заданная намагниченность" },
-    { value: 2, label: "Заданная плотность тока" },
-    { value: 3, label: "Виртуальный (поле / катушка)" },
+    { value: 0, label: "Unknown" },
+    { value: 1, label: "M - const" },
+    { value: 2, label: "J - const" },
+    { value: 3, label: "Virtual" },
 ];
 export const SYM_KIND = [
     { value: 1, label: "Знакопостоянная" },

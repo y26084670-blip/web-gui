@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { EN_MODEL } from "../src/services/schemas/common/enums.js";
+import { EN_MODEL, EN_TARG } from "../src/services/schemas/common/enums.js";
 
 const enumEditorPath = new URL(
     "../src/tabulator/editors/types/enumEditor.js",
@@ -12,6 +12,10 @@ const enumEditorPath = new URL(
 const appCssPath = new URL("../src/App.css", import.meta.url);
 const generalSchemaPath = new URL(
     "../src/services/schemas/general.schema.js",
+    import.meta.url,
+);
+const elementsSchemaPath = new URL(
+    "../src/services/schemas/elements.schema.js",
     import.meta.url,
 );
 const enumFormatterPath = new URL(
@@ -41,6 +45,63 @@ test("material model labels expose the supported choices", () => {
     assert.equal(EN_MODEL[0].label, "ФММ M(H)");
     assert.equal(EN_MODEL[1].disabled, true);
     assert.equal(EN_MODEL[2].disabled, undefined);
+});
+
+test("element role labels retain their numeric values", () => {
+    assert.deepEqual(EN_TARG, [
+        { value: 0, label: "Unknown" },
+        { value: 1, label: "M - const" },
+        { value: 2, label: "J - const" },
+        { value: 3, label: "Virtual" },
+    ]);
+});
+
+test("element role tooltip contains the exact five explanation lines", async () => {
+    const source = await readFile(elementsSchemaPath, "utf8");
+    const descriptionSource = source.match(
+        /targ:\s*\{[\s\S]*?description:\s*([\s\S]*?),\s*default:/u,
+    )?.[1];
+    assert.ok(descriptionSource, "element role description is present");
+    const description = [...descriptionSource.matchAll(/"(?:\\.|[^"\\])*"/gu)]
+        .map(([literal]) => JSON.parse(literal))
+        .join("");
+
+    assert.deepEqual(description.split("\n"), [
+        "Роль элемента в расчетах:",
+        "Unknown -> Неизвестные источники",
+        "M-const -> Заданная намагниченность",
+        "J-const -> Заданная плотность тока",
+        "Virtual -> Виртуальный (поле/катушка)",
+    ]);
+    assert.match(source, /targ:\s*\{[\s\S]*?enum:\s*EN_TARG/u);
+});
+
+test("header tooltips preserve explicit line breaks as safe DOM text", async () => {
+    const source = await readFile(tableBuilderPath, "utf8");
+    const helper = source.match(/function textTooltip\(text\) \{[\s\S]*?\n\}/u)?.[0];
+    assert.ok(helper, "shared text tooltip helper is present");
+    const document = {
+        createElement(tagName) {
+            return {
+                tagName,
+                style: {},
+                set innerHTML(value) {
+                    assert.fail(`tooltip interpreted text as HTML: ${value}`);
+                },
+            };
+        },
+    };
+    const textTooltip = new Function("document", `${helper}; return textTooltip;`)(document);
+    const text = "Роль элемента в расчетах:\n<img src=x onerror=alert(1)>\nVirtual";
+    const tooltip = textTooltip(text);
+
+    assert.equal(tooltip.tagName, "div");
+    assert.equal(tooltip.textContent, text);
+    assert.equal(tooltip.style.whiteSpace, "pre-line");
+    assert.match(
+        source,
+        /headerTooltip:\s*\(\)\s*=>\s*textTooltip\(property\.description\)/u,
+    );
 });
 
 test("enum editor disables marked options", async () => {
