@@ -1,7 +1,7 @@
 /*
 Источник: solver/src/core/types.jl, Conrab. Снимок 2026-08.
 Файл содержит две RECORDS-записи: Float32, затем Float64.
-Каждая запись содержит 17 сериализуемых полей.
+Каждая запись содержит 12 сериализуемых полей.
 */
 import {
     TABS,
@@ -18,6 +18,7 @@ export default createSchema({
     storage: STORAGE_TYPES.RECORDS,
     required: true,
     recordCount: 2,
+    obsoleteStoragePaths: ["KB2", "B20", "KEPS2", "KEPS3", "KEPS4"],
     rowLabelDescription: "Параметры математической модели",
 
     views: {
@@ -116,50 +117,10 @@ export default createSchema({
             digits: 6,
         },
 
-        KB2: {
-            type: FIELD_TYPES.FLOAT,
-            label: "KB2",
-            description: "не используется",
-            default: 1,
-            digits: 6,
-        },
-
-        B20: {
-            type: FIELD_TYPES.FLOAT,
-            label: "B20",
-            description: "не используется",
-            default: 0,
-            digits: 6,
-        },
-
         KEPS1: {
             type: FIELD_TYPES.FLOAT,
             label: "KEPS1",
             description: "Коэффициент критерия выхода из поиска J по интервалу: abs(b2-b1) < KEPS1",
-            default: 1,
-            digits: 6,
-        },
-
-        KEPS2: {
-            type: FIELD_TYPES.FLOAT,
-            label: "KEPS2",
-            description: "не используется",
-            default: 1,
-            digits: 6,
-        },
-
-        KEPS3: {
-            type: FIELD_TYPES.FLOAT,
-            label: "KEPS3",
-            description: "не используется",
-            default: 1,
-            digits: 6,
-        },
-
-        KEPS4: {
-            type: FIELD_TYPES.FLOAT,
-            label: "KEPS4",
-            description: "не используется",
             default: 1,
             digits: 6,
         },
