@@ -155,7 +155,7 @@ export default createSchema({
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
             label: "Поворот",
-            description: "Зависимость углов поворота от времени",
+            description: "Зависимость изменения исходной ориентации 9углов поворота) локальной СК элементов/областей от времени",
             default: [],
             nColumns: 4,
             columns: [
@@ -177,7 +177,7 @@ export default createSchema({
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
             label: "Положение",
-            description: "Зависимость положения от времени",
+            description: "Зависимость изменения исходного положения (начала) локальной СК элементов/областей от времени",
             default: [],
             nColumns: 4,
             columns: [

@@ -109,8 +109,8 @@ export default createSchema({
         impuls: {
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
-            label: "Amplitude",
-            description: "Amplitude points",
+            label: "Амплитуда",
+            description: "Узловые значения временной зависимости векторов заданных источников",
             default: [],
             digits: 6,
             nColumns: 2,

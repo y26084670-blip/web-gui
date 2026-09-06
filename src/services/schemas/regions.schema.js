@@ -106,7 +106,7 @@ export default createSchema({
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
             label: "Начальное смещение",
-            description: "Вектор начального смещения геометрии области наблюдения в локальной СК",
+            description: "Вектор начального (до всех поворотов) смещения геометрии области наблюдения в локальной СК",
             default: [0, 0, 0],
             nColumns: 1,
             columns: ["Значение"],
