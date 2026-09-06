@@ -83,6 +83,58 @@ export default createSchema({
             columnWidth: 280,
         },
 
+        geo: {
+            type: FIELD_TYPES.ARRAY,
+            view: VIEW_TYPES.TABLE,
+            label: "Геометрия",
+            description:
+                "Геометрия элемента в локальной СК. "
+                + "Для типа Шестигранник рёбра 1–2, 3–4, 5–6, 7–8 соединяют грани;"
+                + "обходы 1–5–7–3 и 2–4–8–6 задают внешние нормали граней",
+            default: new Array(KV_GEO_LENGTH).fill(0),
+            nColumns: 3,
+            order: "row",
+            columns: ["X", "Y", "Z"],
+            rowsMutable: false,
+            minItems: 8,
+            maxItems: 8,
+            itemLabels: [
+                "V1", "V2", "V3", "V4",
+                "V5", "V6", "V7", "V8",
+            ],
+            itemLabelTitle: "Вершина",
+            variantCodec: kvGeoVariantCodec,
+            summary: geometrySummary,
+            items: {
+                type: FIELD_TYPES.FLOAT,
+                description: "Координата или параметр геометрии",
+                default: 0,
+                digits: 6,
+            },
+        },
+
+        dr: {
+            type: FIELD_TYPES.ARRAY,
+            view: VIEW_TYPES.TABLE,
+            label: "Начальное смещение",
+            description: "Вектор начального (до всех поворотов) смещения геометрии объёмного элемента в локальной СК",
+            default: [0, 0, 0],
+            nColumns: 1,
+            columns: ["Значение"],
+            rowsMutable: false,
+            minItems: 3,
+            maxItems: 3,
+            itemLabels: ["X", "Y", "Z"],
+            itemLabelTitle: "Ось",
+            summary: arraySummary,
+            items: {
+                type: FIELD_TYPES.FLOAT,
+                description: "Компонента вектора смещения",
+                default: 0,
+                digits: 6,
+            },
+        },
+
         symVi: {
             storageKey: "sym.vi",
             type: FIELD_TYPES.ARRAY,
@@ -273,58 +325,6 @@ export default createSchema({
             enum: KV_GEO_TYPE,
         },
 
-        geo: {
-            type: FIELD_TYPES.ARRAY,
-            view: VIEW_TYPES.TABLE,
-            label: "Геометрия",
-            description:
-                "Геометрия элемента в локальной СК. "
-                + "Для типа Шестигранник рёбра 1–2, 3–4, 5–6, 7–8 соединяют грани;"
-                + "обходы 1–5–7–3 и 2–4–8–6 задают внешние нормали граней",
-            default: new Array(KV_GEO_LENGTH).fill(0),
-            nColumns: 3,
-            order: "row",
-            columns: ["X", "Y", "Z"],
-            rowsMutable: false,
-            minItems: 8,
-            maxItems: 8,
-            itemLabels: [
-                "V1", "V2", "V3", "V4",
-                "V5", "V6", "V7", "V8",
-            ],
-            itemLabelTitle: "Вершина",
-            variantCodec: kvGeoVariantCodec,
-            summary: geometrySummary,
-            items: {
-                type: FIELD_TYPES.FLOAT,
-                description: "Координата или параметр геометрии",
-                default: 0,
-                digits: 6,
-            },
-        },
-
-        dr: {
-            type: FIELD_TYPES.ARRAY,
-            view: VIEW_TYPES.TABLE,
-            label: "Смещение геометрии",
-            description: "Вектор начального (до всех поворотов) смещения геометрии объёмного элемента в локальной СК",
-            default: [0, 0, 0],
-            nColumns: 1,
-            columns: ["Значение"],
-            rowsMutable: false,
-            minItems: 3,
-            maxItems: 3,
-            itemLabels: ["X", "Y", "Z"],
-            itemLabelTitle: "Ось",
-            summary: arraySummary,
-            items: {
-                type: FIELD_TYPES.FLOAT,
-                description: "Компонента вектора смещения",
-                default: 0,
-                digits: 6,
-            },
-        },
-
         dp: {
             type: FIELD_TYPES.ARRAY,
             view: VIEW_TYPES.TABLE,
@@ -412,28 +412,6 @@ export default createSchema({
             },
         },
 
-        vkan: {
-            type: FIELD_TYPES.ARRAY,
-            view: VIEW_TYPES.TABLE,
-            label: "Углы анизотропии",
-            description: "Исходные углы ориентации оси лёгкого намагничивания относительно осей локальной СК",
-            default: [0, 0, 0],
-            nColumns: 1,
-            columns: ["Угол"],
-            rowsMutable: false,
-            minItems: 3,
-            maxItems: 3,
-            itemLabels: ["X", "Y", "Z"],
-            itemLabelTitle: "Ось",
-            summary: arraySummary,
-            items: {
-                type: FIELD_TYPES.FLOAT,
-                description: "Угол поворота",
-                default: 0,
-                digits: 6,
-            },
-        },
-
         indCoil: {
             type: FIELD_TYPES.INTEGER,
             label: "Индекс измерительной катушки",
@@ -472,11 +450,36 @@ export default createSchema({
             enum: EN_MODEL,
         },
 
-        auto: {
-            type: FIELD_TYPES.BOOLEAN,
-            label: "Автоповорот источников",
-            description: "Поворачивать ось анизотропии и заданные источники вместе с локальными образами",
-            default: true,
+        xapName: {
+            type: FIELD_TYPES.STRING,
+            label: "Характеристика материала",
+            description:
+                "Имя характеристики ФММ или ВТСП сврйств; поиск выполняется "
+                + "в локальной ФММ или ВТСП библиотеке в соответствии с выбором типа Модели материала",
+            default: "",
+            readonly: true,
+        },
+
+        vkan: {
+            type: FIELD_TYPES.ARRAY,
+            view: VIEW_TYPES.TABLE,
+            label: "Углы анизотропии",
+            description: "Исходные углы ориентации оси лёгкого намагничивания относительно осей локальной СК",
+            default: [0, 0, 0],
+            nColumns: 1,
+            columns: ["Угол"],
+            rowsMutable: false,
+            minItems: 3,
+            maxItems: 3,
+            itemLabels: ["X", "Y", "Z"],
+            itemLabelTitle: "Ось",
+            summary: arraySummary,
+            items: {
+                type: FIELD_TYPES.FLOAT,
+                description: "Угол поворота",
+                default: 0,
+                digits: 6,
+            },
         },
 
         targ: {
@@ -490,13 +493,6 @@ export default createSchema({
                 + "Virtual -> Виртуальный (поле/катушка)",
             default: 0,
             enum: EN_TARG,
-        },
-
-        take: {
-            type: FIELD_TYPES.BOOLEAN,
-            label: "Учитывать при расчёте поля",
-            description: "Учитывать элемент при расчёте поля",
-            default: true,
         },
 
         rv: {
@@ -527,16 +523,6 @@ export default createSchema({
                 description: "0 отключает грань; отрицательное значение обозначает неизвестный заряд",
                 default: 0,
             },
-        },
-
-        xapName: {
-            type: FIELD_TYPES.STRING,
-            label: "Характеристика материала",
-            description:
-                "Имя характеристики ФММ или ВТСП сврйств; поиск выполняется "
-                + "в локальной ФММ или ВТСП библиотеке в соответствии с выбором типа Модели материала",
-            default: "",
-            readonly: true,
         },
 
         isConductive: {
@@ -585,6 +571,20 @@ export default createSchema({
                 evaluate: ({ values }) =>
                     kvFlags(values).ani,
             },
+        },
+
+        auto: {
+            type: FIELD_TYPES.BOOLEAN,
+            label: "Автоповорот источников",
+            description: "Поворачивать ось анизотропии и заданные источники вместе с локальными образами",
+            default: true,
+        },
+
+        take: {
+            type: FIELD_TYPES.BOOLEAN,
+            label: "Учитывать при расчёте поля",
+            description: "Учитывать элемент при расчёте поля",
+            default: true,
         },
     },
 });

@@ -1,5 +1,6 @@
 import { Show, createEffect, createSignal } from "solid-js";
 import { ValidationIndicator } from "./components/diagnostics/ValidationIndicator";
+import { GeneralInformationDialog } from "./components/help/GeneralInformationDialog";
 import { selectionService } from "./services/selectionService";
 import {
   getFilePickerErrorMessage,
@@ -13,6 +14,7 @@ import "./TaskInfoBar.css";
 export function TaskInfoBar(props) {
   const [browseNotice, setBrowseNotice] = createSignal("");
   const [aboutOpen, setAboutOpen] = createSignal(false);
+  const [generalInformationOpen, setGeneralInformationOpen] = createSignal(false);
   const [adminPassword, setAdminPassword] = createSignal("");
   const [adminError, setAdminError] = createSignal("");
   const saveButtonTitle = () => props.saveFeedback?.message
@@ -25,6 +27,7 @@ export function TaskInfoBar(props) {
   let aboutDialog;
   let aboutButton;
   let aboutCloseButton;
+  let generalInformationButton;
   let adminDialog;
   let adminPasswordInput;
 
@@ -238,6 +241,18 @@ export function TaskInfoBar(props) {
         </span>
 
         <button
+          ref={(el) => (generalInformationButton = el)}
+          type="button"
+          class="general-information-button"
+          onClick={() => setGeneralInformationOpen(true)}
+          title="Общая информация"
+          aria-label="Общая информация"
+          aria-haspopup="dialog"
+        >
+          <span aria-hidden="true">?</span>
+        </button>
+
+        <button
           ref={(el) => (aboutButton = el)}
           class="about-button"
           onClick={() => setAboutOpen(true)}
@@ -254,6 +269,14 @@ export function TaskInfoBar(props) {
           />
         </button>
       </div>
+
+      <GeneralInformationDialog
+        open={generalInformationOpen()}
+        onClose={() => {
+          setGeneralInformationOpen(false);
+          generalInformationButton?.focus();
+        }}
+      />
 
       <dialog
         class="modal-window"

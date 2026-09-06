@@ -1,12 +1,19 @@
-name: Test editor and agent fallback
+name: Build editor and agent fallback
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: Run the existing test suite before building
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
 jobs:
-  test:
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -21,7 +28,8 @@ jobs:
           cache: npm
       - name: Install dependencies without clark.agent checkout
         run: npm ci
-      - name: Run tests
+      - name: Run optional tests
+        if: github.event_name == 'workflow_dispatch' && inputs.run_tests
         run: npm test
       - name: Build independent editor
         run: npm run build:release

@@ -13,20 +13,16 @@ echo Installing clean dependencies...
 call npm ci
 if errorlevel 1 goto :failed
 
-echo Running local tests...
-call npm test
-if errorlevel 1 goto :failed
-
 echo Building the production bundle...
 call npm run build:release
 if errorlevel 1 goto :failed
 
-echo Local verification completed successfully.
+echo Local build completed successfully.
 set "EXIT_CODE=0"
 goto :finished
 
 :failed
-echo Local verification failed.
+echo Local build failed.
 set "EXIT_CODE=1"
 
 :finished

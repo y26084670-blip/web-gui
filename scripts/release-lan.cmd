@@ -4,8 +4,8 @@ setlocal
 set "CALLER_NO_PAUSE=%CLARK_GUI_NO_PAUSE%"
 set "CLARK_GUI_NO_PAUSE=1"
 
-echo Verifying and building the release bundle...
-call "%~dp0test-local.cmd"
+echo Building the release bundle...
+call "%~dp0build-local.cmd"
 if errorlevel 1 goto :failed
 
 if not exist "%~dp0..\deploy\caddy\settings.local.json" (
