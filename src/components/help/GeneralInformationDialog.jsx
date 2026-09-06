@@ -1,5 +1,7 @@
 import { For, createEffect, createSignal, onCleanup } from "solid-js";
 import aboutIconUrl from "../../assets/zaica.BMP";
+import projectSelectionUrl from "../../assets/help/project-selection.png";
+import taskSelectionUrl from "../../assets/help/task-selection.png";
 import { ExamplesInstaller } from "./ExamplesInstaller";
 import "./GeneralInformationDialog.css";
 
@@ -86,18 +88,34 @@ export function GeneralInformationDialog(props) {
           <p>
             Редактор использует двухуровневую систему каталогов:
             <strong> проекты → задания</strong>. Так организованы и примеры:
-            сначала выберите проект, затем задание внутри него.
+            {" "}
+            <span class="general-information-selection-step">
+              сначала выберите проект{" "}
+              <img
+                src={projectSelectionUrl}
+                alt="Выбор проекта в списке проектов"
+                width="289"
+                height="147"
+                draggable={false}
+              />
+            </span>
+            {", "}
+            <span class="general-information-selection-step">
+              затем задание{" "}
+              <img
+                src={taskSelectionUrl}
+                alt="Выбор задания в списке заданий выбранного проекта"
+                width="292"
+                height="147"
+                draggable={false}
+              />
+            </span>
+            {" внутри него."}
           </p>
           <ul>
             <li>
-              <span
-                class="listTask-item selected general-information-sample general-information-task-sample"
-                role="img"
-                aria-label="Выделенная строка задания в списке"
-              >
-                Задание
-              </span>
-              {" — выбор задания щелчком в списке показывает его "}
+              Выбор задания щелчком в списке показывает его
+              {" "}
               исходную 3D-геометрию, без симметричных образов.
             </li>
             <li>
@@ -122,6 +140,19 @@ export function GeneralInformationDialog(props) {
             Справка по параметрам колонки находится во всплывающей подсказке
             её заголовка. Подсказки также предусмотрены у других элементов
             интерфейса, когда требуется пояснение.
+          </p>
+          <p>
+            Геометрию загруженного задания с показом симметрий, дискретизации
+            и других деталей можно посмотреть в плавающем окне при нажатии
+            кнопки 3D{" "}
+            <span
+              class="geometry-button general-information-sample general-information-geometry-sample"
+              role="img"
+              aria-label="Кнопка «3D»"
+            >
+              3D
+            </span>
+            .
           </p>
           <p>
             Кнопка <strong>«Дополнительные функции»</strong>{" "}
