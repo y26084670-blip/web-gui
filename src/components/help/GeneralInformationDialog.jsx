@@ -1,4 +1,6 @@
-import { For, createEffect, onCleanup } from "solid-js";
+import { For, createEffect, createSignal, onCleanup } from "solid-js";
+import aboutIconUrl from "../../assets/zaica.BMP";
+import { ExamplesInstaller } from "./ExamplesInstaller";
 import "./GeneralInformationDialog.css";
 
 const units = [
@@ -19,9 +21,11 @@ export function GeneralInformationDialog(props) {
   let dialog;
   let closeButton;
   let content;
+  const [installerOpen, setInstallerOpen] = createSignal(false);
 
   createEffect(() => {
     if (!dialog) return;
+    setInstallerOpen(Boolean(props.open));
     if (props.open) {
       if (!dialog.open) {
         dialog.showModal();
@@ -42,7 +46,11 @@ export function GeneralInformationDialog(props) {
       ref={(el) => (dialog = el)}
       class="general-information-dialog"
       aria-labelledby="general-information-title"
-      onClose={() => props.onClose?.()}
+      onCancel={() => setInstallerOpen(false)}
+      onClose={() => {
+        setInstallerOpen(false);
+        props.onClose?.();
+      }}
     >
       <header class="general-information-header">
         <h2 id="general-information-title">Общая информация</h2>
@@ -59,14 +67,22 @@ export function GeneralInformationDialog(props) {
           <h3 id="general-information-selection">1. Выбор и предпросмотр</h3>
           <p>
             Если режим администратора не включён по паролю в панели
-            «О программе», доступ к проектам открывается в фиксированной
+            {" «О программе» "}
+            <span
+              class="general-information-sample general-information-about-sample"
+              role="img"
+              aria-label="Значок панели «О программе»"
+            >
+              <img src={aboutIconUrl} alt="" draggable={false} />
+            </span>
+            , доступ к проектам открывается в фиксированной
             папке <strong>clark.projects</strong>. Ищите её на диске, где
             установлен решатель.
           </p>
           <p>
-            В сборках с кнопкой <strong>«Развернуть примеры»</strong> в панели
-            «О программе» проекты можно также распаковать независимо.
+            Также возможно загрузить примеры независимо, нажав на эту кнопку
           </p>
+          <ExamplesInstaller open={installerOpen()} />
           <p>
             Редактор использует двухуровневую систему каталогов:
             <strong> проекты → задания</strong>. Так организованы и примеры:
@@ -74,11 +90,25 @@ export function GeneralInformationDialog(props) {
           </p>
           <ul>
             <li>
-              <strong>Выбор задания</strong> щелчком в списке показывает его
+              <span
+                class="listTask-item selected general-information-sample general-information-task-sample"
+                role="img"
+                aria-label="Выделенная строка задания в списке"
+              >
+                Задание
+              </span>
+              {" — выбор задания щелчком в списке показывает его "}
               исходную 3D-геометрию, без симметричных образов.
             </li>
             <li>
-              <strong>«Загрузить для редактирования»</strong> открывает задание
+              <span
+                class="task-load-button general-information-sample general-information-load-sample"
+                role="img"
+                aria-label="Кнопка «Загрузить для редактирования»"
+              >
+                Загрузить для редактирования
+              </span>
+              {" открывает задание "}
               для изменения данных. Если в уже загруженном задании есть
               несохранённые изменения, появится предупреждение с вариантами
               дальнейших действий.
@@ -94,7 +124,15 @@ export function GeneralInformationDialog(props) {
             интерфейса, когда требуется пояснение.
           </p>
           <p>
-            Кнопка <strong>«Дополнительные функции»</strong> открывает
+            Кнопка <strong>«Дополнительные функции»</strong>{" "}
+            <span
+              class="menu-button general-information-sample general-information-menu-sample"
+              role="img"
+              aria-label="Значок кнопки «Дополнительные функции»"
+            >
+              ☰
+            </span>
+            {" открывает "}
             выдвижное меню слева. В нём доступны:
           </p>
           <ul>
@@ -145,7 +183,10 @@ export function GeneralInformationDialog(props) {
           ref={(el) => (closeButton = el)}
           type="button"
           class="general-information-close-button"
-          onClick={() => dialog.close()}
+          onClick={() => {
+            setInstallerOpen(false);
+            dialog.close();
+          }}
         >
           Закрыть
         </button>

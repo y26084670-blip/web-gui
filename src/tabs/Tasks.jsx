@@ -272,20 +272,16 @@ export function Tasks(props) {
 
   return (
     <div
+      class="tasks-layout"
       style={{
-        display: "grid",
-        "grid-template-columns": "500px 0.6fr 0.9fr",
-        gap: "10px",
-        width: "100%",
-        height: "100%",
-        position: "absolute",
-        inset: "0",
-        "min-height": "0",
-        overflow: "auto",
-        "box-sizing": "border-box",
+        "grid-template-columns": props.summaryBounds
+          ? `calc(${props.summaryBounds.left}px - var(--tasks-panel-gap)) `
+            + `${props.summaryBounds.width}px minmax(360px, 1fr)`
+          : undefined,
       }}
     >
       <div
+        class="task-browser-panel"
         style={{
           border: "3px solid #161414",
           padding: "20px",

@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onCleanup } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 
 import { Tasks } from "./tabs/Tasks.jsx";
 import { DataEditor } from "./components/editors/DataEditor.jsx";
@@ -36,6 +36,69 @@ import "./App.css";
 
 export default function App() {
   const [activeTab, setActiveTab] = createSignal(TABS.TASKS.id);
+  const [taskSummaryBounds, setTaskSummaryBounds] = createSignal(null);
+  const tabButtons = new Map();
+  let tabsViewport;
+  let tabsHeader;
+  let tasksContent;
+  let taskPanelMeasurementFrame;
+  let taskPanelMeasurementDisposed = false;
+
+  function measureTaskSummaryBounds() {
+    taskPanelMeasurementFrame = undefined;
+    if (activeTab() !== TABS.TASKS.id || !tasksContent) return;
+
+    const regionsButton = tabButtons.get(TABS.REGIONS.id);
+    const movesButton = tabButtons.get(TABS.MOVES.id);
+    if (!regionsButton || !movesButton) return;
+
+    const regionsRect = regionsButton.getBoundingClientRect();
+    const movesRect = movesButton.getBoundingClientRect();
+    const contentRect = tasksContent.getBoundingClientRect();
+    // Grid coordinates start inside the content border, unlike viewport rects.
+    const left = regionsRect.left - contentRect.left - tasksContent.clientLeft;
+    const width = movesRect.right - regionsRect.left;
+    if (left <= 0 || width <= 0) return;
+
+    setTaskSummaryBounds((previous) =>
+      previous?.left === left && previous?.width === width
+        ? previous
+        : { left, width },
+    );
+  }
+
+  function scheduleTaskPanelMeasurement() {
+    if (taskPanelMeasurementDisposed || taskPanelMeasurementFrame !== undefined) return;
+    taskPanelMeasurementFrame = requestAnimationFrame(measureTaskSummaryBounds);
+  }
+
+  createEffect(() => {
+    // The active button becomes bold and can change the flex row's geometry.
+    if (activeTab() !== TABS.TASKS.id && tabsViewport) {
+      tabsViewport.scrollLeft = 0;
+    }
+    scheduleTaskPanelMeasurement();
+  });
+
+  onMount(() => {
+    const observer = new ResizeObserver(scheduleTaskPanelMeasurement);
+    observer.observe(tabsHeader);
+    observer.observe(tasksContent);
+    tabButtons.forEach((button) => observer.observe(button));
+    window.addEventListener("resize", scheduleTaskPanelMeasurement);
+    document.fonts?.addEventListener("loadingdone", scheduleTaskPanelMeasurement);
+    document.fonts?.ready.then(scheduleTaskPanelMeasurement);
+    scheduleTaskPanelMeasurement();
+
+    onCleanup(() => {
+      taskPanelMeasurementDisposed = true;
+      observer.disconnect();
+      window.removeEventListener("resize", scheduleTaskPanelMeasurement);
+      document.fonts?.removeEventListener("loadingdone", scheduleTaskPanelMeasurement);
+      cancelAnimationFrame(taskPanelMeasurementFrame);
+    });
+  });
+
   const [admin, setAdmin] = createSignal(false);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
@@ -188,6 +251,7 @@ export default function App() {
       component: (props) => (
         <Tasks
           active={props.active}
+          summaryBounds={taskSummaryBounds()}
           admin={admin()}
           onReturnToEditing={props.onReturnToEditing}
           onValidate={handleModelValidation}
@@ -510,58 +574,70 @@ export default function App() {
         onChooseMaterial={handleMaterialSelectionOpen}
         onMakeNonmagnetic={handleMakeElementsNonmagnetic}
       />
-      <div class="tabs-header">
-        <For each={tabs}>
-          {(tab) => (
-            <button
-              classList={{
-                active: activeTab() === tab.id,
-              }}
-              onClick={() => {
-                setActiveTab(tab.id);
-              }}
-            >
-              <span class="tab-label">{tab.label}</span>
-              {tab.changeIndicator !== false && (
-                <span
+      <div
+        class="tabs-viewport"
+        ref={tabsViewport}
+        classList={{ "tasks-active": activeTab() === TABS.TASKS.id }}
+      >
+        <div class="tabs-frame">
+          <div class="tabs-header" ref={tabsHeader}>
+            <For each={tabs}>
+              {(tab) => (
+                <button
+                  ref={(element) => tabButtons.set(tab.id, element)}
                   classList={{
-                    "tab-change-indicator": true,
-                    dirty: unsavedChangesService.isDirty(tab.id),
+                    active: activeTab() === tab.id,
                   }}
-                  title={unsavedChangesService.isDirty(tab.id)
-                    ? "Есть несохранённые изменения"
-                    : "Нет несохранённых изменений"}
-                  aria-label={unsavedChangesService.isDirty(tab.id)
-                    ? "Есть несохранённые изменения"
-                    : "Нет несохранённых изменений"}
-                />
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                  }}
+                >
+                  <span class="tab-label">{tab.label}</span>
+                  {tab.changeIndicator !== false && (
+                    <span
+                      classList={{
+                        "tab-change-indicator": true,
+                        dirty: unsavedChangesService.isDirty(tab.id),
+                      }}
+                      title={unsavedChangesService.isDirty(tab.id)
+                        ? "Есть несохранённые изменения"
+                        : "Нет несохранённых изменений"}
+                      aria-label={unsavedChangesService.isDirty(tab.id)
+                        ? "Есть несохранённые изменения"
+                        : "Нет несохранённых изменений"}
+                    />
+                  )}
+                </button>
               )}
-            </button>
-          )}
-        </For>
-      </div>
+            </For>
+          </div>
 
-      <For each={tabs}>
-        {(tab) => {
-          const Component = tab.component;
-          return (
-            <div
-              class="tab-content"
-              style={{
-                display: activeTab() === tab.id ? "block" : "none",
-              }}
-            >
-              <Component
-                active={activeTab() === tab.id}
-                computedColumnsMode={
-                  viewSettingsService.computedColumnsMode()
-                }
-                onReturnToEditing={handleReturnToEditing}
-              />
-            </div>
-          );
-        }}
-      </For>
+          <For each={tabs}>
+            {(tab) => {
+              const Component = tab.component;
+              return (
+                <div
+                  class="tab-content"
+                  ref={(element) => {
+                    if (tab.id === TABS.TASKS.id) tasksContent = element;
+                  }}
+                  style={{
+                    display: activeTab() === tab.id ? "block" : "none",
+                  }}
+                >
+                  <Component
+                    active={activeTab() === tab.id}
+                    computedColumnsMode={
+                      viewSettingsService.computedColumnsMode()
+                    }
+                    onReturnToEditing={handleReturnToEditing}
+                  />
+                </div>
+              );
+            }}
+          </For>
+        </div>
+      </div>
       <MaterialSelectionDialog
         request={materialRequest()}
         taskHandle={selectionService.loadedTaskHandle()}

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "assets:prepare": "node scripts/default-library-assets.mjs prepare",
+    "assets:prepare": "node scripts/default-library-assets.mjs prepare && node scripts/prepare-examples-config.mjs",
     "assets:verify": "node scripts/default-library-assets.mjs verify",
     "agent:clean": "node scripts/clean-legacy-agent-assets.mjs",
     "dev": "npm run assets:prepare && npm run agent:clean && vite",
@@ -15,6 +15,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@zip.js/zip.js": "2.11.2",
     "chart.js": "^4.5.1",
     "solid-js": "^1.9.12",
     "tabulator-tables": "^6.5.0",

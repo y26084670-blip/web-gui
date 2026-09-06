@@ -85,7 +85,6 @@ test("task tab renders readonly summary and ignores stale reads", async () => {
     readFile(tasksStylesUrl, "utf8"),
   ]);
 
-  assert.match(source, /grid-template-columns": "500px 0\.6fr 0\.9fr"/u);
   assert.match(source, /readOnly/u);
   assert.match(source, /task-summary-text/u);
   assert.match(source, /taskInfoRevision/u);
