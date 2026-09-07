@@ -123,7 +123,7 @@
 
 .general-information-selection-table {
     width: min(100%, 540px);
-    margin: 0 0 12px;
+    margin: 0 auto 12px;
     table-layout: fixed;
     border-collapse: collapse;
     text-align: center;

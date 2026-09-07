@@ -76,7 +76,7 @@ export function GeneralInformationDialog(props) {
           <p>
             Для установки решателя на Windows x86-64 запустите самораспаковывающийся
             файл <code>ClarkInstaller-&lt;версия&gt;.exe</code> и выберите корень
-            внутреннего стационарного диска без подключения по USB
+            внутреннего стационарного диска
             (по умолчанию <code>D:\</code>). Установщик создаст
             каталог <code>clark.app</code> и четыре ярлыка в папке
             «Clark» на рабочем столе. Для редактора нужен Google Chrome
@@ -101,8 +101,7 @@ export function GeneralInformationDialog(props) {
               <img src={aboutIconUrl} alt="" draggable={false} />
             </span>
             , доступ к проектам открывается в фиксированной
-            папке <strong>clark.projects</strong>. Ищите её на диске, где
-            установлен решатель.
+            папке <strong>clark.projects</strong>.
           </p>
           <p>
             Редактор использует двухуровневую систему каталогов:
