@@ -82,36 +82,58 @@ export function GeneralInformationDialog(props) {
             установлен решатель.
           </p>
           <p>
-            Также возможно загрузить примеры независимо, нажав на эту кнопку
+            Также возможно установить примеры и загрузить установщик решателя, независимо, нажав на кнопки ниже
           </p>
           <ExamplesInstaller open={installerOpen()} />
           <p>
-            Редактор использует двухуровневую систему каталогов:
-            <strong> проекты → задания</strong>. Так организованы и примеры:
-            {" "}
-            <span class="general-information-selection-step">
-              сначала выберите проект{" "}
-              <img
-                src={projectSelectionUrl}
-                alt="Выбор проекта в списке проектов"
-                width="289"
-                height="147"
-                draggable={false}
-              />
-            </span>
-            {", "}
-            <span class="general-information-selection-step">
-              затем задание{" "}
-              <img
-                src={taskSelectionUrl}
-                alt="Выбор задания в списке заданий выбранного проекта"
-                width="292"
-                height="147"
-                draggable={false}
-              />
-            </span>
-            {" внутри него."}
+            Для установки решателя на Windows x86-64 запустите самораспаковывающийся
+            файл <code>ClarkInstaller-&lt;версия&gt;.exe</code> и выберите корень
+            внутреннего стационарного диска без подключения по USB
+            (по умолчанию <code>D:\</code>). Установщик создаст
+            каталог <code>clark.app</code> и четыре ярлыка в папке
+            «Clark» на рабочем столе. Для редактора нужен Google Chrome
+            или Microsoft Edge.
           </p>
+          <p>
+            В файле <code>clark.app\config\runtime.json</code> задайте
+            параметр <code>mpiRanks</code> равным числу физических ядер компьютера.
+          </p>
+          <p>
+            Редактор использует двухуровневую систему каталогов:
+            <strong> проекты → задания</strong>. Так организованы и примеры.
+          </p>
+          <table class="general-information-selection-table">
+            <thead>
+              <tr>
+                <th scope="col">сначала выберите проект</th>
+                <th scope="col">затем выберите задание</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <img
+                    class="general-information-project-image"
+                    src={projectSelectionUrl}
+                    alt="Выбор проекта в списке проектов"
+                    width="289"
+                    height="147"
+                    draggable={false}
+                  />
+                </td>
+                <td>
+                  <img
+                    class="general-information-task-image"
+                    src={taskSelectionUrl}
+                    alt="Выбор задания в списке заданий выбранного проекта"
+                    width="292"
+                    height="147"
+                    draggable={false}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
           <ul>
             <li>
               Выбор задания щелчком в списке показывает его
@@ -210,6 +232,14 @@ export function GeneralInformationDialog(props) {
       </div>
 
       <footer class="general-information-footer">
+        <label class="general-information-startup-option">
+          <input
+            type="checkbox"
+            checked={props.openAtStartup}
+            onChange={(event) => props.onOpenAtStartupChange?.(event.currentTarget.checked)}
+          />
+          <span>Открывать эту панель при старте</span>
+        </label>
         <button
           ref={(el) => (closeButton = el)}
           type="button"

@@ -1,12 +1,4 @@
-import { BlobReader, ZipReader } from "@zip.js/zip.js";
-
 const ROOT_NAME = "clark.projects";
-const ZIP_OPTIONS = {
-    useWebWorkers: false,
-    filenameEncoding: "ibm866",
-    strictness: "strict",
-    filenameValidation: "strict",
-};
 const INVALID_WINDOWS_CHARACTERS = /[\x00-\x1f\x7f<>:"|?*\\]/;
 const WINDOWS_DEVICE_NAME = /^(?:con|prn|aux|nul|clock\$|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i;
 
@@ -18,7 +10,7 @@ function installError(code, message, cause) {
 }
 
 function cancellationError() {
-    const error = new Error("Загрузка примеров отменена.");
+    const error = new Error("Установка примеров отменена.");
     error.name = "AbortError";
     error.code = "ABORTED";
     return error;
@@ -28,69 +20,63 @@ function checkAbort(signal) {
     if (signal?.aborted) throw cancellationError();
 }
 
-/** Returns an absolute URL; relative URLs require an explicit baseUrl. */
-export function validateExamplesUrl(input, baseUrl) {
+/** Returns an absolute download URL; relative URLs need an explicit base URL. */
+export function validateDownloadUrl(input, baseUrl) {
     let url;
     try {
         if (typeof input !== "string" || !input.trim()) throw new Error();
         url = new URL(input.trim(), baseUrl);
     }
     catch {
-        throw installError("INVALID_URL", "Укажите корректную HTTPS-ссылку на ZIP-архив примеров.");
+        throw installError("INVALID_URL", "В настройках сайта указан некорректный адрес загрузки.");
     }
     const localhost = url.hostname === "localhost"
         || url.hostname.endsWith(".localhost")
         || url.hostname === "127.0.0.1"
         || url.hostname === "[::1]";
     if (url.protocol !== "https:" && !(url.protocol === "http:" && localhost)) {
-        throw installError("INVALID_URL", "Ссылка на архив должна использовать HTTPS (HTTP разрешён только для localhost).");
+        throw installError("INVALID_URL", "Адрес загрузки должен использовать HTTPS (HTTP разрешён только для localhost).");
     }
     if (url.username || url.password) {
-        throw installError("INVALID_URL", "Ссылка на архив не должна содержать логин или пароль.");
+        throw installError("INVALID_URL", "Адрес загрузки не должен содержать логин или пароль.");
     }
     url.hash = "";
     return url.href;
 }
 
-// Compare conservatively across Windows/macOS/Linux without changing stored names.
+// Compare conservatively across Windows/macOS/Linux without renaming files.
 function pathKey(path) {
     return path.normalize("NFC").toUpperCase();
 }
 
-function inspectPath(entry) {
-    const name = entry.filename;
-    if (typeof name !== "string" || !name || name.startsWith("/")) {
-        throw installError("UNSAFE_PATH", "Архив содержит пустой или абсолютный путь.");
+function inspectEntry(entry) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)
+        || (entry.type !== "file" && entry.type !== "directory")) {
+        throw installError("INVALID_MANIFEST", "Список примеров содержит запись неподдерживаемого типа.");
     }
-    const path = entry.directory && name.endsWith("/") ? name.slice(0, -1) : name;
+    const path = entry.path;
+    if (typeof path !== "string" || !path || path.startsWith("/")) {
+        throw installError("UNSAFE_PATH", "Список примеров содержит пустой или абсолютный путь.");
+    }
     const segments = path.split("/");
     for (const segment of segments) {
         if (!segment || segment === "." || segment === ".."
             || INVALID_WINDOWS_CHARACTERS.test(segment)
             || /[. ]$/.test(segment) || WINDOWS_DEVICE_NAME.test(segment)
             || segment.includes("\ufffd")) {
-            throw installError("UNSAFE_PATH", `Архив содержит недопустимый или неоднозначный путь «${name}».`);
+            throw installError("UNSAFE_PATH", `Список примеров содержит недопустимый или неоднозначный путь «${path}».`);
+        }
+        try { encodeURIComponent(segment); }
+        catch {
+            throw installError("UNSAFE_PATH", `Путь «${path}» содержит некорректные символы Unicode.`);
         }
     }
-    const unixType = (entry.unixMode ?? (entry.externalFileAttributes >>> 16)) & 0xf000;
-    if (entry.symlink || unixType === 0xa000) {
-        throw installError("UNSAFE_ENTRY", `Архив содержит символическую ссылку «${name}».`);
+    const directory = entry.type === "directory";
+    if ((!directory && (!Number.isSafeInteger(entry.size) || entry.size < 0))
+        || (directory && entry.size !== undefined && entry.size !== 0)) {
+        throw installError("INVALID_MANIFEST", `В списке примеров указан некорректный размер «${path}».`);
     }
-    if (unixType && unixType !== 0x8000 && unixType !== 0x4000) {
-        throw installError("UNSAFE_ENTRY", `Архив содержит специальный файл «${name}».`);
-    }
-    if (entry.encrypted || entry.extraFieldAES || (entry.rawBitFlag & 0x41)) {
-        throw installError("ENCRYPTED_ARCHIVE", "Зашифрованные ZIP-архивы примеров не поддерживаются.");
-    }
-    for (const size of [entry.compressedSize, entry.uncompressedSize, entry.offset]) {
-        if (!Number.isSafeInteger(size) || size < 0) {
-            throw installError("INVALID_ARCHIVE", `Некорректный или слишком большой размер записи «${name}».`);
-        }
-    }
-    if (entry.directory && entry.uncompressedSize !== 0) {
-        throw installError("INVALID_ARCHIVE", `Запись каталога «${name}» содержит данные файла.`);
-    }
-    return { entry, segments, path, directory: entry.directory };
+    return { path, segments, directory, size: directory ? 0 : entry.size };
 }
 
 function validateHierarchy(items) {
@@ -105,29 +91,49 @@ function validateHierarchy(items) {
             const previous = nodes.get(key);
             if (previous && (previous.path !== path || previous.directory !== directory
                 || (last && previous.explicit))) {
-                throw installError("PATH_COLLISION", `Архив содержит повторяющиеся или конфликтующие пути «${previous.path}» и «${path}».`);
+                throw installError("PATH_COLLISION", `Список примеров содержит повторяющиеся или конфликтующие пути «${previous.path}» и «${path}».`);
             }
             nodes.set(key, { path, directory, explicit: (previous?.explicit ?? false) || last });
         }
     }
 }
 
+function validateManifest(manifest, manifestUrl) {
+    if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)
+        || manifest.version !== 1 || !Array.isArray(manifest.entries)
+        || typeof manifest.baseUrl !== "string" || !manifest.baseUrl.trim()) {
+        throw installError("INVALID_MANIFEST", "Сервер вернул некорректный список файлов примеров.");
+    }
+    const base = new URL(validateDownloadUrl(manifest.baseUrl, manifestUrl));
+    if (base.origin !== new URL(manifestUrl).origin || !base.pathname.endsWith("/")
+        || base.search || new URL(manifest.baseUrl, manifestUrl).hash) {
+        throw installError("INVALID_MANIFEST", "Каталог примеров должен находиться на том же сервере, что и список файлов, и иметь адрес каталога без параметров.");
+    }
+    const items = manifest.entries.map(inspectEntry);
+    validateHierarchy(items);
+    for (const item of items) {
+        if (item.directory) continue;
+        const url = new URL(item.segments.map(encodeURIComponent).join("/"), base);
+        if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) {
+            throw installError("UNSAFE_PATH", `Адрес файла «${item.path}» выходит за пределы каталога примеров.`);
+        }
+        item.url = url.href;
+    }
+    if (!items.length) {
+        throw installError("EXAMPLES_UNAVAILABLE", "Комплект примеров ещё не размещён на сервере.");
+    }
+    return { base, items };
+}
+
 function resultFrom(progress) {
-    return {
-        rootName: ROOT_NAME,
-        writtenFiles: progress.writtenFiles,
-        skippedFiles: progress.skippedFiles,
-        totalFiles: progress.totalFiles,
-        totalBytes: progress.totalBytes,
-        downloadedBytes: progress.downloadedBytes,
-    };
+    return { rootName: ROOT_NAME, ...progress };
 }
 
 function readableError(error, stage, path, signal) {
     if (signal?.aborted || error?.name === "AbortError") return cancellationError();
     if (error?.name === "ExamplesInstallError") return error;
     if (error?.name === "QuotaExceededError") {
-        return installError("QUOTA_EXCEEDED", "Недостаточно места для архива или распакованных примеров. Освободите место на диске и в хранилище браузера.", error);
+        return installError("QUOTA_EXCEEDED", "Недостаточно места для примеров. Освободите место на выбранном диске.", error);
     }
     if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
         return installError("ACCESS_DENIED", "Браузер не разрешил запись файлов. Проверьте доступ к выбранному каталогу и откройте редактор через HTTPS или localhost.", error);
@@ -136,67 +142,58 @@ function readableError(error, stage, path, signal) {
         return installError("DESTINATION_CONFLICT", `Файл и каталог конфликтуют по пути «${path || ROOT_NAME}». Существующие данные сохранены.`, error);
     }
     if (stage === "download") {
-        return installError("DOWNLOAD_FAILED", "Не удалось скачать архив. Проверьте ссылку и подключение к интернету; сервер архива должен разрешать загрузку из браузера (CORS).", error);
-    }
-    if (stage === "temporary") {
-        return installError("TEMPORARY_STORAGE_FAILED", "Не удалось сохранить временный архив в браузере. Проверьте свободное место и настройки хранилища сайта.", error);
+        return installError("DOWNLOAD_FAILED", `Не удалось скачать файл «${path}». Проверьте подключение к интернету и доступность примеров на сервере.`, error);
     }
     if (stage === "destination") {
         return installError("WRITE_FAILED", `Не удалось записать «${path || ROOT_NAME}». Проверьте доступ к каталогу и свободное место на диске.`, error);
     }
-    return installError("INVALID_ARCHIVE", path
-        ? `Не удалось проверить или распаковать «${path}»: ZIP-архив повреждён либо использует неподдерживаемый формат.`
-        : "Скачанный файл не является корректным ZIP-архивом либо использует неподдерживаемый формат.", error);
+    return installError("INVALID_MANIFEST", "Не удалось получить или проверить список файлов примеров. Проверьте подключение и настройки сайта.", error);
 }
 
 /**
- * Download and extract every archive file, without importing or interpreting it.
- * Compressed bytes use a temporary OPFS File, not an in-memory archive buffer;
- * entries are written sequentially and committed only after CRC/size checks.
- * There is no 10 MB (or compression-ratio) limit. Practical bounds are browser
- * OPFS quota, destination disk space, ZIP metadata memory and safe integer sizes.
- * The caller obtains destinationHandle through a user-activated directory picker.
+ * Copy every manifest entry without importing or interpreting project files.
+ * Files stream sequentially from the server to destination writable streams.
+ * Only metadata and the current chunk are retained in memory.
+ * The caller obtains destinationHandle through a user-activated picker.
  */
 export async function installExamples({
-    url,
+    manifestUrl,
     destinationHandle,
     signal,
     onProgress,
     fetchImpl = globalThis.fetch,
-    storage = globalThis.navigator?.storage,
 }) {
-    const archiveUrl = validateExamplesUrl(url);
+    const indexUrl = validateDownloadUrl(manifestUrl);
     if (!destinationHandle || destinationHandle.kind !== "directory"
         || typeof destinationHandle.getDirectoryHandle !== "function") {
         throw installError("DESTINATION_REQUIRED", "Выберите каталог для сохранения примеров.");
     }
-    if (typeof storage?.getDirectory !== "function") {
-        throw installError("STORAGE_UNAVAILABLE", "Браузер не предоставляет временное файловое хранилище для загрузки ZIP-архива. Используйте актуальный Chrome или Edge через HTTPS или localhost.");
-    }
     const progress = {
-        phase: "download", downloadedBytes: 0, totalDownloadBytes: 0,
-        writtenBytes: 0, totalBytes: 0, completedFiles: 0, totalFiles: 0,
-        writtenFiles: 0, skippedFiles: 0, currentPath: "",
+        phase: "inspect", downloadedBytes: 0, writtenBytes: 0, totalBytes: 0,
+        completedFiles: 0, totalFiles: 0, writtenFiles: 0, skippedFiles: 0,
+        currentPath: "",
     };
     const emit = () => {
         // An observer must not interrupt a filesystem commit or its accounting.
         try { onProgress?.({ ...progress }); } catch { /* UI callback only. */ }
     };
-    let stage = "temporary";
-    let temporaryRoot;
-    let temporaryName;
-    let zipReader;
+    const fetchOptions = {
+        method: "GET", credentials: "omit", cache: "no-store",
+        referrerPolicy: "no-referrer", redirect: "error", signal,
+    };
+    let stage = "inspect";
     let downloadReader;
     let activeWritable;
     let incompleteFile;
     let destinationStarted = false;
     let failure;
-    let result;
     const cancellationWork = [];
     const onAbort = () => {
         const reason = cancellationError();
-        if (downloadReader) cancellationWork.push(Promise.resolve(downloadReader.cancel(reason)).catch(() => {}));
-        if (activeWritable) cancellationWork.push(Promise.resolve(activeWritable.abort(reason)).catch(() => {}));
+        const reader = downloadReader;
+        const writable = activeWritable;
+        if (reader) cancellationWork.push(Promise.resolve().then(() => reader.cancel(reason)).catch(() => {}));
+        if (writable) cancellationWork.push(Promise.resolve().then(() => writable.abort(reason)).catch(() => {}));
     };
     signal?.addEventListener("abort", onAbort, { once: true });
 
@@ -231,103 +228,58 @@ export async function installExamples({
         children.set(pathKey(name), { kind: "directory", name, handle });
         return handle;
     };
+    const findExistingFile = async (parent, name, children, path) => {
+        let existing = children.get(pathKey(name));
+        if (!existing) {
+            // Recheck just before create, including changes since the listing.
+            try {
+                const handle = await parent.getFileHandle(name);
+                existing = { kind: "file", name, handle };
+            }
+            catch (error) { if (error.name !== "NotFoundError") throw error; }
+        }
+        if (existing && existing.kind !== "file") {
+            throw installError("DESTINATION_CONFLICT", `Нельзя сохранить файл «${path}»: это имя занято каталогом или неоднозначно.`);
+        }
+        return existing;
+    };
+    const skipFile = () => {
+        progress.skippedFiles += 1;
+        progress.completedFiles += 1;
+        emit();
+    };
 
     try {
         checkAbort(signal);
         emit();
-        temporaryRoot = await storage.getDirectory();
-        checkAbort(signal);
-        temporaryName = `.clark-examples-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}.zip`;
-        const temporaryHandle = await temporaryRoot.getFileHandle(temporaryName, { create: true });
-        activeWritable = await temporaryHandle.createWritable();
-        checkAbort(signal);
-        stage = "download";
-        const response = await fetchImpl(archiveUrl, {
-            method: "GET", mode: "cors", credentials: "omit", referrerPolicy: "no-referrer", signal,
-        });
-        if (response.body && typeof response.body.getReader === "function") {
-            downloadReader = response.body.getReader();
-        }
+        const response = await fetchImpl(indexUrl, fetchOptions);
         checkAbort(signal);
         if (!response.ok) {
-            throw installError("HTTP_ERROR", `Сервер не отдал архив примеров (HTTP ${response.status}). Проверьте ссылку.`);
+            throw installError("HTTP_ERROR", `Сервер не отдал список файлов примеров (HTTP ${response.status}). Комплект примеров может быть ещё не размещён.`);
         }
-        if (response.url) validateExamplesUrl(response.url);
-        if (!downloadReader) {
-            throw installError("DOWNLOAD_FAILED", "Сервер вернул недоступный или пустой ответ вместо ZIP-архива. Проверьте ссылку и настройки CORS.");
+        if (response.url && validateDownloadUrl(response.url) !== indexUrl) {
+            throw installError("INVALID_MANIFEST", "Сервер изменил адрес списка файлов примеров. Проверьте настройки сайта.");
         }
-        const contentLength = Number(response.headers.get("content-length"));
-        if (Number.isSafeInteger(contentLength) && contentLength > 0) progress.totalDownloadBytes = contentLength;
-        emit();
-        while (true) {
-            checkAbort(signal);
-            stage = "download";
-            const { value, done } = await downloadReader.read();
-            checkAbort(signal);
-            if (done) break;
-            stage = "temporary";
-            await activeWritable.write(value);
-            progress.downloadedBytes += value.byteLength;
-            if (!Number.isSafeInteger(progress.downloadedBytes)) {
-                throw installError("ARCHIVE_TOO_LARGE", "Размер архива превышает точность файловых смещений, поддерживаемую браузером.");
-            }
-            emit();
-        }
-        downloadReader.releaseLock();
-        downloadReader = undefined;
-        stage = "temporary";
-        await activeWritable.close();
-        activeWritable = undefined;
+        const { base, items } = validateManifest(await response.json(), indexUrl);
         checkAbort(signal);
-        const archiveFile = await temporaryHandle.getFile();
-        progress.totalDownloadBytes = progress.downloadedBytes;
-        progress.phase = "inspect";
-        stage = "inspect";
-        emit();
-        zipReader = new ZipReader(new BlobReader(archiveFile), ZIP_OPTIONS);
-        const items = [];
-        for await (const entry of zipReader.getEntriesGenerator()) {
-            checkAbort(signal);
-            items.push(inspectPath(entry));
-        }
-        if (!items.length) throw installError("EMPTY_ARCHIVE", "ZIP-архив примеров пуст.");
-        validateHierarchy(items);
-        const stripRoot = items.every(item => item.segments[0] === ROOT_NAME
-            && (item.segments.length > 1 || item.directory));
-        if (stripRoot) {
-            for (const item of items) {
-                item.segments = item.segments.slice(1);
-                item.path = item.segments.join("/");
-            }
-        }
         for (const item of items) {
-            if (!item.directory) {
-                progress.totalFiles += 1;
-                progress.totalBytes += item.entry.uncompressedSize;
-                if (!Number.isSafeInteger(progress.totalBytes)) {
-                    throw installError("ARCHIVE_TOO_LARGE", "Суммарный размер файлов архива превышает точность размеров, поддерживаемую браузером.");
-                }
+            if (item.directory) continue;
+            progress.totalFiles += 1;
+            progress.totalBytes += item.size;
+            if (!Number.isSafeInteger(progress.totalBytes)) {
+                throw installError("EXAMPLES_TOO_LARGE", "Суммарный размер примеров превышает точность файловых размеров, поддерживаемую браузером.");
             }
         }
         emit();
-        // zip.js checks local headers and overlapping records without inflating
-        // content. Finish this complete preflight before any destination mutation.
-        for (const item of items) {
-            checkAbort(signal);
-            progress.currentPath = item.path;
-            emit();
-            await item.entry.getData(undefined, { ...ZIP_OPTIONS, signal, checkOverlappingEntryOnly: true });
-        }
         checkAbort(signal);
         stage = "destination";
         const root = destinationHandle.name === ROOT_NAME
             ? destinationHandle
             : await ensureDirectory(destinationHandle, ROOT_NAME, ROOT_NAME);
-        progress.phase = "extract";
+        progress.phase = "copy";
         emit();
         for (const item of items) {
             checkAbort(signal);
-            if (!item.segments.length) continue;
             stage = "destination";
             progress.currentPath = item.path;
             emit();
@@ -339,22 +291,36 @@ export async function installExamples({
             if (item.directory) continue;
             const name = item.segments.at(-1);
             const children = await childrenOf(parent);
-            let existing = children.get(pathKey(name));
-            if (!existing) {
-                // Recheck just before create, including changes since the listing.
-                try {
-                    const handle = await parent.getFileHandle(name);
-                    existing = { kind: "file", name, handle };
-                }
-                catch (error) { if (error.name !== "NotFoundError") throw error; }
+            if (await findExistingFile(parent, name, children, item.path)) {
+                skipFile();
+                continue;
             }
-            if (existing) {
-                if (existing.kind !== "file") {
-                    throw installError("DESTINATION_CONFLICT", `Нельзя сохранить файл «${item.path}»: это имя занято каталогом или неоднозначно.`);
+            checkAbort(signal);
+            stage = "download";
+            const fileResponse = await fetchImpl(item.url, fetchOptions);
+            if (fileResponse.body && typeof fileResponse.body.getReader === "function") {
+                downloadReader = fileResponse.body.getReader();
+            }
+            checkAbort(signal);
+            if (!fileResponse.ok) {
+                throw installError("HTTP_ERROR", `Сервер не отдал файл «${item.path}» (HTTP ${fileResponse.status}).`);
+            }
+            if (fileResponse.url) {
+                const finalUrl = new URL(validateDownloadUrl(fileResponse.url));
+                if (finalUrl.origin !== base.origin || !finalUrl.pathname.startsWith(base.pathname)
+                    || finalUrl.href !== item.url) {
+                    throw installError("UNSAFE_PATH", `Сервер изменил адрес файла «${item.path}». Проверьте каталог примеров.`);
                 }
-                progress.skippedFiles += 1;
-                progress.completedFiles += 1;
-                emit();
+            }
+            if (!downloadReader) {
+                throw installError("DOWNLOAD_FAILED", `Сервер вернул недоступный ответ для файла «${item.path}».`);
+            }
+            stage = "destination";
+            if (await findExistingFile(parent, name, children, item.path)) {
+                await downloadReader.cancel();
+                downloadReader.releaseLock();
+                downloadReader = undefined;
+                skipFile();
                 continue;
             }
             checkAbort(signal);
@@ -364,28 +330,31 @@ export async function installExamples({
             checkAbort(signal);
             activeWritable = await fileHandle.createWritable({ keepExistingData: false, mode: "exclusive" });
             checkAbort(signal);
-            const fileWritable = activeWritable;
-            const sink = new WritableStream({
-                async write(chunk) {
-                    checkAbort(signal);
-                    if (incompleteFile.bytes + chunk.byteLength > item.entry.uncompressedSize) {
-                        throw installError("INVALID_ARCHIVE", `Размер распакованного файла «${item.path}» превышает размер, указанный в ZIP-архиве.`);
-                    }
-                    try { await fileWritable.write(chunk); }
-                    catch (error) { throw readableError(error, "destination", item.path, signal); }
-                    incompleteFile.bytes += chunk.byteLength;
-                    progress.writtenBytes += chunk.byteLength;
-                    emit();
-                },
-            });
-            stage = "extract";
-            await item.entry.getData(sink, { ...ZIP_OPTIONS, signal, checkCrc32: true, preventClose: true });
-            checkAbort(signal);
-            if (incompleteFile.bytes !== item.entry.uncompressedSize) {
-                throw installError("INVALID_ARCHIVE", `Размер распакованного файла «${item.path}» не совпадает с размером в ZIP-архиве.`);
+            while (true) {
+                stage = "download";
+                const { value, done } = await downloadReader.read();
+                checkAbort(signal);
+                if (done) break;
+                progress.downloadedBytes += value.byteLength;
+                if (!Number.isSafeInteger(progress.downloadedBytes)
+                    || incompleteFile.bytes + value.byteLength > item.size) {
+                    throw installError("SIZE_MISMATCH", `Размер файла «${item.path}» превышает размер в списке примеров. Обновите комплект на сервере.`);
+                }
+                stage = "destination";
+                await activeWritable.write(value);
+                incompleteFile.bytes += value.byteLength;
+                progress.writtenBytes += value.byteLength;
+                emit();
+                checkAbort(signal);
             }
+            downloadReader.releaseLock();
+            downloadReader = undefined;
+            if (incompleteFile.bytes !== item.size) {
+                throw installError("SIZE_MISMATCH", `Размер файла «${item.path}» не совпадает с размером в списке примеров. Загрузка прервалась либо комплект на сервере изменился.`);
+            }
+            checkAbort(signal);
             stage = "destination";
-            await fileWritable.close();
+            await activeWritable.close();
             activeWritable = undefined;
             incompleteFile = undefined;
             children.set(pathKey(name), { kind: "file", name, handle: fileHandle });
@@ -394,7 +363,6 @@ export async function installExamples({
             emit();
         }
         checkAbort(signal);
-        result = resultFrom(progress);
     }
     catch (error) {
         failure = readableError(error, stage, progress.currentPath, signal);
@@ -424,19 +392,6 @@ export async function installExamples({
                 }
             }
         }
-        if (zipReader) {
-            try { await zipReader.close(); }
-            catch (error) { failure ??= readableError(error, "inspect", "", signal); }
-        }
-        if (temporaryRoot && temporaryName) {
-            try { await temporaryRoot.removeEntry(temporaryName); }
-            catch (error) {
-                if (error.name !== "NotFoundError") {
-                    if (failure) failure.message += " Не удалось удалить временный архив из хранилища браузера.";
-                    else failure = installError("TEMPORARY_CLEANUP_FAILED", "Примеры сохранены, но удалить временный архив из хранилища браузера не удалось.", error);
-                }
-            }
-        }
     }
     if (failure) {
         if (destinationStarted || progress.completedFiles > 0) failure.partialResult = resultFrom(progress);
@@ -446,5 +401,5 @@ export async function installExamples({
     progress.phase = "complete";
     progress.currentPath = "";
     emit();
-    return result;
+    return resultFrom(progress);
 }

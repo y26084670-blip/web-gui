@@ -11,10 +11,42 @@ import aboutIconUrl from "./assets/zaica.BMP";
 import packageMetadata from "../package.json";
 import "./TaskInfoBar.css";
 
+const GENERAL_INFORMATION_STARTUP_KEY = "e3d.generalInformation.openAtStartup";
+let generalInformationStartupPreference = true;
+let startupPreferenceStorageAvailable = true;
+
+function readGeneralInformationStartupPreference() {
+  if (startupPreferenceStorageAvailable) {
+    try {
+      const saved = window.localStorage.getItem(GENERAL_INFORMATION_STARTUP_KEY);
+      if (saved !== null) generalInformationStartupPreference = saved !== "false";
+    } catch {
+      startupPreferenceStorageAvailable = false;
+    }
+  }
+  return generalInformationStartupPreference;
+}
+
+function saveGeneralInformationStartupPreference(enabled) {
+  generalInformationStartupPreference = enabled;
+  if (startupPreferenceStorageAvailable) {
+    try {
+      window.localStorage.setItem(GENERAL_INFORMATION_STARTUP_KEY, String(enabled));
+    } catch {
+      startupPreferenceStorageAvailable = false;
+    }
+  }
+}
+
 export function TaskInfoBar(props) {
   const [browseNotice, setBrowseNotice] = createSignal("");
   const [aboutOpen, setAboutOpen] = createSignal(false);
-  const [generalInformationOpen, setGeneralInformationOpen] = createSignal(false);
+  const [generalInformationOpenAtStartup, setGeneralInformationOpenAtStartup] = createSignal(
+    readGeneralInformationStartupPreference(),
+  );
+  const [generalInformationOpen, setGeneralInformationOpen] = createSignal(
+    generalInformationOpenAtStartup(),
+  );
   const [adminPassword, setAdminPassword] = createSignal("");
   const [adminError, setAdminError] = createSignal("");
   const saveButtonTitle = () => props.saveFeedback?.message
@@ -272,6 +304,11 @@ export function TaskInfoBar(props) {
 
       <GeneralInformationDialog
         open={generalInformationOpen()}
+        openAtStartup={generalInformationOpenAtStartup()}
+        onOpenAtStartupChange={(enabled) => {
+          setGeneralInformationOpenAtStartup(enabled);
+          saveGeneralInformationStartupPreference(enabled);
+        }}
         onClose={() => {
           setGeneralInformationOpen(false);
           generalInformationButton?.focus();

@@ -1,3 +1,4 @@
 {
-  "url": ""
+  "manifestUrl": "examples-manifest.json",
+  "solverInstallerUrl": ""
 }

@@ -1,13 +1,10 @@
-import { Show, createEffect, createSignal, createUniqueId, onCleanup } from "solid-js";
+import { Show, createEffect, createSignal, onCleanup } from "solid-js";
 import {
   getFilePickerErrorMessage,
   getFileSystemAccessSupport,
   isFilePickerCancellation,
 } from "../../services/fileSystemAccessSupport";
-import {
-  installExamples,
-  validateExamplesUrl,
-} from "../../services/examplesService";
+import { installExamples, validateDownloadUrl } from "../../services/examplesService";
 import "./ExamplesInstaller.css";
 
 const numberFormatter = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
@@ -20,66 +17,71 @@ function formatBytes(value = 0) {
 }
 
 export function ExamplesInstaller(props) {
-  const inputId = createUniqueId();
-  const descriptionId = createUniqueId();
-  const errorId = createUniqueId();
-  const [url, setUrl] = createSignal("");
-  const [fieldError, setFieldError] = createSignal("");
+  const [manifestUrl, setManifestUrl] = createSignal("");
+  const [solverInstallerUrl, setSolverInstallerUrl] = createSignal("");
+  const [configLoading, setConfigLoading] = createSignal(false);
+  const [configError, setConfigError] = createSignal("");
   const [notice, setNotice] = createSignal("");
   const [failed, setFailed] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [cancelling, setCancelling] = createSignal(false);
   const [progress, setProgress] = createSignal(null);
   const [result, setResult] = createSignal(null);
-  let input;
+  let downloadLink;
   let configController;
   let operationController;
   let configLoaded = false;
-  let urlEdited = false;
   let disposed = false;
 
-  async function loadDefaultUrl() {
-    if (configLoaded || configController || urlEdited) return;
+  async function loadConfiguration() {
+    if (configLoaded || configController) return;
     const controller = new AbortController();
     configController = controller;
+    setConfigLoading(true);
+    setConfigError("");
     try {
-      const response = await fetch(`${import.meta.env.BASE_URL}examples-config.json`, {
+      const baseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
+      const response = await fetch(new URL("examples-config.json", baseUrl), {
         signal: controller.signal,
         credentials: "omit",
         cache: "no-store",
       });
-      if (!response.ok) throw new Error("Не удалось загрузить адрес примеров.");
+      if (!response.ok) throw new Error("Не удалось получить сведения для установки.");
       const config = await response.json();
       if (controller.signal.aborted || disposed) return;
+      const examplesUrl = validateDownloadUrl(config?.manifestUrl, baseUrl);
+      const installerUrl = typeof config?.solverInstallerUrl === "string"
+        && config.solverInstallerUrl.trim()
+        ? validateDownloadUrl(config.solverInstallerUrl, baseUrl)
+        : "";
+      setManifestUrl(examplesUrl);
+      setSolverInstallerUrl(installerUrl);
       configLoaded = true;
-      if (!urlEdited && typeof config?.url === "string") {
-        setUrl(config.url);
-        if (config.url.trim()) setFieldError("");
-      }
     } catch (error) {
       if (controller.signal.aborted || disposed) return;
-      configLoaded = true;
-      if (!urlEdited) {
-        setNotice("Не удалось получить адрес примеров. Укажите URL ZIP-архива ниже.");
-      }
+      setConfigError("Не удалось получить сведения для установки. Закройте и снова откройте эту панель, чтобы повторить попытку.");
     } finally {
-      if (configController === controller) configController = undefined;
+      if (configController === controller) {
+        configController = undefined;
+        if (!disposed) setConfigLoading(false);
+      }
     }
   }
 
   function cancelInstallation() {
     if (!operationController || operationController.signal.aborted) return;
     setCancelling(true);
-    setNotice("Отмена развёртывания…");
+    setNotice("Отмена копирования…");
     operationController.abort();
   }
 
   createEffect(() => {
     if (props.open) {
-      void loadDefaultUrl();
+      void loadConfiguration();
     } else {
       configController?.abort();
       configController = undefined;
+      setConfigLoading(false);
       cancelInstallation();
     }
   });
@@ -91,26 +93,14 @@ export function ExamplesInstaller(props) {
   });
 
   async function handleInstall() {
-    if (busy()) return;
-    setFieldError("");
+    if (busy() || !manifestUrl()) return;
     setFailed(false);
-
-    let downloadUrl;
-    try {
-      downloadUrl = validateExamplesUrl(url());
-    } catch (error) {
-      setFieldError(error?.message || "Укажите URL ZIP-архива с примерами.");
-      input?.focus();
-      return;
-    }
-
     const support = getFileSystemAccessSupport(window);
     if (!support.supported) {
       setFailed(true);
       setNotice(support.message);
       return;
     }
-
     const controller = new AbortController();
     operationController = controller;
     setBusy(true);
@@ -119,39 +109,33 @@ export function ExamplesInstaller(props) {
     setResult(null);
     setNotice("Выберите папку для примеров.");
     let destinationHandle;
-
     try {
-      // The picker must run in the click gesture, before any network await.
-      destinationHandle = await window.showDirectoryPicker({
-        mode: "readwrite",
-        id: "clark-examples",
-      });
+      // Keep the click gesture for the native picker, before network awaits.
+      destinationHandle = await window.showDirectoryPicker({ mode: "readwrite", id: "clark-examples" });
       if (controller.signal.aborted) throw new DOMException("Отменено", "AbortError");
-      setNotice("Развёртывание примеров…");
+      setNotice("Копирование примеров…");
       const installed = await installExamples({
-        url: downloadUrl,
+        manifestUrl: manifestUrl(),
         destinationHandle,
         signal: controller.signal,
         onProgress(update) {
-          if (!disposed && !controller.signal.aborted) {
-            setProgress((previous) => ({ ...previous, ...update }));
-          }
+          if (!disposed && !controller.signal.aborted) setProgress(update);
         },
       });
       if (disposed) return;
       setResult(installed);
-      setNotice(`Примеры развернуты в папке «${installed.rootName}».`);
+      setNotice(`Примеры установлены в папке «${installed.rootName}». Теперь выберите её в редакторе.`);
     } catch (error) {
       if (disposed) return;
       if (error?.partialResult) setResult(error.partialResult);
       if (controller.signal.aborted || isFilePickerCancellation(error)) {
         setNotice(destinationHandle
-          ? "Развёртывание отменено. Уже записанные файлы сохранены."
+          ? "Копирование отменено. Уже записанные файлы сохранены."
           : "Выбор папки отменён.");
       } else {
         setFailed(true);
         setNotice(destinationHandle
-          ? (error?.message || "Не удалось развернуть примеры. Повторите попытку.")
+          ? (error?.message || "Не удалось установить примеры. Повторите попытку.")
           : getFilePickerErrorMessage(error, "выбрать папку для примеров"));
       }
     } finally {
@@ -165,61 +149,54 @@ export function ExamplesInstaller(props) {
     }
   }
 
-  const isDownloading = () => progress()?.phase === "download";
-  const downloadPercent = () => progress()?.totalDownloadBytes > 0
-    ? Math.min(100, Math.round(100 * (progress()?.downloadedBytes || 0) / progress().totalDownloadBytes))
-    : undefined;
-  const counts = () => result() || progress();
+  function handleDownloadInstaller() {
+    if (solverInstallerUrl()) downloadLink?.click();
+  }
 
+  const counts = () => result() || progress();
   return (
-    <div class="examples-installer" aria-label="Развёртывание примеров">
+    <div class="examples-installer" aria-label="Установка примеров и решателя">
       <div class="examples-installer-actions">
-        <button type="button" disabled={busy()} onClick={handleInstall}>
-          Развернуть примеры
+        <button type="button" disabled={busy() || !manifestUrl()} onClick={handleInstall}>
+          Установить примеры
         </button>
-        <Show when={busy()}>
-          <button
-            type="button"
-            class="examples-installer-cancel"
-            disabled={cancelling()}
-            onClick={cancelInstallation}
-          >
-            {cancelling() ? "Отмена…" : "Отменить"}
-          </button>
-        </Show>
+        <button
+          type="button"
+          disabled={!solverInstallerUrl()}
+          title={solverInstallerUrl() ? "Скачать установщик решателя" : "Установщик решателя пока недоступен для скачивания"}
+          onClick={handleDownloadInstaller}
+        >
+          Скачать установщик решателя
+        </button>
       </div>
-      <label class="examples-installer-label" for={inputId}>URL ZIP-архива с примерами</label>
-      <input
-        ref={(element) => (input = element)}
-        id={inputId}
-        class="examples-installer-url"
-        type="url"
-        inputmode="url"
-        autocomplete="off"
-        spellcheck={false}
-        placeholder="https://example.org/examples.zip"
-        value={url()}
-        disabled={busy()}
-        aria-invalid={Boolean(fieldError())}
-        aria-describedby={`${descriptionId}${fieldError() ? ` ${errorId}` : ""}`}
-        onInput={(event) => {
-          urlEdited = true;
-          setUrl(event.currentTarget.value);
-          setFieldError("");
-        }}
+      <a
+        ref={(element) => (downloadLink = element)}
+        href={solverInstallerUrl() || undefined}
+        download=""
+        target="_blank"
+        rel="noopener noreferrer"
+        referrerpolicy="no-referrer"
+        hidden
+        aria-hidden="true"
+        tabindex="-1"
       />
-      <p id={descriptionId} class="examples-installer-description">
-        Выберите существующую папку <strong>clark.projects</strong> или родительскую
-        папку, в которой она будет создана. Уже существующие файлы будут пропущены.
-        После развёртывания выберите <strong>clark.projects</strong> в редакторе.
+      <p class="examples-installer-description">
+        Для примеров выберите диск или папку, в которой нужно создать clark.projects,
+        либо уже существующий clark.projects. Файлы копируются без преобразования;
+        существующие файлы пропускаются. Затем выберите clark.projects в редакторе.
       </p>
-      <Show when={fieldError()}>
-        <p id={errorId} class="examples-installer-error" role="alert">{fieldError()}</p>
+      <Show when={configLoading()}><p role="status">Получение сведений для установки…</p></Show>
+      <Show when={configError()}><p class="examples-installer-error" role="alert">{configError()}</p></Show>
+      <Show when={!configLoading() && !configError() && !solverInstallerUrl()}>
+        <p class="examples-installer-description">Установщик решателя пока недоступен для скачивания.</p>
+      </Show>
+      <Show when={busy()}>
+        <button type="button" class="examples-installer-cancel" disabled={cancelling()} onClick={cancelInstallation}>
+          {cancelling() ? "Отмена…" : "Отменить копирование"}
+        </button>
       </Show>
       <div class="examples-installer-status" role="status" aria-live="polite" aria-atomic="true">
-        <Show when={notice()}>
-          <p classList={{ "examples-installer-error": failed() }}>{notice()}</p>
-        </Show>
+        <Show when={notice()}><p classList={{ "examples-installer-error": failed() }}>{notice()}</p></Show>
         <Show when={counts()}>
           <p>
             Записано файлов: {counts()?.writtenFiles || 0}.
@@ -229,36 +206,21 @@ export function ExamplesInstaller(props) {
       </div>
       <Show when={busy() && progress()}>
         <div class="examples-installer-progress">
-          <Show when={isDownloading()} fallback={
-            <>
-              <p>
-                {progress()?.phase === "inspect" ? "Проверка архива…" : "Распаковка файлов…"}
-                <Show when={progress()?.totalFiles > 0}>
-                  {" "}{progress()?.completedFiles || 0} из {progress()?.totalFiles}
-                </Show>
-              </p>
-              <progress
-                aria-label="Распаковка файлов"
-                max={progress()?.totalFiles || 1}
-                value={progress()?.totalFiles > 0 ? (progress()?.completedFiles || 0) : undefined}
-              />
-              <Show when={progress()?.currentPath}>
-                <p class="examples-installer-current-path">{progress()?.currentPath}</p>
-              </Show>
-            </>
-          }>
-            <p>
-              Загружено: {formatBytes(progress()?.downloadedBytes)}
-              <Show when={progress()?.totalDownloadBytes > 0}>
-                {" из "}{formatBytes(progress()?.totalDownloadBytes)} ({downloadPercent()}%)
-              </Show>
-            </p>
-            <progress
-              aria-label="Загрузка архива с примерами"
-              max="100"
-              value={downloadPercent()}
-            />
+          <p>
+            {progress()?.phase === "inspect" ? "Проверка списка примеров…" : "Копирование файлов…"}
+            <Show when={progress()?.totalFiles > 0}>
+              {" "}{progress()?.completedFiles || 0} из {progress()?.totalFiles}
+            </Show>
+          </p>
+          <progress
+            aria-label="Копирование примеров"
+            max={progress()?.totalFiles || 1}
+            value={progress()?.totalFiles > 0 ? (progress()?.completedFiles || 0) : undefined}
+          />
+          <Show when={progress()?.currentPath}>
+            <p class="examples-installer-current-path">{progress()?.currentPath}</p>
           </Show>
+          <p class="examples-installer-description">Записано: {formatBytes(progress()?.writtenBytes)}</p>
         </div>
       </Show>
     </div>
