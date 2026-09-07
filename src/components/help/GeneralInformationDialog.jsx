@@ -65,24 +65,12 @@ export function GeneralInformationDialog(props) {
         aria-label="Содержание справки"
         tabindex="0"
       >
-        <section aria-labelledby="general-information-selection">
-          <h3 id="general-information-selection">1. Выбор и предпросмотр</h3>
+        <section aria-labelledby="general-information-installation">
+          <h3 id="general-information-installation">1. Установка примеров и решателя</h3>
           <p>
-            Если режим администратора не включён по паролю в панели
-            {" «О программе» "}
-            <span
-              class="general-information-sample general-information-about-sample"
-              role="img"
-              aria-label="Значок панели «О программе»"
-            >
-              <img src={aboutIconUrl} alt="" draggable={false} />
-            </span>
-            , доступ к проектам открывается в фиксированной
-            папке <strong>clark.projects</strong>. Ищите её на диске, где
-            установлен решатель.
-          </p>
-          <p>
-            Также возможно установить примеры и загрузить установщик решателя, независимо, нажав на кнопки ниже
+            Знакомство с редактором рекомендуется начать с установки примеров.
+            Также, при наличии доступа, можете загрузить установщик решателя,
+            нажав кнопку загрузки.
           </p>
           <ExamplesInstaller open={installerOpen()} />
           <p>
@@ -97,6 +85,24 @@ export function GeneralInformationDialog(props) {
           <p>
             В файле <code>clark.app\config\runtime.json</code> задайте
             параметр <code>mpiRanks</code> равным числу физических ядер компьютера.
+          </p>
+        </section>
+
+        <section aria-labelledby="general-information-selection">
+          <h3 id="general-information-selection">2. Выбор и предпросмотр</h3>
+          <p>
+            Если режим администратора не включён по паролю в панели
+            {" «О программе» "}
+            <span
+              class="general-information-sample general-information-about-sample"
+              role="img"
+              aria-label="Значок панели «О программе»"
+            >
+              <img src={aboutIconUrl} alt="" draggable={false} />
+            </span>
+            , доступ к проектам открывается в фиксированной
+            папке <strong>clark.projects</strong>. Ищите её на диске, где
+            установлен решатель.
           </p>
           <p>
             Редактор использует двухуровневую систему каталогов:
@@ -157,7 +163,7 @@ export function GeneralInformationDialog(props) {
         </section>
 
         <section aria-labelledby="general-information-interface">
-          <h3 id="general-information-interface">2. Помощь при работе с интерфейсом</h3>
+          <h3 id="general-information-interface">3. Помощь при работе с интерфейсом</h3>
           <p>
             Справка по параметрам колонки находится во всплывающей подсказке
             её заголовка. Подсказки также предусмотрены у других элементов
@@ -209,7 +215,7 @@ export function GeneralInformationDialog(props) {
         </section>
 
         <section aria-labelledby="general-information-units">
-          <h3 id="general-information-units">3. Используемые размерности</h3>
+          <h3 id="general-information-units">4. Используемые размерности</h3>
           <table class="general-information-units">
             <thead>
               <tr>
