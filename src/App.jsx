@@ -247,7 +247,7 @@ export default function App() {
   const tabs = [
     {
       id: TABS.TASKS.id,
-      label: "Выбор и редактирование задания",
+      label: "Выбор задания",
       component: (props) => (
         <Tasks
           active={props.active}
