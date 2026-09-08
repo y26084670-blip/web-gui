@@ -97,6 +97,20 @@ export const dataService = {
                         text,
                         schema.config.recordCount,
                     );
+                    if (
+                        schema.config.singleRecordFallback &&
+                        storageModel.length === 1
+                    ) {
+                        assertFixedRecordCount(storageModel, 1);
+                        storageModel = Array.from(
+                            { length: schema.config.recordCount },
+                            () => structuredClone(storageModel[0]),
+                        );
+                        diagnostics.push(createWarning({
+                            tab,
+                            message: schema.config.singleRecordFallback.message,
+                        }));
+                    }
                     assertFixedRecordCount(
                         storageModel,
                         schema.config.recordCount,

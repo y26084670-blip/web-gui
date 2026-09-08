@@ -11,6 +11,29 @@
   min-height: 0;
 }
 
+/* Одна тонкая рамка вокруг профильной колонки, без заливки ячеек.
+   Псевдоэлементы не меняют размеры и не перехватывают редактирование. */
+.data-editor-main-table .tabulator-col.active-record-column::after,
+.data-editor-main-table .tabulator-cell.active-record-column::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: solid #2563eb;
+  border-width: 0 1px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.data-editor-main-table .tabulator-col.active-record-column::after {
+  border-top-width: 1px;
+}
+
+.data-editor-main-table .tabulator-row:last-child
+  .tabulator-cell.active-record-column::after {
+  border-bottom-width: 1px;
+}
+
 .data-editor-main.with-generator .data-editor-main-table {
   flex: 0 0 auto;
   min-width: 480px;

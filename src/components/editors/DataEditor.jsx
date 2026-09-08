@@ -27,7 +27,7 @@ import {
   STORAGE_TYPES,
   VIEW_TYPES,
 } from "../../services/schemas/common/constants";
-import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
 import { TableBuilder } from "../../tabulator/builders/TableBuilder";
 import { resolveProperty } from "../../tabulator/schema/propertyResolver";
@@ -56,6 +56,7 @@ import {
 import { viewSettingsService } from "../../services/viewSettingsService";
 import {
   hasRecordColumnsView,
+  recordColumnField,
   recordIndexFromColumn,
 } from "../../tabulator/converters/recordColumns";
 import { RecordGraphRegion } from "../graphs/RecordGraphRegion.jsx";
@@ -145,6 +146,39 @@ export function DataEditor(props) {
     : null;
   const hasMainView = Boolean(mainViewProperty);
   const hasRecordColumns = hasRecordColumnsView(schema);
+  // Выделение профиля — только состояние представления: модель и история
+  // не изменяются при переключении внешнего параметра разрядности.
+  const activeRecordField = createMemo(() => {
+    const currentSchema = table?._gui?.schema ?? schema;
+    const descriptor = currentSchema.views.recordsAsColumns?.activeRecord;
+    if (!descriptor) return null;
+
+    const model = Object.fromEntries(
+      descriptor.dependencies.map(id => [
+        id,
+        modelService.getModelPartUpdate(id)?.data,
+      ]),
+    );
+    const index = descriptor.index({ model });
+    return Number.isInteger(index) &&
+      index >= 0 && index < currentSchema.config.recordCount
+      ? recordColumnField(index)
+      : null;
+  });
+
+  function applyActiveRecordColumn(field) {
+    if (!hasRecordColumns || !tableDiv) return;
+
+    tableDiv.querySelectorAll(
+      ".tabulator-col[tabulator-field], .tabulator-cell[tabulator-field]",
+    ).forEach(element => {
+      element.classList.toggle(
+        "active-record-column",
+        field !== null && element.getAttribute("tabulator-field") === field,
+      );
+    });
+  }
+
   const reportsRecordSelection =
     schema.config.storage === STORAGE_TYPES.RECORDS &&
     !hasMainView &&
@@ -249,6 +283,13 @@ export function DataEditor(props) {
     // свойства; сама публикация модели остаётся единственной в dataChanged.
     table.on("cellEdited", captureCellChange);
     table.on("dataChanged", handleTableChanged);
+
+    if (hasRecordColumns) {
+      const refreshActiveRecordColumn = () =>
+        applyActiveRecordColumn(activeRecordField());
+      table.on("tableBuilt", refreshActiveRecordColumn);
+      table.on("renderComplete", refreshActiveRecordColumn);
+    }
   }
 
   // ARRAY-представление в основной области создаётся тем же adapter,
@@ -988,6 +1029,10 @@ export function DataEditor(props) {
           );
         });
     });
+  });
+
+  createEffect(() => {
+    applyActiveRecordColumn(activeRecordField());
   });
 
   // Режим общий для вкладок, но применяется только к активному редактору.

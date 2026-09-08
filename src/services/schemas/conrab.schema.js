@@ -18,12 +18,26 @@ export default createSchema({
     storage: STORAGE_TYPES.RECORDS,
     required: true,
     recordCount: 2,
+    singleRecordFallback: {
+        message: "При загрузке файла 'conrab.txt' найдена одна строка. "
+            + "Значения продублированы для Float32 и Float64; "
+            + "при сохранении будут записаны обе строки.",
+    },
     obsoleteStoragePaths: ["KB2", "B20", "KEPS2", "KEPS3", "KEPS4"],
     rowLabelDescription: "Параметры математической модели",
 
     views: {
         recordsAsColumns: {
             labels: ["Float32", "Float64"],
+            activeRecord: {
+                dependencies: [TABS.GENERAL.id],
+                index({ model }) {
+                    const precision = model[TABS.GENERAL.id]?.doubleFloat;
+                    return typeof precision === "boolean"
+                        ? Number(precision)
+                        : null;
+                },
+            },
         },
     },
 

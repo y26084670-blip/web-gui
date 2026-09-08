@@ -42,8 +42,10 @@ export function createSchema({
     storage = STORAGE_TYPES.CLUSTER,
     // данный элемент - требуемый
     required = true,
-    // RECORDS: строгое число записей в файле и BaseModel.
+    // RECORDS: строгое число записей в BaseModel и сохраняемом файле.
     recordCount = undefined,
+    // При чтении одной записи: независимые копии до recordCount и предупреждение.
+    singleRecordFallback = undefined,
     // Устаревшие пути StorageModel: молча принимаются только при чтении.
     obsoleteStoragePaths = [],
     // Оформление
@@ -81,6 +83,7 @@ export function createSchema({
 
             required,
             recordCount,
+            singleRecordFallback,
             obsoleteStoragePaths,
 
             rowLabelTitle,
@@ -545,7 +548,8 @@ function validateReferenceViews(schema) {
 
 function validateRecordCount(schema) {
     const recordCount = schema.config.recordCount;
-    if (recordCount === undefined) return;
+    const fallback = schema.config.singleRecordFallback;
+    if (recordCount === undefined && fallback === undefined) return;
 
     if (
         schema.config.storage !== STORAGE_TYPES.RECORDS ||
@@ -555,6 +559,22 @@ function validateRecordCount(schema) {
         throw new Error(
             `Schema '${schema.id}': recordCount requires a positive integer `
             + "for RECORDS."
+        );
+    }
+
+    if (
+        fallback !== undefined && (
+            recordCount < 2 ||
+            !fallback ||
+            typeof fallback !== "object" ||
+            Array.isArray(fallback) ||
+            typeof fallback.message !== "string" ||
+            fallback.message.trim().length === 0
+        )
+    ) {
+        throw new Error(
+            `Schema '${schema.id}': singleRecordFallback requires `
+            + "recordCount >= 2 and a non-empty warning message."
         );
     }
 }
@@ -598,6 +618,30 @@ function validateRecordColumnsView(schema) {
             + "stored scalar properties; unsupported: "
             + unsupportedProperties.join(", ")
             + "."
+        );
+    }
+
+    const activeRecord = descriptor.activeRecord;
+    if (
+        activeRecord !== undefined && (
+            !activeRecord ||
+            typeof activeRecord !== "object" ||
+            Array.isArray(activeRecord) ||
+            typeof activeRecord.index !== "function" ||
+            !Array.isArray(activeRecord.dependencies) ||
+            activeRecord.dependencies.length === 0 ||
+            activeRecord.dependencies.some(dependency =>
+                typeof dependency !== "string" ||
+                dependency.trim().length === 0 ||
+                dependency === schema.id
+            ) ||
+            new Set(activeRecord.dependencies).size !==
+                activeRecord.dependencies.length
+        )
+    ) {
+        throw new Error(
+            `Schema '${schema.id}': recordsAsColumns.activeRecord requires `
+            + "an index function and unique external tab dependencies."
         );
     }
 }
@@ -858,6 +902,16 @@ export function validateSchemaRegistry(schemas) {
                     + `unknown computedView dependency '${dependency}'.`
                 );
             }
+        }
+
+        const activeRecord = schema.views.recordsAsColumns?.activeRecord;
+        for (const dependency of activeRecord?.dependencies ?? []) {
+            if (ids.has(dependency)) continue;
+
+            throw new Error(
+                `Schema '${schema.id}': unknown activeRecord dependency `
+                + `'${dependency}'.`
+            );
         }
 
         for (const [propertyName, descriptor] of
