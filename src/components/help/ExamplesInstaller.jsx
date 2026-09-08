@@ -26,8 +26,7 @@ export function ExamplesInstaller(props) {
   const [cancelling, setCancelling] = createSignal(false);
   const [progress, setProgress] = createSignal(null);
   const [result, setResult] = createSignal(null);
-  const [installerRequested, setInstallerRequested] = createSignal(false);
-  let downloadLink;
+  let installerFolderLink;
   let configController;
   let operationController;
   let configLoaded = false;
@@ -149,10 +148,9 @@ export function ExamplesInstaller(props) {
     }
   }
 
-  function handleDownloadInstaller() {
-    if (!solverInstallerUrl() || !downloadLink) return;
-    downloadLink.click();
-    setInstallerRequested(true);
+  function handleOpenInstallerFolder() {
+    if (!solverInstallerUrl() || !installerFolderLink) return;
+    installerFolderLink.click();
   }
 
   const counts = () => result() || progress();
@@ -191,23 +189,16 @@ export function ExamplesInstaller(props) {
           <button
             type="button"
             disabled={!solverInstallerUrl()}
-            title={solverInstallerUrl() ? "Скачать установщик решателя" : "Установщик решателя пока недоступен для скачивания"}
-            onClick={handleDownloadInstaller}
+            title={solverInstallerUrl() ? "Открыть облачный каталог с актуальным установщиком" : "Каталог установщика пока недоступен"}
+            onClick={handleOpenInstallerFolder}
           >
             Скачать установщик решателя
           </button>
-          <Show when={installerRequested()}>
-            <div class="examples-installer-download" role="status" aria-live="polite">
-              <p>Размер: 799 МБ</p>
-              <p class="examples-installer-description">Ход скачивания — в загрузках браузера.</p>
-            </div>
-          </Show>
         </div>
       </div>
       <a
-        ref={(element) => (downloadLink = element)}
+        ref={(element) => (installerFolderLink = element)}
         href={solverInstallerUrl() || undefined}
-        download=""
         target="_blank"
         rel="noopener noreferrer"
         referrerpolicy="no-referrer"
