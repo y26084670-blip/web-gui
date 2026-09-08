@@ -19,3 +19,7 @@
 .task-agent-connection label { display: block; margin: 6px 0; }
 .task-agent-connection input { display: block; width: 100%; max-width: 100%; box-sizing: border-box; }
 .task-agent-connection button { margin: 6px 6px 6px 0; }
+.task-help-panel.is-disabled { pointer-events: none; }
+.task-help-panel.is-disabled .task-agent-connection,
+.task-help-panel.is-disabled .task-help-chat-composer,
+.task-help-panel.is-disabled .task-help-topics { opacity: .6; }

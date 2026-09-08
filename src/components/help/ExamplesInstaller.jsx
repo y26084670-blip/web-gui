@@ -7,13 +7,12 @@ import {
 import { installExamples, validateDownloadUrl } from "../../services/examplesService";
 import "./ExamplesInstaller.css";
 
-const numberFormatter = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
-
-function formatBytes(value = 0) {
-  const bytes = Math.max(0, Number(value) || 0);
-  if (bytes < 1024) return `${numberFormatter.format(bytes)} Б`;
-  if (bytes < 1024 * 1024) return `${numberFormatter.format(bytes / 1024)} КБ`;
-  return `${numberFormatter.format(bytes / (1024 * 1024))} МБ`;
+function fileWord(count) {
+  const lastTwo = count % 100;
+  if (lastTwo >= 11 && lastTwo <= 14) return "файлов";
+  if (count % 10 === 1) return "файл";
+  if (count % 10 >= 2 && count % 10 <= 4) return "файла";
+  return "файлов";
 }
 
 export function ExamplesInstaller(props) {
@@ -27,6 +26,7 @@ export function ExamplesInstaller(props) {
   const [cancelling, setCancelling] = createSignal(false);
   const [progress, setProgress] = createSignal(null);
   const [result, setResult] = createSignal(null);
+  const [installerRequested, setInstallerRequested] = createSignal(false);
   let downloadLink;
   let configController;
   let operationController;
@@ -113,7 +113,7 @@ export function ExamplesInstaller(props) {
       // Keep the click gesture for the native picker, before network awaits.
       destinationHandle = await window.showDirectoryPicker({ mode: "readwrite", id: "clark-examples" });
       if (controller.signal.aborted) throw new DOMException("Отменено", "AbortError");
-      setNotice("Копирование примеров…");
+      setNotice("");
       const installed = await installExamples({
         manifestUrl: manifestUrl(),
         destinationHandle,
@@ -124,7 +124,7 @@ export function ExamplesInstaller(props) {
       });
       if (disposed) return;
       setResult(installed);
-      setNotice(`Примеры установлены в папке «${installed.rootName}». Теперь выберите её в редакторе.`);
+      setNotice("");
     } catch (error) {
       if (disposed) return;
       if (error?.partialResult) setResult(error.partialResult);
@@ -150,24 +150,59 @@ export function ExamplesInstaller(props) {
   }
 
   function handleDownloadInstaller() {
-    if (solverInstallerUrl()) downloadLink?.click();
+    if (!solverInstallerUrl() || !downloadLink) return;
+    downloadLink.click();
+    setInstallerRequested(true);
   }
 
   const counts = () => result() || progress();
   return (
     <div class="examples-installer" aria-label="Установка примеров и решателя">
       <div class="examples-installer-actions">
-        <button type="button" disabled={busy() || !manifestUrl()} onClick={handleInstall}>
-          Установить примеры
-        </button>
-        <button
-          type="button"
-          disabled={!solverInstallerUrl()}
-          title={solverInstallerUrl() ? "Скачать установщик решателя" : "Установщик решателя пока недоступен для скачивания"}
-          onClick={handleDownloadInstaller}
-        >
-          Скачать установщик решателя
-        </button>
+        <div class="examples-installer-action">
+          <button type="button" disabled={busy() || !manifestUrl()} onClick={handleInstall}>
+            Установить примеры
+          </button>
+          <Show when={counts()?.totalFiles > 0}>
+            <div class="examples-installer-progress">
+              <p role="status" aria-live="polite" aria-atomic="true">
+                Скачано {counts()?.completedFiles || 0} {fileWord(counts()?.completedFiles || 0)} из {counts()?.totalFiles}
+              </p>
+              <progress
+                aria-label="Установка примеров"
+                max={counts()?.totalFiles || 1}
+                value={counts()?.completedFiles || 0}
+              />
+            </div>
+          </Show>
+          <Show when={busy() && !(counts()?.totalFiles > 0) && !notice()}>
+            <p class="examples-installer-description" role="status">Подготовка списка файлов…</p>
+          </Show>
+          <Show when={notice()}>
+            <p classList={{ "examples-installer-error": failed() }} role="status">{notice()}</p>
+          </Show>
+          <Show when={busy()}>
+            <button type="button" class="examples-installer-cancel" disabled={cancelling()} onClick={cancelInstallation}>
+              {cancelling() ? "Отмена…" : "Отменить копирование"}
+            </button>
+          </Show>
+        </div>
+        <div class="examples-installer-action">
+          <button
+            type="button"
+            disabled={!solverInstallerUrl()}
+            title={solverInstallerUrl() ? "Скачать установщик решателя" : "Установщик решателя пока недоступен для скачивания"}
+            onClick={handleDownloadInstaller}
+          >
+            Скачать установщик решателя
+          </button>
+          <Show when={installerRequested()}>
+            <div class="examples-installer-download" role="status" aria-live="polite">
+              <p>Размер: 799 МБ</p>
+              <p class="examples-installer-description">Ход скачивания — в загрузках браузера.</p>
+            </div>
+          </Show>
+        </div>
       </div>
       <a
         ref={(element) => (downloadLink = element)}
@@ -189,39 +224,6 @@ export function ExamplesInstaller(props) {
       <Show when={configError()}><p class="examples-installer-error" role="alert">{configError()}</p></Show>
       <Show when={!configLoading() && !configError() && !solverInstallerUrl()}>
         <p class="examples-installer-description">Установщик решателя пока недоступен для скачивания.</p>
-      </Show>
-      <Show when={busy()}>
-        <button type="button" class="examples-installer-cancel" disabled={cancelling()} onClick={cancelInstallation}>
-          {cancelling() ? "Отмена…" : "Отменить копирование"}
-        </button>
-      </Show>
-      <div class="examples-installer-status" role="status" aria-live="polite" aria-atomic="true">
-        <Show when={notice()}><p classList={{ "examples-installer-error": failed() }}>{notice()}</p></Show>
-        <Show when={counts()}>
-          <p>
-            Записано файлов: {counts()?.writtenFiles || 0}.
-            {" Пропущено существующих: "}{counts()?.skippedFiles || 0}.
-          </p>
-        </Show>
-      </div>
-      <Show when={busy() && progress()}>
-        <div class="examples-installer-progress">
-          <p>
-            {progress()?.phase === "inspect" ? "Проверка списка примеров…" : "Копирование файлов…"}
-            <Show when={progress()?.totalFiles > 0}>
-              {" "}{progress()?.completedFiles || 0} из {progress()?.totalFiles}
-            </Show>
-          </p>
-          <progress
-            aria-label="Копирование примеров"
-            max={progress()?.totalFiles || 1}
-            value={progress()?.totalFiles > 0 ? (progress()?.completedFiles || 0) : undefined}
-          />
-          <Show when={progress()?.currentPath}>
-            <p class="examples-installer-current-path">{progress()?.currentPath}</p>
-          </Show>
-          <p class="examples-installer-description">Записано: {formatBytes(progress()?.writtenBytes)}</p>
-        </div>
       </Show>
     </div>
   );

@@ -10,8 +10,7 @@
     margin: 0;
 }
 
-.examples-installer-description,
-.examples-installer-current-path {
+.examples-installer-description {
     color: #c4d2df;
     font-size: 14px;
 }
@@ -19,8 +18,20 @@
 .examples-installer-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
     gap: 10px;
     width: 100%;
+}
+
+.examples-installer-action {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.examples-installer-action > button:first-child {
+    min-height: 2.5em;
 }
 
 .examples-installer-actions button,
@@ -70,15 +81,12 @@
     color: #ffb3aa;
 }
 
-.examples-installer-status:empty {
-    display: none;
-}
-
-.examples-installer-status,
+.examples-installer-download,
 .examples-installer-progress {
     display: grid;
     gap: 6px;
-    max-width: 100%;
+    min-width: 0;
+    width: 100%;
     overflow-wrap: anywhere;
 }
 

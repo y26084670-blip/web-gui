@@ -1,10 +1,10 @@
 const INSECURE_CONTEXT_MESSAGE =
-    "Редактору требуется безопасное соединение. Откройте страницу по HTTPS "
-    + "или через localhost в актуальном Google Chrome или Microsoft Edge.";
+    "Для доступа к локальным каталогам откройте страницу по HTTPS "
+    + "или через localhost.";
 
 const UNSUPPORTED_BROWSER_MESSAGE =
-    "Этот браузер не предоставляет необходимый доступ к локальным каталогам. "
-    + "Используйте актуальный Google Chrome или Microsoft Edge для настольной Windows.";
+    "Этот браузер не предоставляет доступ к локальным каталогам, необходимый для этой операции. "
+    + "Для полной функциональности редактора рекомендуются актуальные настольные Google Chrome или Microsoft Edge.";
 
 export function getFileSystemAccessSupport(
     environment = globalThis,
@@ -66,6 +66,6 @@ export function getFilePickerErrorMessage(
             + "при работе через HTTPS или localhost.";
     }
 
-    return `Не удалось ${operation}. Проверьте доступ к локальным файлам и повторите операцию `
-        + "в актуальном Google Chrome или Microsoft Edge.";
+    return `Не удалось ${operation}. Проверьте доступ к локальным файлам и повторите операцию. `
+        + "Для полной функциональности редактора рекомендуются актуальные настольные Google Chrome или Microsoft Edge.";
 }

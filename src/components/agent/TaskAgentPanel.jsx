@@ -4,7 +4,9 @@ import { BUILTIN_TOPICS, analyzeBuiltin, findBuiltinTopic, getBuiltinTopic } fro
 import "./TaskAgentPanel.css";
 
 const CONNECTION_KEY = "clark.agent.connection.v2";
+const PANEL_DISABLED = true;
 function statusText(status) {
+  if (PANEL_DISABLED) return "Агент отключен. Встроенный помощник [Экспериментальный: пока ничего не работает]";
   if (status.available) return `Локальный агент ${status.version ?? ""} подключён`;
   return status.loading ? "Встроенный помощник; подключение агента…" : "Встроенный помощник";
 }
@@ -27,6 +29,7 @@ export function TaskAgentPanel(props) {
   let disposed = false;
 
   onMount(() => {
+    if (PANEL_DISABLED) return;
     const unsubscribe = agentClient.subscribe(setStatus);
     onCleanup(() => { disposed = true; recommendationRevision++; answerRevision++;
       clearTimeout(timer); unsubscribe(); agentClient.disconnect(); });
@@ -37,6 +40,7 @@ export function TaskAgentPanel(props) {
   });
 
   createEffect(() => {
+    if (PANEL_DISABLED) return;
     const current = status();
     if (!current.available) { setTopics(BUILTIN_TOPICS); return; }
     const generation = current.generation;
@@ -47,6 +51,7 @@ export function TaskAgentPanel(props) {
   });
 
   createEffect(() => {
+    if (PANEL_DISABLED) return;
     const state = props.state;
     const stateKey = JSON.stringify(state);
     const connection = status();
@@ -74,6 +79,7 @@ export function TaskAgentPanel(props) {
   });
 
   async function selectTopic(topic) {
+    if (PANEL_DISABLED) return;
     const revision = ++answerRevision;
     setSelectedTopicId(topic.id);
     let fullTopic = getBuiltinTopic(topic.id) ?? topic;
@@ -86,6 +92,7 @@ export function TaskAgentPanel(props) {
   }
   async function submitQuestion(event) {
     event.preventDefault();
+    if (PANEL_DISABLED) return;
     const value = question().trim();
     if (!value) return;
     const revision = ++answerRevision;
@@ -101,7 +108,9 @@ export function TaskAgentPanel(props) {
     setQuestion("");
   }
   async function connect(event) {
-    event.preventDefault(); setConnectionError("");
+    event.preventDefault();
+    if (PANEL_DISABLED) return;
+    setConnectionError("");
     const config = { endpoint: endpoint().trim() || "/agent/rpc", token: key().trim() };
     try {
       const promise = agentClient.configure(config);
@@ -110,26 +119,27 @@ export function TaskAgentPanel(props) {
     } catch (error) { setConnectionError(error.message); }
   }
   function disconnect() {
+    if (PANEL_DISABLED) return;
     agentClient.disconnect(); setKey("");
     try { sessionStorage.removeItem(CONNECTION_KEY); } catch { /* optional browser storage */ }
   }
 
   return (
-    <aside class="task-help-panel" aria-label="Справка агента">
+    <aside class="task-help-panel" classList={{ "is-disabled": PANEL_DISABLED }} aria-label="Справка агента" aria-disabled={PANEL_DISABLED}>
       <section class="task-help-chat" aria-label="Диалог с агентом">
         <div class="task-help-chat-messages" role="log" aria-live="polite">
-          <div classList={{ "task-agent-status": true, available: status().available,
-            unavailable: !status().loading && !status().available }} title={status().reason}>
-            {statusText(status())}{" [Экспериментальная функциональность: пока ничего не работает]"}
+          <div classList={{ "task-agent-status": true, available: !PANEL_DISABLED && status().available,
+            unavailable: !PANEL_DISABLED && !status().loading && !status().available }} title={PANEL_DISABLED ? undefined : status().reason}>
+            {statusText(status())}{PANEL_DISABLED ? "" : " [Экспериментальная функциональность: пока ничего не работает]"}
           </div>
-          <details class="task-agent-connection">
-            <summary>Подключение локального агента</summary>
+          <details class="task-agent-connection" inert={PANEL_DISABLED ? "" : undefined}>
+            <summary tabIndex={PANEL_DISABLED ? -1 : undefined}>Подключение локального агента</summary>
             <p>Ключ доступен на локальной странице настроек агента. LAN-профиль использует только встроенную помощь.</p>
             <form onSubmit={connect}>
-              <label>WebSocket-адрес<input value={endpoint()} onInput={(event) => setEndpoint(event.currentTarget.value)} /></label>
-              <label>Ключ редактора<input type="password" autocomplete="off" value={key()} onInput={(event) => setKey(event.currentTarget.value)} /></label>
-              <button type="submit" disabled={!key().trim()}>Подключить</button>
-              <button type="button" onClick={disconnect}>Отключить</button>
+              <label>WebSocket-адрес<input disabled={PANEL_DISABLED} value={endpoint()} onInput={(event) => setEndpoint(event.currentTarget.value)} /></label>
+              <label>Ключ редактора<input type="password" autocomplete="off" disabled={PANEL_DISABLED} value={key()} onInput={(event) => setKey(event.currentTarget.value)} /></label>
+              <button type="submit" disabled={PANEL_DISABLED || !key().trim()}>Подключить</button>
+              <button type="button" disabled={PANEL_DISABLED} onClick={disconnect}>Отключить</button>
             </form>
             <Show when={connectionError()}><p role="alert">{connectionError()}</p></Show>
           </details>
@@ -151,16 +161,16 @@ export function TaskAgentPanel(props) {
         </div>
         <form class="task-help-chat-composer" onSubmit={submitQuestion}>
           <textarea rows="3" maxlength="4000" aria-label="Вопрос агенту" placeholder="Задайте вопрос…"
-            value={question()} onInput={(event) => setQuestion(event.currentTarget.value)} />
+            disabled={PANEL_DISABLED} value={question()} onInput={(event) => setQuestion(event.currentTarget.value)} />
           <button type="button" class="task-help-voice-button" aria-label="Голосовая связь пока не подключена"
             title="Голосовая связь пока не подключена" disabled><span aria-hidden="true">🔊</span></button>
-          <button type="submit" class="task-help-send-button" title="Отправить вопрос" disabled={!question().trim()}>Отправить</button>
+          <button type="submit" class="task-help-send-button" title="Отправить вопрос" disabled={PANEL_DISABLED || !question().trim()}>Отправить</button>
         </form>
       </section>
       <nav class="task-help-topics" aria-label="Темы справки">
         <For each={topics()}>{(topic) => (
           <button type="button" classList={{ "task-help-topic": true, selected: selectedTopicId() === topic.id }}
-            aria-pressed={selectedTopicId() === topic.id} onClick={() => selectTopic(topic)}>{topic.title}</button>
+            disabled={PANEL_DISABLED} aria-pressed={selectedTopicId() === topic.id} onClick={() => selectTopic(topic)}>{topic.title}</button>
         )}</For>
       </nav>
     </aside>
