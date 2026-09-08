@@ -404,6 +404,7 @@ export default function App() {
     const dirHandle = selectionService.loadedTaskHandle();
     if (!dirHandle || savePending()) return;
 
+    const taskDataVersion = selectionService.taskDataVersion();
     const modelSnapshot = modelService.getModel();
     const validationRevision = ++modelValidationRevision;
     const context = {
@@ -452,7 +453,13 @@ export default function App() {
             continue;
           }
           savedCount += 1;
-          unsavedChangesService.setBaseline(schema.id, itemModel);
+          if (
+            dirHandle === selectionService.loadedTaskHandle() &&
+            taskDataVersion === selectionService.taskDataVersion()
+          ) {
+            unsavedChangesService.setBaseline(schema.id, itemModel);
+            unsavedChangesService.setExplicitDirty(schema.id, false);
+          }
         } catch (error) {
           saveFailed = true;
           saveErrors.push(`${schema.title}: ${error?.message ?? String(error)}`);

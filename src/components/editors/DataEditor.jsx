@@ -1069,7 +1069,8 @@ export function DataEditor(props) {
 
     try {
       const diagnostics = [];
-      const baseModel = await dataService.load(dirHandle, schema, diagnostics);
+      const loadState = {};
+      const baseModel = await dataService.load(dirHandle, schema, diagnostics, loadState);
       if (revision !== loadRevision) return;
 
       diagnosticService.setLoadResult(schema.id, diagnostics);
@@ -1082,6 +1083,7 @@ export function DataEditor(props) {
           { source: modelSource },
         );
         unsavedChangesService.setBaseline(schema.id, update.data);
+        unsavedChangesService.setExplicitDirty(schema.id, false);
         await replaceEditorData(null);
         return;
       }
@@ -1096,6 +1098,7 @@ export function DataEditor(props) {
         schemaConstraintDiagnostics(schema, update.data),
       );
       unsavedChangesService.setBaseline(schema.id, update.data);
+      unsavedChangesService.setExplicitDirty(schema.id, loadState.requiresSave === true);
       await replaceEditorData(update.data);
     } catch (err) {
       if (revision !== loadRevision) return;
@@ -1108,6 +1111,7 @@ export function DataEditor(props) {
       );
       diagnosticService.setConstraintResult(schema.id, []);
       unsavedChangesService.setBaseline(schema.id, update.data);
+      unsavedChangesService.setExplicitDirty(schema.id, false);
       await replaceEditorData(null);
     }
   });

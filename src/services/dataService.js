@@ -33,7 +33,9 @@ export const dataService = {
 
     // Загрузка данных.
     // diagnostics — необязательный коллектор диагностики загрузки.
-    async load(dirHandle, schema, diagnostics = []) {
+    // loadState.requiresSave — данные дополнены и требуют записи в файл.
+    async load(dirHandle, schema, diagnostics = [], loadState = {}) {
+        loadState.requiresSave = false;
         if (!dirHandle) {
             throw new Error("Task directory not selected.");
         }
@@ -87,6 +89,7 @@ export const dataService = {
         const text = await file.text();
 
         let storageModel;
+        let requiresSave = false;
         try {
             switch (schema.config.storage) {
                 case STORAGE_TYPES.CLUSTER:
@@ -106,6 +109,7 @@ export const dataService = {
                             { length: schema.config.recordCount },
                             () => structuredClone(storageModel[0]),
                         );
+                        requiresSave = true;
                         diagnostics.push(createWarning({
                             tab,
                             message: schema.config.singleRecordFallback.message,
@@ -134,7 +138,9 @@ export const dataService = {
         this.checkArrayShape(storageModel, schema, diagnostics, tab);
 
         const baseModel = deserialize(storageModel, schema);
-        return recomputeModel(schema, baseModel).model;
+        const model = recomputeModel(schema, baseModel).model;
+        loadState.requiresSave = requiresSave;
+        return model;
     },
 
     // Состав ключей файла относительно схемы.
