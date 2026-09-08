@@ -1,7 +1,7 @@
 /*
-Источник: solver/src/core/types.jl, Conrab. Снимок 2026-08.
+Источник: solver/src/core/types.jl, Conrab; startITER — согласованное расширение.
 Файл содержит две RECORDS-записи: Float32, затем Float64.
-Каждая запись содержит 12 сериализуемых полей.
+Каждая запись содержит 13 сериализуемых полей.
 */
 import {
     TABS,
@@ -44,6 +44,17 @@ export default createSchema({
     properties: {
 
         // итерационный процесс
+
+        startITER: {
+            type: FIELD_TYPES.BOOLEAN,
+            label: "StartITER",
+            description: "Начальное приближение итерационного процесса: "
+                + "true — нулевые значения; "
+                + "false — значения предыдущей итерации",
+            default: false,
+            textOn: "Нулевые значения",
+            textOff: "Предыдущая итерация",
+        },
 
         EPS: {
             type: FIELD_TYPES.FLOAT,
