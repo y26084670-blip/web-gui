@@ -137,12 +137,15 @@ function createPrescribedSourceVectors(
   sceneDiagonal,
   style,
   scales,
+  maximumMagnitude,
 ) {
-  const maximum = { current: 0, magnetization: 0 };
+  const maximum = maximumMagnitude ?? { current: 0, magnetization: 0 };
   const positions = { current: [], magnetization: [] };
   const solidArrows = { current: [], magnetization: [] };
-  for (const item of vectors) {
-    maximum[item.kind] = Math.max(maximum[item.kind], item.magnitude);
+  if (maximumMagnitude == null) {
+    for (const item of vectors) {
+      maximum[item.kind] = Math.max(maximum[item.kind], item.magnitude);
+    }
   }
 
   const direction = new THREE.Vector3();
@@ -1737,9 +1740,11 @@ export function ThreeGeometryViewport(props) {
       prescribedSourceRoot = null;
     }
     if (prescribedSourcesVisible && prescribedSourceScene) {
-      const sceneDiagonal = currentBounds?.isEmpty() === false
-        ? currentBounds.getSize(new THREE.Vector3()).length()
-        : 0;
+      const sceneDiagonal = prescribedSourceScene.sceneDiagonal ?? (
+        currentBounds?.isEmpty() === false
+          ? currentBounds.getSize(new THREE.Vector3()).length()
+          : 0
+      );
       prescribedSourceRoot = createPrescribedSourceVectors(
         THREE,
         prescribedSourceScene.vectors,
@@ -1747,6 +1752,7 @@ export function ThreeGeometryViewport(props) {
         sceneDiagonal,
         prescribedSourceStyle,
         { current: currentSourceScale, magnetization: magnetizationSourceScale },
+        prescribedSourceScene.maximumMagnitude,
       );
       if (prescribedSourceRoot) helperRoot.add(prescribedSourceRoot);
     }

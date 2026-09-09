@@ -151,11 +151,19 @@ export function GeometryViewerWindow(props) {
         sceneModel(),
         props.model?.elements,
         props.prescribedSources,
-        { limit: SOURCE_VECTOR_LIMIT },
+        {
+          limit: SOURCE_VECTOR_LIMIT,
+          general: props.model?.general,
+          filters: filters(),
+        },
       );
     } catch (error) {
       return {
         vectors: [],
+        maximumMagnitude: { current: 0, magnetization: 0 },
+        sceneDiagonal: 0,
+        rowsTruncated: false,
+        imagesTruncated: false,
         truncated: false,
         diagnostics: [{
           level: "warning",
@@ -201,10 +209,16 @@ export function GeometryViewerWindow(props) {
         "объёма 3D-сцены.",
       );
     }
-    if (sourceScene()?.truncated) {
+    if (sourceScene()?.rowsTruncated) {
       messages.push(
         `Показ заданных источников ограничен первыми ${SOURCE_VECTOR_LIMIT} ` +
         "строками таблицы.",
+      );
+    }
+    if (sourceScene()?.imagesTruncated) {
+      messages.push(
+        "Показ заданных источников с учётом симметрии ограничен " +
+        `${SOURCE_VECTOR_LIMIT} стрелками. Измените режимы показа.`,
       );
     }
     return messages.join(" ");
