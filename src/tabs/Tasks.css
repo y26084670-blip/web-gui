@@ -329,12 +329,6 @@ button:hover {
   line-height: 1.4;
 }
 
-.task-legacy-import {
-  flex: 0 0 auto;
-  color: #000;
-  font-weight: 600;
-}
-
 .task-load-error-dialog {
   max-width: 440px;
   padding: 18px;
@@ -475,4 +469,3 @@ button:hover {
 .tabulator .tabulator-tableholder::-webkit-scrollbar-corner {
   background: #d7dbe0;
 }
-

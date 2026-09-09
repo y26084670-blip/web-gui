@@ -1,8 +1,8 @@
 # Clark UI Editor
 
-Обновлено: 2026-09-09 16:55 UTC.
+Обновлено: 2026-09-09 17:18 UTC.
 
-Текущая версия: **4.18.1**.
+Текущая версия: **4.18.2**.
 
 Clark UI Editor — браузерное приложение для выбора базового каталога проектов, 
 проекта и задания, чтения файлов из input3XX, редактирования скаляров и массивов, 
@@ -287,4 +287,3 @@ workflow `Build editor`; по умолчанию параметр выключе
 [docs/Architecture.md](docs/Architecture.md), порядок внесения изменений — в
 [docs/IMPLEMENTATION_PROTOCOL.md](docs/IMPLEMENTATION_PROTOCOL.md), текущее
 состояние и открытые работы — в [docs/resume.md](docs/resume.md).
-

@@ -2,27 +2,15 @@ import { DIRECTORIES } from "./schemas/common/constants.js";
 
 const SUMMARY_FILE_NAME = "_summary.txt";
 const RESULTS_SUMMARY_FILE_NAME = "_summary_out.txt";
-const LEGACY_FILE_NAME = "kv.in";
 
 export const TASK_SUMMARY_TEXT = Object.freeze({
   NO_INFORMATION: "нет информации, т.к. расчет не проводился",
   NO_CURRENT_FORMAT: "не содержит данных актуального формата",
   NO_RESULTS: "нет данных по результатам или расчет не проводился",
-  LEGACY_IMPORT: "доступен импорт из legacy - формата",
 });
 
 function isMissingEntry(error) {
   return error?.name === "NotFoundError" || error?.name === "TypeMismatchError";
-}
-
-async function hasFile(directoryHandle, fileName) {
-  try {
-    await directoryHandle.getFileHandle(fileName);
-    return true;
-  } catch (error) {
-    if (isMissingEntry(error)) return false;
-    throw error;
-  }
 }
 
 async function readSummaryText(taskHandle) {
@@ -45,15 +33,8 @@ async function readSummaryText(taskHandle) {
 }
 
 export async function readTaskSummary(taskHandle) {
-  const [summaryText, legacyImportAvailable] =
-    await Promise.all([
-      readSummaryText(taskHandle),
-      hasFile(taskHandle, LEGACY_FILE_NAME),
-    ]);
-
   return {
-    summaryText,
-    legacyImportAvailable,
+    summaryText: await readSummaryText(taskHandle),
   };
 }
 

@@ -9,7 +9,6 @@ import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
 import {
-  TASK_SUMMARY_TEXT,
   readTaskResultsSummary,
   readTaskSummary,
 } from "../services/taskSummaryService.js";
@@ -24,7 +23,6 @@ import "./Tasks.css";
 const PROJECTS_ROOT_NAME = "clark.projects";
 const EMPTY_TASK_INFO = Object.freeze({
   summaryText: "",
-  legacyImportAvailable: false,
 });
 
 export function Tasks(props) {
@@ -205,7 +203,6 @@ export function Tasks(props) {
           setTaskInfo({
             summaryText: "Ошибка чтения информации о задании: "
               + (error?.message || error?.name || String(error)),
-            legacyImportAvailable: false,
           });
         }
       })(),
@@ -387,11 +384,6 @@ export function Tasks(props) {
             readOnly
             value={taskInfo().summaryText}
           />
-          <Show when={taskInfo().legacyImportAvailable}>
-            <div class="task-legacy-import">
-              {TASK_SUMMARY_TEXT.LEGACY_IMPORT}
-            </div>
-          </Show>
         </div>
         <div class="task-panel-caption">исходные данные</div>
       </div>

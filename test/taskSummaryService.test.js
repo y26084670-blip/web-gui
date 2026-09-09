@@ -47,7 +47,6 @@ test("selected task exposes summary text without loading the task", async () => 
 
   assert.deepEqual(await readTaskSummary(task), {
     summaryText: "Элементов: 12\nОбластей: 3",
-    legacyImportAvailable: false,
   });
 });
 
@@ -58,18 +57,14 @@ test("missing summary is reported while input3XX exists", async () => {
 
   assert.deepEqual(await readTaskSummary(task), {
     summaryText: TASK_SUMMARY_TEXT.NO_INFORMATION,
-    legacyImportAvailable: false,
   });
 });
 
-test("missing input3XX does not hide legacy import", async () => {
-  const task = directoryHandle({
-    files: { "kv.in": fileHandle("") },
-  });
+test("missing input3XX is reported", async () => {
+  const task = directoryHandle();
 
   assert.deepEqual(await readTaskSummary(task), {
     summaryText: TASK_SUMMARY_TEXT.NO_CURRENT_FORMAT,
-    legacyImportAvailable: true,
   });
 });
 
@@ -83,8 +78,6 @@ test("task tab renders readonly summary and ignores stale reads", async () => {
   assert.match(source, /task-summary-text/u);
   assert.match(source, /taskInfoRevision/u);
   assert.match(source, /requestId !== taskInfoRevision/u);
-  assert.match(source, /TASK_SUMMARY_TEXT\.LEGACY_IMPORT/u);
   assert.match(styles, /\.task-summary-panel/u);
   assert.match(styles, /\.task-summary-text/u);
-  assert.match(styles, /\.task-legacy-import/u);
 });
