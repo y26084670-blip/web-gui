@@ -654,6 +654,7 @@ export default function App() {
       <GeometryViewerWindow
         open={geometryViewerOpen()}
         model={geometryModel()}
+        prescribedSources={modelService.getModel().mhj}
         selections={geometrySelections()}
         onClose={() => {
           setGeometryViewerOpen(false);

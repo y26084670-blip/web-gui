@@ -118,6 +118,103 @@ function disposeObject(root) {
   });
 }
 
+function sourceInstanceKey(source, instance) {
+  return [
+    source?.recordIndex,
+    Number(instance?.ls ?? 0),
+    Number(instance?.as ?? 0),
+    Number(instance?.ps ?? 0),
+    Number(instance?.mirrorX ?? 0),
+    Number(instance?.mirrorY ?? 0),
+  ].join(":");
+}
+
+function createPrescribedSourceVectors(
+  THREE,
+  vectors,
+  acceptedInstances,
+  sceneDiagonal,
+) {
+  const maximum = { current: 0, magnetization: 0 };
+  const positions = { current: [], magnetization: [] };
+  for (const item of vectors) {
+    maximum[item.kind] = Math.max(maximum[item.kind], item.magnitude);
+  }
+
+  const direction = new THREE.Vector3();
+  const origin = new THREE.Vector3();
+  const tip = new THREE.Vector3();
+  const headBase = new THREE.Vector3();
+  const wing = new THREE.Vector3();
+  const axis = new THREE.Vector3();
+  const side = new THREE.Vector3();
+  const secondSide = new THREE.Vector3();
+  const sceneLimit = sceneDiagonal > 0 ? 0.06 * sceneDiagonal : Infinity;
+
+  for (const item of vectors) {
+    if (!acceptedInstances.has(sourceInstanceKey(item.source, item.instance))) {
+      continue;
+    }
+    const length = Math.min(0.7 * item.characteristicSize, sceneLimit) *
+      (item.magnitude / maximum[item.kind]);
+    if (!(length > 0) || !Number.isFinite(length)) continue;
+
+    const target = positions[item.kind];
+    origin.fromArray(item.origin);
+    direction.set(
+      item.vector[0] / item.magnitude,
+      item.vector[1] / item.magnitude,
+      item.vector[2] / item.magnitude,
+    );
+    tip.copy(origin).addScaledVector(direction, length);
+    target.push(origin.x, origin.y, origin.z, tip.x, tip.y, tip.z);
+
+    // Four wings retain a visible arrowhead from every viewing direction.
+    const headLength = length * 0.25;
+    const headRadius = headLength * 0.5;
+    headBase.copy(tip).addScaledVector(direction, -headLength);
+    axis.set(Math.abs(direction.y) < 0.9 ? 0 : 1,
+      Math.abs(direction.y) < 0.9 ? 1 : 0, 0);
+    side.crossVectors(direction, axis).normalize();
+    secondSide.crossVectors(direction, side).normalize();
+    for (const tangent of [side, secondSide]) {
+      for (const sign of [-1, 1]) {
+        wing.copy(headBase).addScaledVector(tangent, sign * headRadius);
+        target.push(tip.x, tip.y, tip.z, wing.x, wing.y, wing.z);
+      }
+    }
+  }
+
+  if (positions.current.length === 0 && positions.magnetization.length === 0) {
+    return null;
+  }
+
+  const root = new THREE.Group();
+  root.name = "prescribed-source-vectors";
+  for (const [kind, color] of [["current", 0xff0000], ["magnetization", 0x00cc44]]) {
+    if (positions[kind].length === 0) continue;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array(positions[kind]), 3),
+    );
+    const lines = new THREE.LineSegments(
+      geometry,
+      new THREE.LineBasicMaterial({
+        color,
+        depthTest: true,
+        depthWrite: false,
+        transparent: true,
+        opacity: 1,
+      }),
+    );
+    lines.name = `prescribed-source-${kind}`;
+    lines.renderOrder = 14;
+    root.add(lines);
+  }
+  return root;
+}
+
 function validMatrix(value) {
   return value?.length === 16 && Array.from(value).every(Number.isFinite);
 }
@@ -945,6 +1042,10 @@ export function ThreeGeometryViewport(props) {
   let controls;
   let geometryRoot;
   let helperRoot;
+  let prescribedSourceRoot;
+  let prescribedSourceScene = null;
+  let prescribedSourcesVisible = false;
+  let acceptedSourceInstances = new Set();
   let vertexPoints;
   let vertexWorldPositions = new Float64Array(0);
   let vertexBatches = [];
@@ -1550,6 +1651,28 @@ export function ThreeGeometryViewport(props) {
     requestRender();
   };
 
+  const replacePrescribedSources = () => {
+    if (!THREE || !helperRoot) return;
+    if (prescribedSourceRoot) {
+      helperRoot.remove(prescribedSourceRoot);
+      disposeObject(prescribedSourceRoot);
+      prescribedSourceRoot = null;
+    }
+    if (prescribedSourcesVisible && prescribedSourceScene) {
+      const sceneDiagonal = currentBounds?.isEmpty() === false
+        ? currentBounds.getSize(new THREE.Vector3()).length()
+        : 0;
+      prescribedSourceRoot = createPrescribedSourceVectors(
+        THREE,
+        prescribedSourceScene.vectors,
+        acceptedSourceInstances,
+        sceneDiagonal,
+      );
+      if (prescribedSourceRoot) helperRoot.add(prescribedSourceRoot);
+    }
+    requestRender();
+  };
+
   const replaceGeometry = (sceneModel, filters, mode, showEdges) => {
     if (!ready() || !THREE || !threeScene) return;
     activeRenderMode = mode;
@@ -1562,6 +1685,8 @@ export function ThreeGeometryViewport(props) {
       threeScene.remove(helperRoot);
       disposeObject(helperRoot);
     }
+    prescribedSourceRoot = null;
+    acceptedSourceInstances = new Set();
 
     geometryRoot = new THREE.Group();
     geometryRoot.name = "geometry-root";
@@ -1648,6 +1773,13 @@ export function ThreeGeometryViewport(props) {
         if (!object) continue;
         geometryRoot.add(object);
         geometryPickTargets.push(object);
+        if (primitive.source?.schemaId === "elements") {
+          for (const instance of accepted) {
+            acceptedSourceInstances.add(
+              sourceInstanceKey(primitive.source, instance),
+            );
+          }
+        }
         vertexBatches.push({ instances: accepted, primitive });
         if (primitive.discretization) {
           discretizationBatches.push({ instances: accepted, primitive });
@@ -1682,6 +1814,7 @@ export function ThreeGeometryViewport(props) {
     if (verticesVisible) materializeVertexPoints();
     if (discretizationLinesVisible) materializeDiscretizationLines();
     if (discretizationPointsVisible) materializeDiscretizationPoints();
+    replacePrescribedSources();
     publishRenderStats();
     if (!contextLost) {
       setError("");
@@ -1851,6 +1984,17 @@ export function ThreeGeometryViewport(props) {
     clearHoverTooltip();
     publishRenderStats();
     requestRender();
+  });
+
+  createEffect(() => {
+    prescribedSourceScene = props.prescribedSourceScene ?? null;
+    prescribedSourcesVisible = props.showPrescribedSources === true;
+    if (!ready()) return;
+    try {
+      replacePrescribedSources();
+    } catch (renderError) {
+      reportError(renderError);
+    }
   });
 
   createEffect(() => {

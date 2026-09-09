@@ -9,6 +9,10 @@ import {
 
 import { buildGeometryScene } from "../../services/visualization/geometrySceneModel.js";
 import {
+  buildSourceVectorScene,
+  SOURCE_VECTOR_LIMIT,
+} from "../../services/visualization/sourceVectorSceneModel.js";
+import {
   GEOMETRY_CAMERA_COMMANDS,
   geometryCameraCommandFromKeyboardEvent,
   isGeometryCameraShortcutTarget,
@@ -91,6 +95,7 @@ export function GeometryViewerWindow(props) {
   let optionsPanelElement;
   let activePanelButton;
   let viewerResizeObserver;
+  let renderModeBeforeSources = null;
 
   const [sceneModel, setSceneModel] = createSignal(null);
   const [sceneError, setSceneError] = createSignal("");
@@ -103,6 +108,7 @@ export function GeometryViewerWindow(props) {
   const [showDiscretizationLines, setShowDiscretizationLines] =
     createSignal(false);
   const [showCentersAndNodes, setShowCentersAndNodes] = createSignal(false);
+  const [showPrescribedSources, setShowPrescribedSources] = createSignal(false);
   const [elementsMode, setElementsMode] = createSignal("all");
   const [regionsMode, setRegionsMode] = createSignal("all");
   const [showLocalSymmetry, setShowLocalSymmetry] = createSignal(true);
@@ -130,8 +136,48 @@ export function GeometryViewerWindow(props) {
     },
   }));
 
+  const sourceScene = createMemo(() => {
+    if (!props.open || !showPrescribedSources() || !sceneModel()) return null;
+    try {
+      return buildSourceVectorScene(
+        sceneModel(),
+        props.model?.elements,
+        props.prescribedSources,
+        { limit: SOURCE_VECTOR_LIMIT },
+      );
+    } catch (error) {
+      return {
+        vectors: [],
+        truncated: false,
+        diagnostics: [{
+          level: "warning",
+          code: "source-vector-conversion-failed",
+          message: "Не удалось подготовить векторы заданных источников: " +
+            (error instanceof Error ? error.message : String(error)),
+        }],
+      };
+    }
+  });
+
+  const changePrescribedSources = (checked) => {
+    if (checked === showPrescribedSources()) return;
+    if (checked) {
+      renderModeBeforeSources = renderMode();
+      setRenderMode("translucent");
+    } else {
+      if (renderModeBeforeSources !== null) {
+        setRenderMode(renderModeBeforeSources);
+      }
+      renderModeBeforeSources = null;
+    }
+    setShowPrescribedSources(checked);
+  };
+
   const counts = () => sceneModel()?.counts ?? EMPTY_COUNTS;
-  const diagnostics = () => sceneModel()?.diagnostics ?? [];
+  const diagnostics = () => [
+    ...(sceneModel()?.diagnostics ?? []),
+    ...(sourceScene()?.diagnostics ?? []),
+  ];
   const budgetWarning = () => {
     const stats = renderStats();
     const messages = [];
@@ -145,6 +191,12 @@ export function GeometryViewerWindow(props) {
       messages.push(
         "Часть линий дискретизации или точек скрыта из-за ограничения " +
         "объёма 3D-сцены.",
+      );
+    }
+    if (sourceScene()?.truncated) {
+      messages.push(
+        `Показ заданных источников ограничен первыми ${SOURCE_VECTOR_LIMIT} ` +
+        "строками таблицы.",
       );
     }
     return messages.join(" ");
@@ -333,7 +385,10 @@ export function GeometryViewerWindow(props) {
               value={renderMode()}
               aria-label="Режим представления"
               title="Режим представления геометрии"
-              onChange={(event) => setRenderMode(event.currentTarget.value)}
+              onChange={(event) => {
+                renderModeBeforeSources = null;
+                setRenderMode(event.currentTarget.value);
+              }}
             >
               <option value="solid">Сплошной</option>
               <option value="translucent">Полупрозрачный</option>
@@ -612,11 +667,13 @@ export function GeometryViewerWindow(props) {
                 />
                 Центры и узлы
               </label>
-              <label
-                class="is-disabled"
-                title="Функция будет реализована позднее"
-              >
-                <input type="checkbox" checked={false} disabled />
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showPrescribedSources()}
+                  onChange={(event) =>
+                    changePrescribedSources(event.currentTarget.checked)}
+                />
                 Заданные источники
               </label>
             </Show>
@@ -632,6 +689,8 @@ export function GeometryViewerWindow(props) {
             showVertices={showVertices()}
             showDiscretizationLines={showDiscretizationLines()}
             showCentersAndNodes={showCentersAndNodes()}
+            showPrescribedSources={showPrescribedSources()}
+            prescribedSourceScene={sourceScene()}
             projection={orthographicView() ? "orthographic" : "perspective"}
             viewRequest={viewRequest()}
             fitAllPadding={FLOATING_FIT_ALL_PADDING}
