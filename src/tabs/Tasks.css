@@ -14,9 +14,31 @@
 }
 
 .task-browser-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   box-sizing: border-box;
   min-width: 320px;
+  min-height: 0;
+  overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+.task-browser-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.task-panel-caption {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
 }
 
 .box {
@@ -214,6 +236,7 @@ button:hover {
 .task-summary-panel {
   display: grid;
   grid-template-rows: minmax(240px, 3fr) minmax(160px, 2fr);
+  grid-auto-rows: min-content;
   gap: 10px;
   box-sizing: border-box;
   min-width: 320px;
@@ -285,12 +308,6 @@ button:hover {
   overflow: hidden;
   border: 3px solid #161414;
   background: lightgray;
-}
-
-.task-results-panel h4 {
-  flex: 0 0 auto;
-  margin: 0;
-  color: #000;
 }
 
 .task-results-text {

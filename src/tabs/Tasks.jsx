@@ -295,75 +295,78 @@ export function Tasks(props) {
           background: "lightgray",
         }}
       >
-        <div>
-          <span>
-            <button id="pickDir" onClick={handlePickDirectory}>
-              {props.admin
-                ? "Выбрать каталог с проектами"
-                : "Выбрать каталог clark.projects"}
-            </button>
-            <p></p>
-          </span>
-          <span id="rootName">{rootName()}</span>
-          <p></p>
-        </div>
-        <div class="box">
-          <h4>Список проектов</h4>
-          <select
-            id="listProject"
-            value={selectedProject()}
-            onChange={handleProjectChange}
-          >
-            <option value="">Выбрать проект</option>
-            {projects().map((project) => (
-              <option value={project.name}>{project.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <h4 style="margin-bottom: 10px">Список заданий выбранного проекта</h4>
-          <div
-            id="listTask"
-            class="listTask"
-            tabIndex="0"
-          >
-            {tasks().map((task) => (
-              <div
-                classList={{
-                  "listTask-item": true,
-                  selected: selectedTask()?.handle === task.handle,
-                }}
-                onClick={() => selectTaskCandidate(task)}
-              >
-                {task.name}
-              </div>
-            ))}
-          </div>
-          <button
-            class="task-load-button"
-            disabled={!selectedTask() || taskLoaded()}
-            onClick={requestTaskLoad}
-          >
-            <span class="task-load-label">
-              <span class="task-load-leading">
-                <Show keyed when={loadedTaskPath()}>
-                  {() => (
-                    <span
-                      class="task-load-confirmation"
-                      role="status"
-                      aria-label="Задание загружено"
-                      title="Задание загружено"
-                    >
-                      ✓
-                    </span>
-                  )}
-                </Show>
-              </span>
-              <span class="task-load-text">Загрузить для редактирования</span>
-              <span class="task-load-trailing" aria-hidden="true" />
+        <div class="task-browser-content">
+          <div>
+            <span>
+              <button id="pickDir" onClick={handlePickDirectory}>
+                {props.admin
+                  ? "Выбрать каталог с проектами"
+                  : "Выбрать каталог clark.projects"}
+              </button>
+              <p></p>
             </span>
-          </button>
+            <span id="rootName">{rootName()}</span>
+            <p></p>
+          </div>
+          <div class="box">
+            <h4>Список проектов</h4>
+            <select
+              id="listProject"
+              value={selectedProject()}
+              onChange={handleProjectChange}
+            >
+              <option value="">Выбрать проект</option>
+              {projects().map((project) => (
+                <option value={project.name}>{project.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <h4 style="margin-bottom: 10px">Список заданий выбранного проекта</h4>
+            <div
+              id="listTask"
+              class="listTask"
+              tabIndex="0"
+            >
+              {tasks().map((task) => (
+                <div
+                  classList={{
+                    "listTask-item": true,
+                    selected: selectedTask()?.handle === task.handle,
+                  }}
+                  onClick={() => selectTaskCandidate(task)}
+                >
+                  {task.name}
+                </div>
+              ))}
+            </div>
+            <button
+              class="task-load-button"
+              disabled={!selectedTask() || taskLoaded()}
+              onClick={requestTaskLoad}
+            >
+              <span class="task-load-label">
+                <span class="task-load-leading">
+                  <Show keyed when={loadedTaskPath()}>
+                    {() => (
+                      <span
+                        class="task-load-confirmation"
+                        role="status"
+                        aria-label="Задание загружено"
+                        title="Задание загружено"
+                      >
+                        ✓
+                      </span>
+                    )}
+                  </Show>
+                </span>
+                <span class="task-load-text">Загрузить для редактирования</span>
+                <span class="task-load-trailing" aria-hidden="true" />
+              </span>
+            </button>
+          </div>
         </div>
+        <div class="task-panel-caption">выбор задания</div>
       </div>
       <div
         class="task-summary-panel"
@@ -390,10 +393,10 @@ export function Tasks(props) {
             </div>
           </Show>
         </div>
+        <div class="task-panel-caption">исходные данные</div>
       </div>
 
       <section class="task-results-panel" aria-label="Результаты расчёта">
-        <h4>Результаты расчёта</h4>
         <textarea
           class="task-results-text"
           aria-label="Сводка результатов расчёта выбранного задания"
@@ -402,6 +405,7 @@ export function Tasks(props) {
           spellcheck={false}
           value={taskResultsText()}
         />
+        <div class="task-panel-caption">результаты</div>
       </section>
 
       <dialog
