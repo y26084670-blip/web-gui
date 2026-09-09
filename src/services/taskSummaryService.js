@@ -7,7 +7,7 @@ const LEGACY_FILE_NAME = "kv.in";
 export const TASK_SUMMARY_TEXT = Object.freeze({
   NO_INFORMATION: "нет информации, т.к. расчет не проводился",
   NO_CURRENT_FORMAT: "не содержит данных актуального формата",
-  NO_RESULTS: "нет данных по результатам или рсчет не проводился",
+  NO_RESULTS: "нет данных по результатам или расчет не проводился",
   LEGACY_IMPORT: "доступен импорт из legacy - формата",
 });
 
