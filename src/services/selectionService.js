@@ -2,6 +2,7 @@ import { createSignal } from "solid-js";
 
 const [loadedTaskHandle, setLoadedTaskHandle] = createSignal(null);
 const [loadedTaskPath, setLoadedTaskPath] = createSignal(null);
+const [loadedTaskIsDemo, setLoadedTaskIsDemo] = createSignal(false);
 const [taskDataVersion, setTaskDataVersion] = createSignal(0);
 
 function notifyTaskDataChanged() {
@@ -15,6 +16,8 @@ export const selectionService = {
     setLoadedTaskHandle,
     loadedTaskPath,
     setLoadedTaskPath,
+    loadedTaskIsDemo,
+    setLoadedTaskIsDemo,
     taskDataVersion,
     notifyTaskDataChanged,
 };

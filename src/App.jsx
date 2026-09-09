@@ -404,7 +404,7 @@ export default function App() {
 
   async function handleSave() {
     const dirHandle = selectionService.loadedTaskHandle();
-    if (!dirHandle || savePending()) return;
+    if (!dirHandle || selectionService.loadedTaskIsDemo() || savePending()) return;
 
     const taskDataVersion = selectionService.taskDataVersion();
     const modelSnapshot = modelService.getModel();
@@ -540,6 +540,7 @@ export default function App() {
       <TaskInfoBar
         admin={admin()}
         path={selectionService.loadedTaskPath()}
+        isDemo={selectionService.loadedTaskIsDemo()}
         onAdminUnlock={handleAdminUnlock}
         onValidate={handleModelValidation}
         validationBusy={Boolean(validationPending())}
