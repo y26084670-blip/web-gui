@@ -1,11 +1,11 @@
 {
   "name": "samp_app4",
   "private": true,
-  "version": "4.18.2",
+  "version": "4.19.0",
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "assets:prepare": "node scripts/default-library-assets.mjs prepare && node scripts/prepare-examples-config.mjs",
+    "assets:prepare": "node scripts/default-library-assets.mjs prepare && node scripts/prepare-examples-config.mjs && node scripts/prepare-demo-assets.mjs",
     "assets:verify": "node scripts/default-library-assets.mjs verify",
     "dev": "npm run assets:prepare && vite",
     "build": "npm run assets:prepare && vite build && npm run assets:verify",

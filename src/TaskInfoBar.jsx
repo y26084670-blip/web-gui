@@ -49,8 +49,10 @@ export function TaskInfoBar(props) {
   );
   const [adminPassword, setAdminPassword] = createSignal("");
   const [adminError, setAdminError] = createSignal("");
-  const saveButtonTitle = () => props.saveFeedback?.message
-    ?? (props.saveBusy ? "Сохранение модели…" : "Сохранить модель");
+  const saveButtonTitle = () => props.isDemo
+    ? "Сохранение демонстрационной задачи недоступно"
+    : props.saveFeedback?.message
+      ?? (props.saveBusy ? "Сохранение модели…" : "Сохранить модель");
   const validationButtonTitle = () => props.validationFeedback?.message
     ?? (props.validationBusy ? "Проверка модели…" : "Проверить модель");
 
@@ -125,6 +127,12 @@ export function TaskInfoBar(props) {
   async function handleBrowse() {
     const handle = selectionService.loadedTaskHandle();
     if (!handle) return;
+    if (props.isDemo) {
+      setBrowseNotice(
+        "Демонстрационная задача находится в памяти браузера и не имеет каталога на диске.",
+      );
+      return;
+    }
 
     const support = getFileSystemAccessSupport(window, {
       requireOpenFilePicker: true,
@@ -255,7 +263,7 @@ export function TaskInfoBar(props) {
             "save-button-success": props.saveFeedback?.status === "success",
             "save-button-error": props.saveFeedback?.status === "error",
           }}
-          disabled={!props.path || props.saveBusy}
+          disabled={!props.path || props.isDemo || props.saveBusy}
           onClick={props.onSave}
           title={saveButtonTitle()}
           aria-label="Сохранить модель"

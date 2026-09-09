@@ -1,11 +1,12 @@
 //
 // вкладка выбора задания
 //
-import { Show, createSignal } from "solid-js";
+import { Show, batch, createSignal } from "solid-js";
 import { selectionService } from "../services/selectionService";
 import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
+import { DEMO_TASK_NAME, loadDemoTask } from "../services/demoTaskService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
 import {
@@ -39,6 +40,7 @@ export function Tasks(props) {
   const [pendingTaskLoad, setPendingTaskLoad] = createSignal(null);
   const [taskInfo, setTaskInfo] = createSignal(EMPTY_TASK_INFO);
   const [taskResultsText, setTaskResultsText] = createSignal("");
+  const [demoLoading, setDemoLoading] = createSignal(false);
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -52,6 +54,7 @@ export function Tasks(props) {
   const clearLoadedTaskState = () => {
     selectionService.setLoadedTaskHandle(null);
     selectionService.setLoadedTaskPath(null);
+    selectionService.setLoadedTaskIsDemo(false);
     modelService.clearModel();
     diagnosticService.clearDiagnostics();
     diagnosticService.clearLoadResult();
@@ -172,10 +175,14 @@ export function Tasks(props) {
 
   // выбор задания
   const commitTaskLoad = ({ task, fullPath }) => {
-    clearLoadedTaskState();
+    batch(() => {
+      clearLoadedTaskState();
+      selectionService.setLoadedTaskIsDemo(task.isDemo === true);
+      selectionService.setLoadedTaskPath(fullPath);
+      selectionService.setLoadedTaskHandle(task.handle);
+    });
+    if (task.isDemo) void selectTaskCandidate(task);
     console.log("Выбранное задание:", fullPath);
-    selectionService.setLoadedTaskHandle(task.handle);
-    selectionService.setLoadedTaskPath(fullPath);
   };
 
   const selectTaskCandidate = async (task) => {
@@ -220,6 +227,40 @@ export function Tasks(props) {
     ]);
   };
 
+  const offerTaskLoad = (request) => {
+    if (loadedTaskHandle() && unsavedChangesService.hasDirty()) {
+      setPendingTaskLoad(request);
+      queueMicrotask(() => {
+        if (!unsavedDialog.open) unsavedDialog.showModal();
+        returnToEditingButton?.focus();
+      });
+      return;
+    }
+    commitTaskLoad(request);
+  };
+
+  const requestDemoLoad = async () => {
+    if (demoLoading()) return;
+    const requestId = ++taskLoadRevision;
+    setDemoLoading(true);
+    try {
+      const handle = await loadDemoTask();
+      if (requestId !== taskLoadRevision) return;
+      offerTaskLoad({
+        task: { name: DEMO_TASK_NAME, handle, isDemo: true },
+        fullPath: DEMO_TASK_NAME,
+      });
+    } catch (error) {
+      if (requestId !== taskLoadRevision) return;
+      showTaskError(
+        "Демонстрационная задача не загружена: "
+        + (error?.message || error?.name || String(error)),
+      );
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   const requestTaskLoad = async () => {
     const task = selectedTask();
     if (!task || task.handle === loadedTaskHandle()) return;
@@ -235,17 +276,7 @@ export function Tasks(props) {
       ]);
       if (requestId !== taskLoadRevision) return;
 
-      const request = { task, fullPath };
-      if (loadedTaskHandle() && unsavedChangesService.hasDirty()) {
-        setPendingTaskLoad(request);
-        queueMicrotask(() => {
-          if (!unsavedDialog.open) unsavedDialog.showModal();
-          returnToEditingButton?.focus();
-        });
-        return;
-      }
-
-      commitTaskLoad(request);
+      offerTaskLoad({ task, fullPath });
     } catch (error) {
       if (requestId !== taskLoadRevision) return;
       if (error?.name === "NotFoundError") {
@@ -294,14 +325,23 @@ export function Tasks(props) {
       >
         <div class="task-browser-content">
           <div>
-            <span>
+            <div class="task-directory-actions">
               <button id="pickDir" onClick={handlePickDirectory}>
                 {props.admin
                   ? "Выбрать каталог с проектами"
                   : "Выбрать каталог clark.projects"}
               </button>
-              <p></p>
-            </span>
+              <button
+                type="button"
+                class="task-demo-button"
+                disabled={demoLoading()}
+                aria-busy={demoLoading()}
+                title="Загрузить демонстрационную задачу для редактирования"
+                onClick={requestDemoLoad}
+              >
+                Демо
+              </button>
+            </div>
             <span id="rootName">{rootName()}</span>
             <p></p>
           </div>

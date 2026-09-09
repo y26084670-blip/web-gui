@@ -41,6 +41,26 @@
   text-align: center;
 }
 
+.task-directory-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.task-directory-actions #pickDir {
+  min-width: 0;
+}
+
+.task-directory-actions .task-demo-button {
+  flex: 0 0 auto;
+  width: auto;
+  margin-left: auto;
+  color: #ffeb3b;
+  white-space: nowrap;
+}
+
 .box {
   background: white;
   padding: 10px;
