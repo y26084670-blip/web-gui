@@ -324,6 +324,8 @@ export default function App() {
     elements: selectedGeometryElementIndices(),
     regions: selectedGeometryRegionIndices(),
   }));
+  // Source-table edits must not invalidate the moving geometry projection.
+  const geometryMoves = createMemo(() => modelService.getModel().moves);
 
   function sameRecordIndices(left, right) {
     return left.length === right.length &&
@@ -654,6 +656,9 @@ export default function App() {
       <GeometryViewerWindow
         open={geometryViewerOpen()}
         model={geometryModel()}
+        moves={geometryMoves()}
+        amplitudes={modelService.getModel().amps}
+        taskKey={selectionService.loadedTaskHandle()}
         prescribedSources={modelService.getModel().mhj}
         selections={geometrySelections()}
         onClose={() => {

@@ -2,7 +2,8 @@
 // task/03_nodes.jl::qcvNodesRecall, vsolver/04_mhj.jl::mhjRecall!, and
 // vsolver/03_clmatrv.jl::MatrV (final AS rotation and mirror parity).
 // Each BaseModel MHJ row is independent; dependent images reuse that row.
-// Motion and time amplitudes are not applied.
+// geometryTimeModel supplies the current local frame through elements;
+// amplitudeFactors supplies its time-dependent source multipliers.
 import { mhjRowCount, mhjRows } from "../solver/mhjLayout.js";
 import {
     applyMatrix4ToPoint,
@@ -108,14 +109,14 @@ function sourceDirection(context, localVector, ls) {
     return applyMatrix4ToPoint(matrix, localVector);
 }
 
-function imageDirection(context, baseVector, instance, kind, general) {
+function imageDirection(context, baseVector, instance, kind, general, amplitude) {
     let rotation = context.axialRotations.get(instance.as);
     if (!rotation) {
         rotation = rotationXMatrix4(instance.as * context.record.symYa);
         context.axialRotations.set(instance.as, rotation);
     }
     const vector = applyMatrix4ToPoint(rotation, baseVector);
-    let sign = (instance.axialSign ?? 1) * (instance.periodicSign ?? 1);
+    let sign = amplitude * (instance.axialSign ?? 1) * (instance.periodicSign ?? 1);
 
     for (const [reflected, axis, type] of [
         [instance.mirrorX, 0, general?.mirrorSymmetryX],
@@ -149,7 +150,7 @@ export function buildSourceVectorScene(scene, elements, mhj, options = {}) {
         vectors,
         diagnostics,
         maximumMagnitude: { current: 0, magnetization: 0 },
-        sceneDiagonal: sceneDiagonal(scene),
+        sceneDiagonal: sceneDiagonal(options.referenceScene ?? scene),
         rowsTruncated: false,
         imagesTruncated: false,
         truncated: false,
@@ -198,9 +199,10 @@ export function buildSourceVectorScene(scene, elements, mhj, options = {}) {
     const magnitudes = new Float64Array(rows.length);
     let invalidValues = 0;
     let invalidGeometry = 0;
+    let invalidAmplitudes = 0;
 
-    // Complete this pass before visibility or the output-vector limit. The
-    // same source magnitudes must retain their scale when images are hidden.
+    // Complete this pass before amplitudes, visibility or the output limit.
+    // Keep a fixed reference scale so a common A(t) remains visible in length.
     rows.forEach((row, sourceRowIndex) => {
         const localVector = values[sourceRowIndex];
         if (!Array.isArray(localVector) || localVector.length !== 3
@@ -223,10 +225,20 @@ export function buildSourceVectorScene(scene, elements, mhj, options = {}) {
 
     sourceRows: for (let sourceRowIndex = 0; sourceRowIndex < rows.length; sourceRowIndex++) {
         const row = rows[sourceRowIndex];
-        const magnitude = magnitudes[sourceRowIndex];
-        if (magnitude === 0) continue;
+        const baseMagnitude = magnitudes[sourceRowIndex];
+        if (baseMagnitude === 0) continue;
 
         const recordIndex = row.kv - 1;
+        const factor = options.amplitudeFactors?.[recordIndex];
+        // null marks an invalid time dependence, diagnosed by its sampler.
+        if (factor === null) continue;
+        const amplitude = factor === undefined ? 1 : factor;
+        const magnitude = baseMagnitude * Math.abs(amplitude);
+        if (!Number.isFinite(amplitude) || !Number.isFinite(magnitude)) {
+            invalidAmplitudes++;
+            continue;
+        }
+        if (magnitude === 0) continue;
         if (!contexts.has(recordIndex)) {
             contexts.set(recordIndex, elementContext(
                 primitives.get(recordIndex),
@@ -251,7 +263,9 @@ export function buildSourceVectorScene(scene, elements, mhj, options = {}) {
         const kind = row.targ === 1 ? "magnetization" : "current";
         for (const instance of instances) {
             const origin = applyMatrix4ToPoint(instance.matrix, cell.origin);
-            const vector = imageDirection(context, baseVector, instance, kind, options.general);
+            const vector = imageDirection(
+                context, baseVector, instance, kind, options.general, amplitude,
+            );
             if (!origin.every(Number.isFinite) || !vector?.every(Number.isFinite)) {
                 invalidGeometry++;
                 continue;
@@ -284,6 +298,13 @@ export function buildSourceVectorScene(scene, elements, mhj, options = {}) {
         diagnostics.push(warning(
             "invalid-source-values",
             `Заданные источники: пропущено строк с некорректными компонентами — ${invalidValues}.`,
+        ));
+    }
+    if (invalidAmplitudes) {
+        diagnostics.push(warning(
+            "invalid-source-amplitude",
+            "Заданные источники: пропущено строк с нечисловой амплитудой "
+                + `или переполнением модуля — ${invalidAmplitudes}.`,
         ));
     }
     if (invalidGeometry) {

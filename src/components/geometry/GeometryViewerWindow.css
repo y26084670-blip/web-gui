@@ -78,7 +78,8 @@
 .geometry-viewer-select:focus-visible,
 .geometry-viewer-view-command:focus-visible,
 .geometry-viewer-source-settings-button:focus-visible,
-.geometry-viewer-options-panel input:focus-visible {
+.geometry-viewer-options-panel input:focus-visible,
+.geometry-viewer-time-control input:focus-visible {
   outline: 2px solid #8fc7ff;
   outline-offset: 1px;
 }
@@ -235,6 +236,43 @@
   min-height: 0;
   overflow: hidden;
   background: #141a20;
+}
+
+.geometry-viewer-time-control {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border-top: 1px solid #46515c;
+  background: #252d35;
+  color: #e7edf3;
+  font-size: 12px;
+}
+
+.geometry-viewer-time-control input[type="range"] {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  accent-color: #8fc7ff;
+  cursor: pointer;
+}
+
+.geometry-viewer-time-control input:disabled {
+  cursor: default;
+  opacity: .5;
+}
+
+.geometry-viewer-time-control output {
+  flex: 0 0 auto;
+  min-width: 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .three-geometry-viewport {

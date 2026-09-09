@@ -9,6 +9,11 @@ import {
 
 import { buildGeometryScene } from "../../services/visualization/geometrySceneModel.js";
 import {
+  buildGeometryTimeModel,
+  geometryTimeState,
+  sourceAmplitudeFactors,
+} from "../../services/visualization/geometryTimeModel.js";
+import {
   buildSourceVectorScene,
   SOURCE_VECTOR_LIMIT,
 } from "../../services/visualization/sourceVectorSceneModel.js";
@@ -101,8 +106,14 @@ export function GeometryViewerWindow(props) {
   let renderModeBeforeSources = null;
   let sourceSettingsButton;
   let sourceSettingsBackButton;
+  let timeAnimationFrame;
+  let pendingTimeSelection;
 
   const [sceneModel, setSceneModel] = createSignal(null);
+  const [timeSelection, setTimeSelection] = createSignal({
+    taskKey: props.taskKey,
+    index: 0,
+  });
   const [sceneError, setSceneError] = createSignal("");
   const [viewportError, setViewportError] = createSignal("");
   const [viewRequest, setViewRequest] = createSignal(null);
@@ -127,6 +138,82 @@ export function GeometryViewerWindow(props) {
   const [panelPosition, setPanelPosition] = createSignal({ left: 8, top: 40 });
   const [renderStats, setRenderStats] = createSignal(EMPTY_RENDER_STATS);
 
+  // Scope the index to the loaded task before any frame is projected, including
+  // when another task is loaded while the floating window is closed.
+  const timeState = createMemo(() => geometryTimeState(
+    props.model?.general,
+    timeSelection().taskKey === props.taskKey ? timeSelection().index : 0,
+  ));
+  const timeFrame = createMemo(() => {
+    const state = timeState();
+    if (!props.open) return { ...state, model: props.model };
+    return buildGeometryTimeModel(props.model, props.moves, state.index);
+  });
+  const displaySceneResult = createMemo(() => {
+    if (!props.open) return { scene: null, error: "" };
+    const model = timeFrame().model;
+    if (model === props.model) return { scene: sceneModel(), error: "" };
+    try {
+      return { scene: buildGeometryScene(model), error: "" };
+    } catch (error) {
+      return {
+        scene: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+  // Equal scene references suppress surface rebuilds for amplitude-only time
+  // changes when the geometry itself has no trajectory.
+  const displayScene = createMemo(() => displaySceneResult().scene);
+  const timeLabel = () => `${timeState().index} / ${timeState().maxIndex}`;
+  const timeTitle = () => `Момент ${timeLabel()}; t = ${
+    timeState().time.toLocaleString("ru-RU", { maximumSignificantDigits: 8 })
+  } с`;
+
+  const cancelTimeSelection = () => {
+    if (timeAnimationFrame !== undefined) {
+      cancelAnimationFrame(timeAnimationFrame);
+      timeAnimationFrame = undefined;
+    }
+    pendingTimeSelection = undefined;
+  };
+  const applyTimeIndex = (index) => {
+    cancelTimeSelection();
+    if (!props.open) return;
+    const nextIndex = geometryTimeState(props.model?.general, index).index;
+    setTimeSelection((previous) =>
+      previous.taskKey === props.taskKey && previous.index === nextIndex
+        ? previous
+        : { taskKey: props.taskKey, index: nextIndex },
+    );
+  };
+  const scheduleTimeIndex = (index) => {
+    pendingTimeSelection = { taskKey: props.taskKey, index };
+    if (timeAnimationFrame !== undefined) return;
+    timeAnimationFrame = requestAnimationFrame(() => {
+      timeAnimationFrame = undefined;
+      const pending = pendingTimeSelection;
+      pendingTimeSelection = undefined;
+      if (pending?.taskKey === props.taskKey && props.open) {
+        applyTimeIndex(pending.index);
+      }
+    });
+  };
+
+  createEffect(() => {
+    props.taskKey;
+    if (!props.open) cancelTimeSelection();
+    // Cancel old-task requests even when the index has already reset via memo.
+    if (pendingTimeSelection && pendingTimeSelection.taskKey !== props.taskKey) {
+      cancelTimeSelection();
+    }
+    const state = timeState();
+    const selected = timeSelection();
+    if (selected.taskKey !== props.taskKey || selected.index !== state.index) {
+      setTimeSelection({ taskKey: props.taskKey, index: state.index });
+    }
+  });
+
   const filters = createMemo(() => ({
     objectModes: {
       elements: elementsMode(),
@@ -145,18 +232,30 @@ export function GeometryViewerWindow(props) {
   }));
 
   const sourceScene = createMemo(() => {
-    if (!props.open || !showPrescribedSources() || !sceneModel()) return null;
+    if (!props.open || !showPrescribedSources() || !displayScene()) return null;
     try {
-      return buildSourceVectorScene(
-        sceneModel(),
-        props.model?.elements,
+      const frame = timeFrame();
+      const amplitude = sourceAmplitudeFactors(
+        frame.model?.elements,
+        props.amplitudes,
+        frame.time,
+      );
+      const scene = buildSourceVectorScene(
+        displayScene(),
+        frame.model?.elements,
         props.prescribedSources,
         {
           limit: SOURCE_VECTOR_LIMIT,
-          general: props.model?.general,
+          general: frame.model?.general,
           filters: filters(),
+          amplitudeFactors: amplitude.factors,
+          referenceScene: sceneModel(),
         },
       );
+      return {
+        ...scene,
+        diagnostics: [...amplitude.diagnostics, ...scene.diagnostics],
+      };
     } catch (error) {
       return {
         vectors: [],
@@ -189,9 +288,10 @@ export function GeometryViewerWindow(props) {
     setShowPrescribedSources(checked);
   };
 
-  const counts = () => sceneModel()?.counts ?? EMPTY_COUNTS;
+  const counts = () => displayScene()?.counts ?? EMPTY_COUNTS;
   const diagnostics = () => [
-    ...(sceneModel()?.diagnostics ?? []),
+    ...(timeFrame()?.diagnostics ?? []),
+    ...(displayScene()?.diagnostics ?? []),
     ...(sourceScene()?.diagnostics ?? []),
   ];
   const budgetWarning = () => {
@@ -311,7 +411,10 @@ export function GeometryViewerWindow(props) {
     requestView(command);
   };
 
-  onCleanup(() => viewerResizeObserver?.disconnect());
+  onCleanup(() => {
+    viewerResizeObserver?.disconnect();
+    cancelTimeSelection();
+  });
 
   createEffect(() => {
     const open = props.open;
@@ -822,7 +925,7 @@ export function GeometryViewerWindow(props) {
 
         <div class="geometry-viewer-canvas-region">
           <ThreeGeometryViewport
-            scene={sceneModel()}
+            scene={displayScene()}
             filters={filters()}
             mode={renderMode()}
             showEdges={showEdges()}
@@ -850,9 +953,26 @@ export function GeometryViewerWindow(props) {
           </Show>
         </div>
 
-        <Show when={sceneError() || viewportError()}>
+        <div class="geometry-viewer-time-control" title={timeTitle()}>
+          <input
+            id="geometry-viewer-time-index"
+            type="range"
+            min="0"
+            max={timeState().maxIndex}
+            step="1"
+            value={timeState().index}
+            disabled={timeState().maxIndex === 0}
+            aria-label="Номер момента времени"
+            aria-valuetext={timeTitle()}
+            onInput={(event) => scheduleTimeIndex(event.currentTarget.valueAsNumber)}
+            onChange={(event) => applyTimeIndex(event.currentTarget.valueAsNumber)}
+          />
+          <output for="geometry-viewer-time-index">{timeLabel()}</output>
+        </div>
+
+        <Show when={sceneError() || displaySceneResult().error || viewportError()}>
           <div class="geometry-viewer-error" role="alert">
-            {sceneError() || viewportError()}
+            {sceneError() || displaySceneResult().error || viewportError()}
           </div>
         </Show>
 
