@@ -9,15 +9,6 @@ https://localhost:8443 {
     root * "{$CLARK_GUI_ROOT}/dist"
     encode zstd gzip
 
-    handle /agent/rpc {
-        rewrite * /rpc
-        reverse_proxy 127.0.0.1:8765 {
-            header_up Host 127.0.0.1:8765
-        }
-    }
-    handle /agent/* {
-        respond "Agent route not found" 404
-    }
     handle /data/default/* {
         file_server
     }

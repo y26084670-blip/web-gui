@@ -1,17 +1,16 @@
 {
   "name": "samp_app4",
   "private": true,
-  "version": "4.17.0",
+  "version": "4.18.0",
   "type": "module",
   "scripts": {
     "test": "node --test",
     "assets:prepare": "node scripts/default-library-assets.mjs prepare && node scripts/prepare-examples-config.mjs",
     "assets:verify": "node scripts/default-library-assets.mjs verify",
-    "agent:clean": "node scripts/clean-legacy-agent-assets.mjs",
-    "dev": "npm run assets:prepare && npm run agent:clean && vite",
-    "build": "npm run assets:prepare && npm run agent:clean && vite build && npm run assets:verify",
-    "build:release": "npm run assets:prepare && npm run agent:clean && vite build --mode production && npm run assets:verify",
-    "build:pages": "npm run assets:prepare && npm run agent:clean && vite build --mode production --base=/web-gui/ && npm run assets:verify",
+    "dev": "npm run assets:prepare && vite",
+    "build": "npm run assets:prepare && vite build && npm run assets:verify",
+    "build:release": "npm run assets:prepare && vite build --mode production && npm run assets:verify",
+    "build:pages": "npm run assets:prepare && vite build --mode production --base=/web-gui/ && npm run assets:verify",
     "preview": "vite preview"
   },
   "dependencies": {

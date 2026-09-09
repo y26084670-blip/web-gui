@@ -64,8 +64,4 @@ test("preview is above summary and follows task-tab activity", async () => {
     styles,
     /\.task-summary-panel\s*\{[^}]*display:\s*grid;[^}]*grid-template-rows:\s*minmax\(240px, 3fr\) minmax\(160px, 2fr\);/su,
   );
-  assert.match(
-    styles,
-    /\.task-help-panel\s*\{[^}]*display:\s*grid;[^}]*grid-template-rows:\s*minmax\(240px, 3fr\) minmax\(160px, 2fr\);[^}]*gap:\s*10px;[^}]*padding:\s*20px;/su,
-  );
 });

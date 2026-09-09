@@ -274,9 +274,9 @@ button:hover {
   line-height: 1.4;
 }
 
-.task-help-panel {
-  display: grid;
-  grid-template-rows: minmax(240px, 3fr) minmax(160px, 2fr);
+.task-results-panel {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   box-sizing: border-box;
   min-width: 0;
@@ -287,103 +287,29 @@ button:hover {
   background: lightgray;
 }
 
-.task-help-topics {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 4px;
-  overflow-y: auto;
-  border: 1px solid #8a8a8a;
-  border-radius: 4px;
-  background: #f5f5f5;
-}
-
-.task-help-topic {
+.task-results-panel h4 {
   flex: 0 0 auto;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 3px;
-  color: #111;
-  background: transparent;
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1.25;
-  text-align: left;
-}
-
-.task-help-topic:hover,
-.task-help-topic:focus-visible {
-  background: #d7e5f7;
-}
-
-.task-help-topic.selected {
-  background: #bcd4f4;
-}
-
-.task-help-chat {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-  border: 1px solid #596773;
-  border-radius: 4px;
-  background: #20262d;
-  color: #edf2f7;
-}
-
-.task-help-chat-messages {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 12px;
-  overflow-y: auto;
-  font-size: 18px;
-  line-height: 1.4;
-}
-
-.task-help-chat-placeholder,
-.task-help-chat-topic {
   margin: 0;
+  color: #000;
 }
 
-.task-help-chat-placeholder {
-  color: #aeb8c2;
-}
-
-.task-help-chat-topic {
-  font-weight: 700;
-}
-
-.task-help-chat-composer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px auto;
-  gap: 6px;
-  flex: 0 0 auto;
-  padding: 8px;
-  border-top: 1px solid #596773;
-}
-
-.task-help-chat-composer textarea {
+.task-results-text {
   box-sizing: border-box;
   width: 100%;
+  flex: 1 1 0;
   min-width: 0;
-  padding: 7px 9px;
+  min-height: 0;
+  padding: 10px;
   resize: none;
-  border: 1px solid #7d8994;
+  overflow: auto;
+  white-space: pre;
+  border: 1px solid #888;
   border-radius: 4px;
-  background: #11171d;
-  color: #edf2f7;
-  font-size: 16px;
-}
-
-.task-help-chat-composer button {
-  align-self: center;
-  height: 34px;
-  padding: 2px 9px;
-}
-
-.task-help-voice-button {
-  min-width: 38px;
-  font-size: 18px;
+  background: #fff;
+  color: #000;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .task-legacy-import {
@@ -532,3 +458,4 @@ button:hover {
 .tabulator .tabulator-tableholder::-webkit-scrollbar-corner {
   background: #d7dbe0;
 }
+

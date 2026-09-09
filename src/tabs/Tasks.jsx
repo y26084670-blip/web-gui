@@ -1,17 +1,16 @@
 //
 // вкладка выбора задания
 //
-import { Show, createMemo, createSignal } from "solid-js";
+import { Show, createSignal } from "solid-js";
 import { selectionService } from "../services/selectionService";
 import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
-import { TaskAgentPanel } from "../components/agent/TaskAgentPanel.jsx";
-import { buildAgentState } from "../services/agentStateAdapter.js";
 import {
   TASK_SUMMARY_TEXT,
+  readTaskResultsSummary,
   readTaskSummary,
 } from "../services/taskSummaryService.js";
 import {
@@ -26,7 +25,6 @@ const PROJECTS_ROOT_NAME = "clark.projects";
 const EMPTY_TASK_INFO = Object.freeze({
   summaryText: "",
   legacyImportAvailable: false,
-  resultsAvailable: false,
 });
 
 export function Tasks(props) {
@@ -42,6 +40,7 @@ export function Tasks(props) {
   const [taskErrorMessage, setTaskErrorMessage] = createSignal("");
   const [pendingTaskLoad, setPendingTaskLoad] = createSignal(null);
   const [taskInfo, setTaskInfo] = createSignal(EMPTY_TASK_INFO);
+  const [taskResultsText, setTaskResultsText] = createSignal("");
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -132,6 +131,7 @@ export function Tasks(props) {
       setTasks([]);
       setSelectedTask(null);
       setTaskInfo(EMPTY_TASK_INFO);
+      setTaskResultsText("");
 
       const subdirs = await getSubdirs(handle);
       if (requestId !== selectionRevision) return;
@@ -155,6 +155,7 @@ export function Tasks(props) {
     setTasks([]);
     setSelectedTask(null);
     setTaskInfo(EMPTY_TASK_INFO);
+    setTaskResultsText("");
     if (!projectName) return;
     try {
       const root = rootHandle();
@@ -184,23 +185,42 @@ export function Tasks(props) {
     const requestId = ++taskInfoRevision;
     setSelectedTask(task);
     setTaskInfo(EMPTY_TASK_INFO);
+    setTaskResultsText("");
 
-    try {
-      const info = await readTaskSummary(task.handle);
-      if (
-        requestId !== taskInfoRevision
-        || selectedTask()?.handle !== task.handle
-      ) return;
-      setTaskInfo(info);
-    } catch (error) {
-      if (requestId !== taskInfoRevision) return;
-      console.error("Ошибка чтения информации о выбранном задании:", error);
-      setTaskInfo({
-        summaryText: TASK_SUMMARY_TEXT.NO_INFORMATION,
-        legacyImportAvailable: false,
-        resultsAvailable: false,
-      });
-    }
+    const isCurrentSelection = () => !(
+      requestId !== taskInfoRevision
+      || selectedTask()?.handle !== task.handle
+    );
+
+    // Сводки читаются независимо: задержка или ошибка одной не скрывает другую.
+    // Повторный выбор той же строки также перечитывает файлы после расчёта.
+    await Promise.all([
+      (async () => {
+        try {
+          const info = await readTaskSummary(task.handle);
+          if (isCurrentSelection()) setTaskInfo(info);
+        } catch (error) {
+          if (!isCurrentSelection()) return;
+          console.error("Ошибка чтения информации о выбранном задании:", error);
+          setTaskInfo({
+            summaryText: "Ошибка чтения информации о задании: "
+              + (error?.message || error?.name || String(error)),
+            legacyImportAvailable: false,
+          });
+        }
+      })(),
+      (async () => {
+        try {
+          const text = await readTaskResultsSummary(task.handle);
+          if (isCurrentSelection()) setTaskResultsText(text);
+        } catch (error) {
+          if (!isCurrentSelection()) return;
+          console.error("Ошибка чтения результатов расчёта:", error);
+          setTaskResultsText("Ошибка чтения результатов расчёта: "
+            + (error?.message || error?.name || String(error)));
+        }
+      })(),
+    ]);
   };
 
   const requestTaskLoad = async () => {
@@ -256,19 +276,6 @@ export function Tasks(props) {
   const taskLoaded = () =>
     Boolean(selectedTask()?.handle)
     && selectedTask()?.handle === loadedTaskHandle();
-
-  const agentState = createMemo(() => buildAgentState({
-    projectsRootName: rootHandle()?.name ?? "",
-    projectsRootSelected: Boolean(rootHandle()),
-    projectName: selectedProject(),
-    taskName: selectedTask()?.name ?? "",
-    taskLoaded: taskLoaded(),
-    model: modelService.getModel(),
-    diagnostics: diagnosticService.diagnostics(),
-    validationChecked: diagnosticService.modelValidationChecked(),
-    dirty: unsavedChangesService.hasDirty(),
-    resultsExists: taskLoaded() && taskInfo().resultsAvailable,
-  }));
 
   return (
     <div
@@ -385,7 +392,17 @@ export function Tasks(props) {
         </div>
       </div>
 
-      <TaskAgentPanel state={agentState()} />
+      <section class="task-results-panel" aria-label="Результаты расчёта">
+        <h4>Результаты расчёта</h4>
+        <textarea
+          class="task-results-text"
+          aria-label="Сводка результатов расчёта выбранного задания"
+          readOnly
+          wrap="off"
+          spellcheck={false}
+          value={taskResultsText()}
+        />
+      </section>
 
       <dialog
         class="task-load-error-dialog"
