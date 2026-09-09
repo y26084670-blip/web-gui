@@ -64,6 +64,9 @@ const OBJECT_MODE_LABELS = Object.freeze({
 const OPTIONS_PANEL_ID = "geometry-viewer-options-panel";
 const FLOATING_FIT_ALL_PADDING = 1 + 0.08 / 3;
 
+const sourceScaleLabel = (scale) =>
+  `×${scale.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}`;
+
 function diagnosticDetail(diagnostic) {
   if (typeof diagnostic === "string") return diagnostic;
   return diagnostic?.message ?? diagnostic?.code ?? String(diagnostic);
@@ -96,6 +99,8 @@ export function GeometryViewerWindow(props) {
   let activePanelButton;
   let viewerResizeObserver;
   let renderModeBeforeSources = null;
+  let sourceSettingsButton;
+  let sourceSettingsBackButton;
 
   const [sceneModel, setSceneModel] = createSignal(null);
   const [sceneError, setSceneError] = createSignal("");
@@ -109,6 +114,9 @@ export function GeometryViewerWindow(props) {
     createSignal(false);
   const [showCentersAndNodes, setShowCentersAndNodes] = createSignal(false);
   const [showPrescribedSources, setShowPrescribedSources] = createSignal(false);
+  const [prescribedSourceStyle, setPrescribedSourceStyle] = createSignal("thin");
+  const [currentSourceScale, setCurrentSourceScale] = createSignal(1);
+  const [magnetizationSourceScale, setMagnetizationSourceScale] = createSignal(1);
   const [elementsMode, setElementsMode] = createSignal("all");
   const [regionsMode, setRegionsMode] = createSignal("all");
   const [showLocalSymmetry, setShowLocalSymmetry] = createSignal(true);
@@ -232,7 +240,7 @@ export function GeometryViewerWindow(props) {
   };
 
   const togglePanel = (name, event) => {
-    if (openPanel() === name) {
+    if (openPanel() === name || (name === "general" && openPanel() === "sources")) {
       setOpenPanel(null);
       return;
     }
@@ -240,6 +248,22 @@ export function GeometryViewerWindow(props) {
     activePanelButton = event.currentTarget;
     setOpenPanel(name);
     queueMicrotask(updatePanelPosition);
+  };
+
+  const openSourceSettings = () => {
+    setOpenPanel("sources");
+    queueMicrotask(() => {
+      updatePanelPosition();
+      sourceSettingsBackButton?.focus();
+    });
+  };
+
+  const closeSourceSettings = () => {
+    setOpenPanel("general");
+    queueMicrotask(() => {
+      updatePanelPosition();
+      sourceSettingsButton?.focus();
+    });
   };
 
   const closePanel = (restoreFocus = false) => {
@@ -258,6 +282,10 @@ export function GeometryViewerWindow(props) {
   const handleViewerKeyDown = (event) => {
     if (event.key === "Escape") {
       event.preventDefault();
+      if (openPanel() === "sources") {
+        closeSourceSettings();
+        return;
+      }
       closePanel(true);
       return;
     }
@@ -369,9 +397,9 @@ export function GeometryViewerWindow(props) {
             <button
               type="button"
               class="geometry-viewer-menu-button"
-              classList={{ active: openPanel() === "general" }}
+              classList={{ active: openPanel() === "general" || openPanel() === "sources" }}
               aria-label="Общие опции отображения"
-              aria-expanded={openPanel() === "general"}
+              aria-expanded={openPanel() === "general" || openPanel() === "sources"}
               aria-controls={OPTIONS_PANEL_ID}
               aria-haspopup="dialog"
               title="Настроить общие опции отображения"
@@ -418,15 +446,18 @@ export function GeometryViewerWindow(props) {
             }}
             id={OPTIONS_PANEL_ID}
             class="geometry-viewer-options-panel"
+            classList={{ "geometry-viewer-source-options": openPanel() === "sources" }}
             role="dialog"
             aria-modal="false"
             aria-label={openPanel() === "view"
               ? "Команды показа геометрии"
               : openPanel() === "general"
                 ? "Общие опции отображения"
-                : openPanel() === "symmetry"
-                  ? "Показ симметрий"
-                  : `Показ ${openPanel() === "elements" ? "элементов" : "областей"}`}
+                : openPanel() === "sources"
+                  ? "Настройка стрелок заданных источников"
+                  : openPanel() === "symmetry"
+                    ? "Показ симметрий"
+                    : `Показ ${openPanel() === "elements" ? "элементов" : "областей"}`}
             tabIndex="-1"
             style={{
               left: `${panelPosition().left}px`,
@@ -667,15 +698,110 @@ export function GeometryViewerWindow(props) {
                 />
                 Центры и узлы
               </label>
-              <label>
+              <div class="geometry-viewer-source-option">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showPrescribedSources()}
+                    onChange={(event) =>
+                      changePrescribedSources(event.currentTarget.checked)}
+                  />
+                  Заданные источники
+                </label>
+                <button
+                  ref={(element) => (sourceSettingsButton = element)}
+                  type="button"
+                  class="geometry-viewer-source-settings-button"
+                  title="Настройка стрелок"
+                  aria-label="Настройка стрелок заданных источников"
+                  onClick={openSourceSettings}
+                >
+                  ⚙
+                </button>
+              </div>
+            </Show>
+
+            <Show when={openPanel() === "sources"}>
+              <button
+                ref={(element) => (sourceSettingsBackButton = element)}
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={closeSourceSettings}
+              >
+                ← Общие опции
+              </button>
+              <div class="geometry-viewer-options-title">Стрелки заданных источников</div>
+              <fieldset class="geometry-viewer-source-style">
+                <legend>Вид стрелок</legend>
+                <label>
+                  <input
+                    type="radio"
+                    name="geometry-source-arrow-style"
+                    checked={prescribedSourceStyle() === "thin"}
+                    onChange={() => setPrescribedSourceStyle("thin")}
+                  />
+                  Тонкие
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="geometry-source-arrow-style"
+                    checked={prescribedSourceStyle() === "solid"}
+                    onChange={() => setPrescribedSourceStyle("solid")}
+                  />
+                  Объёмные
+                </label>
+              </fieldset>
+              <label class="geometry-viewer-source-scale is-current">
+                <span class="geometry-viewer-source-scale-heading">
+                  <span>Плотность тока</span>
+                  <output>{sourceScaleLabel(currentSourceScale())}</output>
+                </span>
                 <input
-                  type="checkbox"
-                  checked={showPrescribedSources()}
-                  onChange={(event) =>
-                    changePrescribedSources(event.currentTarget.checked)}
+                  type="range"
+                  min="-1"
+                  max="1"
+                  step="0.01"
+                  value={Math.log10(currentSourceScale())}
+                  aria-label="Масштаб длины стрелок плотности тока"
+                  aria-valuetext={sourceScaleLabel(currentSourceScale())}
+                  onInput={(event) =>
+                    setCurrentSourceScale(10 ** event.currentTarget.valueAsNumber)}
                 />
-                Заданные источники
+                <span class="geometry-viewer-source-scale-ticks" aria-hidden="true">
+                  <span>×0,1</span><span>×1</span><span>×10</span>
+                </span>
               </label>
+              <label class="geometry-viewer-source-scale is-magnetization">
+                <span class="geometry-viewer-source-scale-heading">
+                  <span>Намагниченность</span>
+                  <output>{sourceScaleLabel(magnetizationSourceScale())}</output>
+                </span>
+                <input
+                  type="range"
+                  min="-1"
+                  max="1"
+                  step="0.01"
+                  value={Math.log10(magnetizationSourceScale())}
+                  aria-label="Масштаб длины стрелок намагниченности"
+                  aria-valuetext={sourceScaleLabel(magnetizationSourceScale())}
+                  onInput={(event) =>
+                    setMagnetizationSourceScale(10 ** event.currentTarget.valueAsNumber)}
+                />
+                <span class="geometry-viewer-source-scale-ticks" aria-hidden="true">
+                  <span>×0,1</span><span>×1</span><span>×10</span>
+                </span>
+              </label>
+              <button
+                type="button"
+                class="geometry-viewer-view-command"
+                onClick={() => {
+                  setCurrentSourceScale(1);
+                  setMagnetizationSourceScale(1);
+                }}
+              >
+                Сбросить длины к ×1
+              </button>
             </Show>
           </div>
         </Show>
@@ -691,6 +817,9 @@ export function GeometryViewerWindow(props) {
             showCentersAndNodes={showCentersAndNodes()}
             showPrescribedSources={showPrescribedSources()}
             prescribedSourceScene={sourceScene()}
+            prescribedSourceStyle={prescribedSourceStyle()}
+            currentSourceScale={currentSourceScale()}
+            magnetizationSourceScale={magnetizationSourceScale()}
             projection={orthographicView() ? "orthographic" : "perspective"}
             viewRequest={viewRequest()}
             fitAllPadding={FLOATING_FIT_ALL_PADDING}

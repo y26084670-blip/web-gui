@@ -113,6 +113,7 @@ function disposeMaterial(material) {
 
 function disposeObject(root) {
   root?.traverse?.((object) => {
+    if (object.isInstancedMesh) object.dispose();
     object.geometry?.dispose?.();
     disposeMaterial(object.material);
   });
@@ -134,9 +135,12 @@ function createPrescribedSourceVectors(
   vectors,
   acceptedInstances,
   sceneDiagonal,
+  style,
+  scales,
 ) {
   const maximum = { current: 0, magnetization: 0 };
   const positions = { current: [], magnetization: [] };
+  const solidArrows = { current: [], magnetization: [] };
   for (const item of vectors) {
     maximum[item.kind] = Math.max(maximum[item.kind], item.magnitude);
   }
@@ -155,9 +159,15 @@ function createPrescribedSourceVectors(
     if (!acceptedInstances.has(sourceInstanceKey(item.source, item.instance))) {
       continue;
     }
+    // Apply the user scale after the base limit so it can enlarge the arrows.
     const length = Math.min(0.7 * item.characteristicSize, sceneLimit) *
-      (item.magnitude / maximum[item.kind]);
+      (item.magnitude / maximum[item.kind]) * scales[item.kind];
     if (!(length > 0) || !Number.isFinite(length)) continue;
+
+    if (style === "solid") {
+      solidArrows[item.kind].push({ item, length });
+      continue;
+    }
 
     const target = positions[item.kind];
     origin.fromArray(item.origin);
@@ -185,13 +195,73 @@ function createPrescribedSourceVectors(
     }
   }
 
-  if (positions.current.length === 0 && positions.magnetization.length === 0) {
+  if (
+    positions.current.length === 0 && positions.magnetization.length === 0 &&
+    solidArrows.current.length === 0 && solidArrows.magnetization.length === 0
+  ) {
     return null;
   }
 
   const root = new THREE.Group();
   root.name = "prescribed-source-vectors";
   for (const [kind, color] of [["current", 0xff0000], ["magnetization", 0x00cc44]]) {
+    if (style === "solid") {
+      const arrows = solidArrows[kind];
+      if (arrows.length === 0) continue;
+      const materialOptions = {
+        color,
+        depthTest: true,
+        depthWrite: true,
+        transparent: true,
+        opacity: 1,
+      };
+      const shafts = new THREE.InstancedMesh(
+        new THREE.CylinderGeometry(1, 1, 1, 8),
+        new THREE.MeshLambertMaterial(materialOptions),
+        arrows.length,
+      );
+      const heads = new THREE.InstancedMesh(
+        new THREE.ConeGeometry(1, 1, 12),
+        new THREE.MeshLambertMaterial(materialOptions),
+        arrows.length,
+      );
+      const up = new THREE.Vector3(0, 1, 0);
+      const rotation = new THREE.Quaternion();
+      const position = new THREE.Vector3();
+      const scale = new THREE.Vector3();
+      const matrix = new THREE.Matrix4();
+      for (let index = 0; index < arrows.length; index += 1) {
+        const { item, length } = arrows[index];
+        origin.fromArray(item.origin);
+        direction.set(
+          item.vector[0] / item.magnitude,
+          item.vector[1] / item.magnitude,
+          item.vector[2] / item.magnitude,
+        ).normalize();
+        rotation.setFromUnitVectors(up, direction);
+
+        const shaftLength = length * 0.75;
+        position.copy(origin).addScaledVector(direction, shaftLength * 0.5);
+        scale.set(length * 0.025, shaftLength, length * 0.025);
+        shafts.setMatrixAt(index, matrix.compose(position, rotation, scale));
+
+        const headLength = length * 0.25;
+        position.copy(origin).addScaledVector(
+          direction,
+          shaftLength + headLength * 0.5,
+        );
+        scale.set(length * 0.125, headLength, length * 0.125);
+        heads.setMatrixAt(index, matrix.compose(position, rotation, scale));
+      }
+      for (const [part, mesh] of [["shaft", shafts], ["head", heads]]) {
+        mesh.name = `prescribed-source-${kind}-${part}`;
+        mesh.renderOrder = 14;
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.computeBoundingSphere();
+        root.add(mesh);
+      }
+      continue;
+    }
     if (positions[kind].length === 0) continue;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute(
@@ -213,6 +283,11 @@ function createPrescribedSourceVectors(
     root.add(lines);
   }
   return root;
+}
+
+function prescribedSourceScale(value) {
+  const scale = Number(value ?? 1);
+  return Number.isFinite(scale) ? Math.max(0.1, Math.min(10, scale)) : 1;
 }
 
 function validMatrix(value) {
@@ -1045,6 +1120,9 @@ export function ThreeGeometryViewport(props) {
   let prescribedSourceRoot;
   let prescribedSourceScene = null;
   let prescribedSourcesVisible = false;
+  let prescribedSourceStyle = "thin";
+  let currentSourceScale = 1;
+  let magnetizationSourceScale = 1;
   let acceptedSourceInstances = new Set();
   let vertexPoints;
   let vertexWorldPositions = new Float64Array(0);
@@ -1667,6 +1745,8 @@ export function ThreeGeometryViewport(props) {
         prescribedSourceScene.vectors,
         acceptedSourceInstances,
         sceneDiagonal,
+        prescribedSourceStyle,
+        { current: currentSourceScale, magnetization: magnetizationSourceScale },
       );
       if (prescribedSourceRoot) helperRoot.add(prescribedSourceRoot);
     }
@@ -1989,6 +2069,9 @@ export function ThreeGeometryViewport(props) {
   createEffect(() => {
     prescribedSourceScene = props.prescribedSourceScene ?? null;
     prescribedSourcesVisible = props.showPrescribedSources === true;
+    prescribedSourceStyle = props.prescribedSourceStyle === "solid" ? "solid" : "thin";
+    currentSourceScale = prescribedSourceScale(props.currentSourceScale);
+    magnetizationSourceScale = prescribedSourceScale(props.magnetizationSourceScale);
     if (!ready()) return;
     try {
       replacePrescribedSources();
