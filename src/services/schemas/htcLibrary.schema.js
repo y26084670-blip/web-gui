@@ -75,12 +75,7 @@ export default createSchema({
         j_gmin: scalar(
             FIELD_TYPES.FLOAT,
             "j_gmin",
-            "Минимальная электропроводность, МСм/м",
-        ),
-        j_gmax: scalar(
-            FIELD_TYPES.FLOAT,
-            "j_gmax",
-            "Максимальная электропроводность, МСм/м",
+            "Минимальная (для модели 1) или критическая (для модели 2) электропроводность, МСм/м",
         ),
         j1_delta: scalar(
             FIELD_TYPES.FLOAT,

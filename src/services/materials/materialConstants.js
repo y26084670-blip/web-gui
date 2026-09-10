@@ -5,7 +5,6 @@ export const HTC_PARAMETER_NAMES = Object.freeze([
     "JCb",
     "j_type",
     "j_gmin",
-    "j_gmax",
     "j1_delta",
     "j2_n",
     "m_type",

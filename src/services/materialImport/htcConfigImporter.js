@@ -17,7 +17,6 @@ export const HTC_PROPERTY_KEYS = Object.freeze([
     "JCb",
     "j_type",
     "j_gmin",
-    "j_gmax",
     "j1_delta",
     "j2_n",
     "m_type",
@@ -200,7 +199,6 @@ export function parseHtcConfig(source) {
     const j_type = reader.readInt32("Jtype");
     reader.readFloat32("Jscale");
     const j_gmin = reader.readFloat32("Jgmin");
-    const j_gmax = reader.readFloat32("Jgmax");
     const j1_delta = reader.readFloat32("JMOD1delta");
     const j2_n = float32Integer(
         reader.readFloat32("JMOD2N"),
@@ -238,7 +236,6 @@ export function parseHtcConfig(source) {
             JCb,
             j_type,
             j_gmin,
-            j_gmax,
             j1_delta,
             j2_n,
             m_type,
