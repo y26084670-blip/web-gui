@@ -177,8 +177,7 @@ export function TaskLaunchWindow(props) {
 
   function openBindingUri(uri) {
     setBindingWait(true);
-    setNotice("После нажатия «Связать с Clark» подтвердите открытие Clark в браузере, выберите в диалоге тот же базовый каталог «"
-      + props.rootHandle.name + "» и нажмите «ОК». Если диалог закрыт или не появился, нажмите «Связать с Clark» повторно.");
+    setNotice('После нажатия «Связать с Clark» еще раз выберите ("Выбрать каталог с проектом") в диалоге тот же базовый каталог и нажмите «Выбор папки». Если диалог закрыт или не появился, нажмите «Связать с Clark» повторно.');
     setBindUri("");
     window.location.href = uri;
   }
@@ -202,7 +201,7 @@ export function TaskLaunchWindow(props) {
       if (navigator.userActivation && !navigator.userActivation.isActive) {
         setBindUri(prepared.uri);
         setNotice("Нажмите «Открыть Clark», подтвердите открытие Clark в браузере, выберите тот же базовый каталог «"
-          + root.name + "» и нажмите «ОК».");
+          + root.name + "» и нажмите «Выбор папки».");
       } else openBindingUri(prepared.uri);
     } catch (failure) {
       if (current(root, revision)) setError(errorText(failure));
@@ -466,7 +465,7 @@ export function TaskLaunchWindow(props) {
         <div class="task-launch-hint">
           {binding()?.bindingState === "bound"
             ? "Связь с Clark сохранена. Повторно нажмите «Связать с Clark» после переноса каталога."
-            : "Для запуска нужен установленный Clark. Нажмите «Связать с Clark» перед первым запуском для этого каталога."}
+            : "Для расчета со списком заданий нужен установленный решатель Clark. Нажмите «Связать с Clark» перед первым запуском для этого каталога с проектами."}
         </div>
         <div class="task-launch-toolbar">
           <button type="button" disabled={locked() || !props.rootHandle} onClick={updateList}>Обновить список</button>
