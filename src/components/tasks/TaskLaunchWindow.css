@@ -1,0 +1,155 @@
+.task-launch-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 10px;
+    overflow: auto;
+    font-size: 13px;
+}
+
+.task-launch-metadata,
+.task-launch-toolbar,
+.task-launch-counts,
+.task-launch-actions,
+.task-launch-save-prompt,
+.task-launch-import-confirm {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+}
+
+.task-launch-metadata > span:first-child {
+    overflow-wrap: anywhere;
+}
+
+.task-launch-binding-status {
+    margin-left: auto;
+    color: #b8c6d4;
+}
+
+.task-launch-body button,
+.task-launch-link {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 6px 10px;
+    color: #edf2f7;
+    background: #334252;
+    border: 1px solid #667789;
+    border-radius: 4px;
+    font: inherit;
+    line-height: 1.25;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.task-launch-body button:hover:not(:disabled),
+.task-launch-link:hover {
+    background: #41586f;
+}
+
+.task-launch-body button:disabled {
+    color: #7d8791;
+    background: #292f36;
+    border-color: #464f59;
+    cursor: default;
+}
+
+.task-launch-body button:focus-visible,
+.task-launch-link:focus-visible,
+.task-launch-list:focus-visible {
+    outline: 2px solid #8fc7ff;
+    outline-offset: 1px;
+}
+
+.task-launch-list {
+    flex: 1 1 auto;
+    min-height: 80px;
+    min-width: 0;
+    overflow: auto;
+    color: #edf2f7;
+    background: #151a20;
+    border: 1px solid #536171;
+    border-radius: 3px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+}
+
+.task-launch-row {
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 100%;
+    padding: 5px 8px;
+    white-space: pre;
+    border: 1px solid transparent;
+    cursor: default;
+    user-select: none;
+}
+
+.task-launch-row.is-disabled {
+    color: #8c98a5;
+}
+
+.task-launch-row.is-selected {
+    color: #fff;
+    background: #285586;
+}
+
+.task-launch-row.is-selected.is-disabled {
+    color: #c0cbd7;
+}
+
+.task-launch-list:focus .task-launch-row.is-active {
+    border-color: #9ec8f0;
+}
+
+.task-launch-empty {
+    padding: 12px;
+    color: #aebbc8;
+    font-family: Arial, sans-serif;
+}
+
+.task-launch-counts {
+    gap: 14px;
+    color: #b8c6d4;
+}
+
+.task-launch-selection-hint {
+    margin-left: auto;
+}
+
+.task-launch-error,
+.task-launch-notice {
+    flex: 0 0 auto;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+
+.task-launch-error {
+    color: #ffafaf;
+}
+
+.task-launch-notice {
+    color: #c9dbeb;
+}
+
+.task-launch-save-prompt,
+.task-launch-import-confirm {
+    padding: 8px;
+    color: #ffe2a0;
+    background: #3d3422;
+    border: 1px solid #756341;
+    border-radius: 4px;
+}
+
+.task-launch-actions {
+    padding-top: 2px;
+}
+
+.task-launch-actions button {
+    background: #244e77;
+}

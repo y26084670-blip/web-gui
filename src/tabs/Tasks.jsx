@@ -9,6 +9,7 @@ import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import { DEMO_TASK_NAME, loadDemoTask } from "../services/demoTaskService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
+import { TaskLaunchWindow } from "../components/tasks/TaskLaunchWindow.jsx";
 import {
   readTaskResultsSummary,
   readTaskSummary,
@@ -41,6 +42,8 @@ export function Tasks(props) {
   const [taskInfo, setTaskInfo] = createSignal(EMPTY_TASK_INFO);
   const [taskResultsText, setTaskResultsText] = createSignal("");
   const [demoLoading, setDemoLoading] = createSignal(false);
+  const [taskLaunchOpen, setTaskLaunchOpen] = createSignal(false);
+  const [previewRevision, setPreviewRevision] = createSignal(1);
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -117,13 +120,6 @@ export function Tasks(props) {
       const handle = await window.showDirectoryPicker({
         mode: "readwrite",
       });
-      if (!props.admin && handle.name !== PROJECTS_ROOT_NAME) {
-        showTaskError(
-          `Выберите каталог «${PROJECTS_ROOT_NAME}». `
-          + `Выбран каталог «${handle.name}».`,
-        );
-        return;
-      }
       const requestId = invalidateBrowserSelection();
       setRootHandle(handle);
       setRootName("Корневой каталог: " + handle.name);
@@ -239,6 +235,18 @@ export function Tasks(props) {
     commitTaskLoad(request);
   };
 
+  const handleLaunchComplete = async (entries, action) => {
+    const root = rootHandle();
+    const task = selectedTask();
+    if (!root || !task || task.isDemo) return;
+    const segments = await root.resolve(task.handle);
+    if (root !== rootHandle() || task !== selectedTask() || !segments) return;
+    const relativePath = segments.join("/").toLowerCase();
+    if (!entries.some(entry => entry.enabled && entry.path.toLowerCase() === relativePath)) return;
+    if (action === "import") setPreviewRevision(value => value + 1);
+    await selectTaskCandidate(task);
+  };
+
   const requestDemoLoad = async () => {
     if (demoLoading()) return;
     const requestId = ++taskLoadRevision;
@@ -326,10 +334,12 @@ export function Tasks(props) {
         <div class="task-browser-content">
           <div>
             <div class="task-directory-actions">
-              <button id="pickDir" onClick={handlePickDirectory}>
-                {props.admin
-                  ? "Выбрать каталог с проектами"
-                  : "Выбрать каталог clark.projects"}
+              <button
+                id="pickDir"
+                title={`Базовый каталог с проектами, обычно ${PROJECTS_ROOT_NAME}`}
+                onClick={handlePickDirectory}
+              >
+                Выбрать каталог с проектами
               </button>
               <button
                 type="button"
@@ -401,6 +411,14 @@ export function Tasks(props) {
                 <span class="task-load-trailing" aria-hidden="true" />
               </span>
             </button>
+            <button
+              type="button"
+              class="task-launch-open-button"
+              disabled={!rootHandle()}
+              onClick={() => setTaskLaunchOpen(true)}
+            >
+              Список заданий и запуск
+            </button>
           </div>
         </div>
         <div class="task-panel-caption">выбор задания</div>
@@ -413,10 +431,14 @@ export function Tasks(props) {
           background: "lightgray",
         }}
       >
-        <TaskGeometryPreview
-          taskHandle={selectedTask()?.handle}
-          active={props.active}
-        />
+        <Show when={previewRevision()} keyed>
+          {() => (
+            <TaskGeometryPreview
+              taskHandle={selectedTask()?.handle}
+              active={props.active}
+            />
+          )}
+        </Show>
         <div class="task-summary-content">
           <textarea
             class="task-summary-text"
@@ -439,6 +461,17 @@ export function Tasks(props) {
         />
         <div class="task-panel-caption">результаты</div>
       </section>
+
+      <TaskLaunchWindow
+        open={taskLaunchOpen() && props.active !== false}
+        rootHandle={rootHandle()}
+        onClose={() => setTaskLaunchOpen(false)}
+        onSave={props.onSave}
+        onBeforeImport={(_entries, loadedIncluded) => {
+          if (loadedIncluded) clearLoadedTaskState();
+        }}
+        onLaunchComplete={handleLaunchComplete}
+      />
 
       <dialog
         class="task-load-error-dialog"
