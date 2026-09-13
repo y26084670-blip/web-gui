@@ -25,10 +25,47 @@
 }
 
 .task-browser-content {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   overflow: auto;
+}
+
+.task-browser-content > :not(.task-list-group) {
+  flex: 0 0 auto;
+}
+
+.task-list-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 90px;
+}
+
+.task-list-group > h4 {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.task-list-group .listTask {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.task-browser-actions {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 10px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.task-browser-actions > button {
+  width: 100%;
+  margin: 0;
 }
 
 .task-panel-caption {
@@ -43,10 +80,28 @@
 
 .task-directory-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   width: 100%;
   margin-bottom: 16px;
+}
+
+.task-directory-buttons {
+  display: flex;
+  align-items: center;
+  flex: 1 1 300px;
+  min-width: 0;
+  gap: 12px;
+}
+
+.task-directory-hint {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin: 0;
+  color: #555;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .task-directory-actions #pickDir {

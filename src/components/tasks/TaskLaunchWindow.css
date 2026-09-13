@@ -34,8 +34,11 @@
 
 .task-launch-body button,
 .task-launch-link {
+    box-sizing: border-box;
     flex: 0 0 auto;
-    width: auto;
+    width: 236px;
+    min-width: 0;
+    max-width: 100%;
     padding: 6px 10px;
     color: #edf2f7;
     background: #334252;
@@ -43,7 +46,9 @@
     border-radius: 4px;
     font: inherit;
     line-height: 1.25;
+    text-align: center;
     text-decoration: none;
+    white-space: normal;
     cursor: pointer;
 }
 
@@ -57,6 +62,16 @@
     background: #292f36;
     border-color: #464f59;
     cursor: default;
+}
+
+.task-launch-body button.task-launch-bind-button:not(:disabled) {
+    color: #a60000;
+    background: #ffdf55;
+    border-color: #d6af22;
+}
+
+.task-launch-body button.task-launch-bind-button:hover:not(:disabled) {
+    background: #ffe984;
 }
 
 .task-launch-body button:focus-visible,
@@ -123,7 +138,8 @@
 }
 
 .task-launch-error,
-.task-launch-notice {
+.task-launch-notice,
+.task-launch-hint {
     flex: 0 0 auto;
     overflow-wrap: anywhere;
     line-height: 1.4;
@@ -135,6 +151,10 @@
 
 .task-launch-notice {
     color: #c9dbeb;
+}
+
+.task-launch-hint {
+    color: #aebbc8;
 }
 
 .task-launch-save-prompt,

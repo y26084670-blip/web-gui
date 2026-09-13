@@ -334,23 +334,30 @@ export function Tasks(props) {
         <div class="task-browser-content">
           <div>
             <div class="task-directory-actions">
-              <button
-                id="pickDir"
-                title={`Базовый каталог с проектами, обычно ${PROJECTS_ROOT_NAME}`}
-                onClick={handlePickDirectory}
-              >
-                Выбрать каталог с проектами
-              </button>
-              <button
-                type="button"
-                class="task-demo-button"
-                disabled={demoLoading()}
-                aria-busy={demoLoading()}
-                title="Загрузить демонстрационную задачу для редактирования"
-                onClick={requestDemoLoad}
-              >
-                Демо
-              </button>
+              <div class="task-directory-buttons">
+                <button
+                  id="pickDir"
+                  title={`Базовый каталог с проектами, обычно ${PROJECTS_ROOT_NAME}`}
+                  onClick={handlePickDirectory}
+                >
+                  Выбрать каталог с проектами
+                </button>
+                <button
+                  type="button"
+                  class="task-demo-button"
+                  disabled={demoLoading()}
+                  aria-busy={demoLoading()}
+                  title="Загрузить демонстрационную задачу для редактирования"
+                  onClick={requestDemoLoad}
+                >
+                  Демо
+                </button>
+              </div>
+              <p class="task-directory-hint">
+                Для запуска: «Список заданий и запуск» → «Обновить список» →
+                выделить задания → «Подключить» → «Связать с Clark»
+                (перед первым запуском) → «Запустить расчёт».
+              </p>
             </div>
             <span id="rootName">{rootName()}</span>
             <p></p>
@@ -368,7 +375,7 @@ export function Tasks(props) {
               ))}
             </select>
           </div>
-          <div>
+          <div class="task-list-group">
             <h4 style="margin-bottom: 10px">Список заданий выбранного проекта</h4>
             <div
               id="listTask"
@@ -387,39 +394,41 @@ export function Tasks(props) {
                 </div>
               ))}
             </div>
-            <button
-              class="task-load-button"
-              disabled={!selectedTask() || taskLoaded()}
-              onClick={requestTaskLoad}
-            >
-              <span class="task-load-label">
-                <span class="task-load-leading">
-                  <Show keyed when={loadedTaskPath()}>
-                    {() => (
-                      <span
-                        class="task-load-confirmation"
-                        role="status"
-                        aria-label="Задание загружено"
-                        title="Задание загружено"
-                      >
-                        ✓
-                      </span>
-                    )}
-                  </Show>
-                </span>
-                <span class="task-load-text">Загрузить для редактирования</span>
-                <span class="task-load-trailing" aria-hidden="true" />
-              </span>
-            </button>
-            <button
-              type="button"
-              class="task-launch-open-button"
-              disabled={!rootHandle()}
-              onClick={() => setTaskLaunchOpen(true)}
-            >
-              Список заданий и запуск
-            </button>
           </div>
+        </div>
+        <div class="task-browser-actions">
+          <button
+            class="task-load-button"
+            disabled={!selectedTask() || taskLoaded()}
+            onClick={requestTaskLoad}
+          >
+            <span class="task-load-label">
+              <span class="task-load-leading">
+                <Show keyed when={loadedTaskPath()}>
+                  {() => (
+                    <span
+                      class="task-load-confirmation"
+                      role="status"
+                      aria-label="Задание загружено"
+                      title="Задание загружено"
+                    >
+                      ✓
+                    </span>
+                  )}
+                </Show>
+              </span>
+              <span class="task-load-text">Загрузить для редактирования</span>
+              <span class="task-load-trailing" aria-hidden="true" />
+            </span>
+          </button>
+          <button
+            type="button"
+            class="task-launch-open-button"
+            disabled={!rootHandle()}
+            onClick={() => setTaskLaunchOpen(true)}
+          >
+            Список заданий и запуск
+          </button>
         </div>
         <div class="task-panel-caption">выбор задания</div>
       </div>
