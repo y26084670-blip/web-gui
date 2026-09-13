@@ -32,7 +32,17 @@
 
 .task-launch-binding-status {
     margin-left: auto;
+    margin-right: 8px;
     color: #b8c6d4;
+}
+
+.task-launch-binding-status.is-unbound {
+    animation: task-launch-binding-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes task-launch-binding-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
 }
 
 .task-launch-body button,

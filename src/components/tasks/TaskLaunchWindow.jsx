@@ -451,7 +451,10 @@ export function TaskLaunchWindow(props) {
         </div>
         <div class="task-launch-metadata">
           <span title={props.rootHandle?.name}>{props.rootHandle?.name}/{TASK_LIST_FILE}</span>
-          <span class="task-launch-binding-status">{bindingLabel()}</span>
+          <span
+            class="task-launch-binding-status"
+            classList={{ "is-unbound": binding()?.bindingState !== "bound" }}
+          >{bindingLabel()}</span>
           <button type="button" class="task-launch-bind-button" disabled={locked() || !props.rootHandle} onClick={bindWorkspace}>
             Связать с Clark
           </button>
