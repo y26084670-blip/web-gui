@@ -85,7 +85,7 @@ export default createSchema({
         j2_n: scalar(
             FIELD_TYPES.INTEGER,
             "j2_n",
-            "Показатель степени степенной модели",
+            "Показатель степенной модели",
         ),
         // магнитная подсистема
         m_type: scalar(
@@ -123,13 +123,13 @@ export default createSchema({
         KHabc: scalar(
             FIELD_TYPES.FLOAT,
             "KHabc",
-            "Соотношение поперечного и основного критических полей",
+            "Параметр анизотропии для 3D",
             HTC_EFFECTIVE_DEFAULTS.KHabc,
         ),
         Diag: scalar(
             FIELD_TYPES.FLOAT,
             "Diag",
-            "Характер диаграммы направленности, диапазон [0, 1)",
+            "Диаграмма направленности для 3D",
             HTC_EFFECTIVE_DEFAULTS.Diag,
         ),
         M3D: scalar(
