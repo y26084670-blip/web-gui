@@ -1,7 +1,7 @@
 //
 // вкладка выбора задания
 //
-import { Show, batch, createSignal } from "solid-js";
+import { Show, batch, createSignal, onCleanup, onMount } from "solid-js";
 import { selectionService } from "../services/selectionService";
 import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
@@ -10,6 +10,10 @@ import { DEMO_TASK_NAME, loadDemoTask } from "../services/demoTaskService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
 import { TaskLaunchWindow } from "../components/tasks/TaskLaunchWindow.jsx";
+import {
+  prepareWorkspaceBinding,
+  readWorkspaceBinding,
+} from "../services/taskLaunchService.js";
 import {
   readTaskResultsSummary,
   readTaskSummary,
@@ -44,6 +48,11 @@ export function Tasks(props) {
   const [demoLoading, setDemoLoading] = createSignal(false);
   const [taskLaunchOpen, setTaskLaunchOpen] = createSignal(false);
   const [previewRevision, setPreviewRevision] = createSignal(1);
+  const [workspaceBinding, setWorkspaceBinding] = createSignal(null);
+  const [bindingBusy, setBindingBusy] = createSignal(false);
+  const [bindUri, setBindUri] = createSignal("");
+  const [bindingNotice, setBindingNotice] = createSignal("");
+  const [launchBusy, setLaunchBusy] = createSignal(false);
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -52,6 +61,10 @@ export function Tasks(props) {
   let selectionRevision = 0;
   let taskLoadRevision = 0;
   let taskInfoRevision = 0;
+  let directoryPickRevision = 0;
+  let bindingRevision = 0;
+  let bindingPolling = false;
+  let disposed = false;
 
   // Сброс данных прежнего задания выполняется до любой новой загрузки.
   const clearLoadedTaskState = () => {
@@ -87,6 +100,90 @@ export function Tasks(props) {
     );
   };
 
+  const bindingIsCurrent = (root, revision) => !disposed
+    && root === rootHandle() && revision === bindingRevision;
+  const bindingDisabled = () => !rootHandle() || bindingBusy() || launchBusy()
+    || workspaceBinding()?.bindingState === "bound";
+
+  const resetWorkspaceBinding = () => {
+    bindingRevision += 1;
+    setWorkspaceBinding(null);
+    setBindingBusy(false);
+    setBindUri("");
+    setBindingNotice("");
+  };
+
+  function openBindingUri(uri) {
+    // Keep the prepared URI until confirmation, so a retry uses a direct click.
+    setBindingNotice("Выберите в окне Решателя тот же базовый каталог «"
+      + rootHandle().name + "». После отмены можно нажать «Связать с Решателем» повторно.");
+    window.location.href = uri;
+  }
+
+  async function bindWorkspace() {
+    if (bindingDisabled()) return;
+    const root = rootHandle();
+    const revision = bindingRevision;
+    setBindingBusy(true);
+    try {
+      if (bindUri()) {
+        openBindingUri(bindUri());
+        return;
+      }
+      const prepared = await prepareWorkspaceBinding(root);
+      if (!bindingIsCurrent(root, revision)) return;
+      setWorkspaceBinding({ workspaceId: prepared.workspaceId, bindingState: "pending" });
+      setBindUri(prepared.uri);
+      if (navigator.userActivation && !navigator.userActivation.isActive) {
+        setBindingNotice("Подготовка завершена. Нажмите «Связать с Решателем» ещё раз, "
+          + "чтобы открыть выбор каталога в Windows.");
+      } else openBindingUri(prepared.uri);
+    } catch (error) {
+      if (bindingIsCurrent(root, revision)) {
+        showTaskError("Не удалось связать каталог с Решателем: "
+          + (error?.message || String(error)));
+      }
+    } finally {
+      if (bindingIsCurrent(root, revision)) setBindingBusy(false);
+    }
+  }
+
+  async function pollWorkspaceBinding() {
+    const expected = workspaceBinding();
+    if (disposed || bindingPolling || bindingBusy()
+      || expected?.bindingState !== "pending" || !rootHandle()) return;
+    const root = rootHandle();
+    const revision = bindingRevision;
+    bindingPolling = true;
+    try {
+      const marker = await readWorkspaceBinding(root);
+      if (!bindingIsCurrent(root, revision)
+        || workspaceBinding()?.workspaceId !== expected.workspaceId) return;
+      if (marker?.workspaceId === expected.workspaceId && marker.bindingState === "bound") {
+        batch(() => {
+          setWorkspaceBinding(marker);
+          setBindUri("");
+          setBindingNotice("Каталог связан с Решателем.");
+        });
+      }
+    } catch {
+      // The native handler may be replacing the marker; retry on the next poll.
+    } finally {
+      bindingPolling = false;
+    }
+  }
+
+  onMount(() => {
+    const timer = window.setInterval(() => { void pollWorkspaceBinding(); }, 1000);
+    const onFocus = () => { void pollWorkspaceBinding(); };
+    window.addEventListener("focus", onFocus);
+    onCleanup(() => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    });
+  });
+  onCleanup(() => { disposed = true; bindingRevision += 1; directoryPickRevision += 1; });
+
   // получение полного пути
   const getFullPath = async (root, handle) => {
     const segments = await root.resolve(handle);
@@ -110,18 +207,24 @@ export function Tasks(props) {
 
   // выбор корневого каталога
   const handlePickDirectory = async () => {
+    if (bindingBusy() || launchBusy()) return;
     const support = getFileSystemAccessSupport(window);
     if (!support.supported) {
       showTaskError(support.message);
       return;
     }
 
+    const pickRevision = ++directoryPickRevision;
     try {
       const handle = await window.showDirectoryPicker({
         mode: "readwrite",
       });
+      const previous = rootHandle();
+      const sameDirectory = previous ? await previous.isSameEntry(handle) : false;
+      if (disposed || pickRevision !== directoryPickRevision) return;
       const requestId = invalidateBrowserSelection();
-      setRootHandle(handle);
+      if (!sameDirectory) resetWorkspaceBinding();
+      setRootHandle(sameDirectory ? previous : handle);
       setRootName("Корневой каталог: " + handle.name);
       setProjects([]);
       setSelectedProject("");
@@ -337,6 +440,7 @@ export function Tasks(props) {
               <div class="task-directory-buttons">
                 <button
                   id="pickDir"
+                  disabled={bindingBusy() || launchBusy()}
                   title={`Базовый каталог с проектами, обычно ${PROJECTS_ROOT_NAME}`}
                   onClick={handlePickDirectory}
                 >
@@ -344,21 +448,28 @@ export function Tasks(props) {
                 </button>
                 <button
                   type="button"
-                  class="task-demo-button"
-                  disabled={demoLoading()}
-                  aria-busy={demoLoading()}
-                  title="Загрузить демонстрационную задачу для редактирования"
-                  onClick={requestDemoLoad}
+                  class="task-bind-button"
+                  disabled={bindingDisabled()}
+                  aria-busy={bindingBusy()}
+                  title="Связать выбранный базовый каталог с установленным Решателем"
+                  onClick={bindWorkspace}
                 >
-                  Демо
+                  Связать с Решателем
                 </button>
               </div>
               <p class="task-directory-hint">
                 Для подготовки к запуску расчетов из редактора выполнить:
+                «Связать с Решателем» →
                 «Формирование списка заданий и запуск решателей или импорта» →
                 «Обновить список» → выделить задания →
-                «Подключить» → (перед первым запуском) «Связать с Clark» → «Запустить расчёт».
+                «Подключить» → «Запустить расчёт».
               </p>
+              <Show when={rootHandle()}>
+                <p class="task-binding-status" role="status"
+                  classList={{ "is-unbound": workspaceBinding()?.bindingState !== "bound" }}>
+                  {bindingNotice() || "Каталог не связан с Решателем."}
+                </p>
+              </Show>
             </div>
             <span id="rootName">{rootName()}</span>
             <p></p>
@@ -377,7 +488,19 @@ export function Tasks(props) {
             </select>
           </div>
           <div class="task-list-group">
-            <h4 style="margin-bottom: 10px">Список заданий выбранного проекта</h4>
+            <div class="task-list-heading">
+              <h4>Список заданий выбранного проекта</h4>
+              <button
+                type="button"
+                class="task-demo-button"
+                disabled={demoLoading()}
+                aria-busy={demoLoading()}
+                title="Загрузить демонстрационную задачу для редактирования"
+                onClick={requestDemoLoad}
+              >
+                Демо
+              </button>
+            </div>
             <div
               id="listTask"
               class="listTask"
@@ -475,6 +598,9 @@ export function Tasks(props) {
       <TaskLaunchWindow
         open={taskLaunchOpen() && props.active !== false}
         rootHandle={rootHandle()}
+        binding={workspaceBinding()}
+        bindingBusy={bindingBusy()}
+        onBusyChange={setLaunchBusy}
         onClose={() => setTaskLaunchOpen(false)}
         onSave={props.onSave}
         onBeforeImport={(_entries, loadedIncluded) => {

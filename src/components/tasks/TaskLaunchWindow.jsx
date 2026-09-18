@@ -7,8 +7,8 @@ import { selectionService } from "../../services/selectionService.js";
 import { unsavedChangesService } from "../../services/unsavedChangesService.js";
 import {
   TASK_LIST_FILE, createNativeLaunchUri, invalidateLaunchRequest,
-  prepareLaunchRequest, prepareWorkspaceBinding, readLaunchResult,
-  readTaskList, readWorkspaceBinding, refreshTaskList, setTaskListEntriesEnabled,
+  prepareLaunchRequest, readLaunchResult,
+  readTaskList, refreshTaskList, setTaskListEntriesEnabled,
 } from "../../services/taskLaunchService.js";
 import "./TaskLaunchWindow.css";
 
@@ -26,9 +26,7 @@ export function TaskLaunchWindow(props) {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [notice, setNotice] = createSignal("");
-  const [binding, setBinding] = createSignal(null);
-  const [bindUri, setBindUri] = createSignal("");
-  const [bindingWait, setBindingWait] = createSignal(false);
+  const binding = () => props.binding ?? null;
   const [proof, setProof] = createSignal(null);
   const [pending, setPending] = createSignal(null);
   const [confirmImport, setConfirmImport] = createSignal(false);
@@ -50,45 +48,39 @@ export function TaskLaunchWindow(props) {
     return Boolean(path && enabledEntries().some(entry => keyOf(entry.path) === keyOf(path)));
   });
   const includedDirty = createMemo(() => unsavedChangesService.hasDirty() && loadedIncluded());
-  const locked = () => busy() || Boolean(pending());
+  const locked = () => busy() || Boolean(pending()) || props.bindingBusy;
   const canLaunch = () => !locked() && !resolvingLoaded() && !loadedPathError() && !includedDirty()
     && listExists() && listValid() && enabledEntries().length > 0
     && binding()?.bindingState === "bound" && Boolean(proof());
-  const bindingLabel = () => bindingWait()
-    ? "Ожидание выбора каталога в Clark"
-    : binding()?.bindingState === "bound"
-      ? "Каталог связан с Clark"
-      : "Каталог не связан с Clark";
+  const bindingLabel = () => binding()?.bindingState === "bound"
+    ? "Каталог связан с Решателем"
+    : "Каталог не связан с Решателем";
+
+  createEffect(() => props.onBusyChange?.(busy() || Boolean(pending())));
 
   async function armLaunch(root, revision, marker = binding()) {
     setProof(null);
     if (!marker || marker.bindingState !== "bound" || !listExists() || !listValid()) return;
     const prepared = await prepareLaunchRequest(root, marker);
-    if (current(root, revision) && !pending()) setProof(prepared);
+    if (current(root, revision) && !pending() && !props.bindingBusy
+      && marker.workspaceId === binding()?.workspaceId
+      && binding()?.bindingState === "bound") setProof(prepared);
   }
 
   async function loadRoot(root, revision) {
     if (!root) return;
     setBusy(true);
-    const results = await Promise.allSettled([readTaskList(root), readWorkspaceBinding(root)]);
-    if (!current(root, revision)) return;
-    const messages = [];
-    if (results[0].status === "fulfilled") {
-      setEntries(results[0].value.entries);
-      setListExists(results[0].value.exists);
-      setListValid(true);
-    } else messages.push(errorText(results[0].reason));
-    if (results[1].status === "fulfilled") setBinding(results[1].value);
-    else messages.push(errorText(results[1].reason));
     try {
+      const result = await readTaskList(root);
+      if (!current(root, revision)) return;
+      setEntries(result.entries);
+      setListExists(result.exists);
+      setListValid(true);
       await armLaunch(root, revision);
     } catch (failure) {
-      messages.push(errorText(failure));
+      if (current(root, revision)) setError(errorText(failure));
     } finally {
-      if (current(root, revision)) {
-        setError(messages.join(" "));
-        setBusy(false);
-      }
+      if (current(root, revision)) setBusy(false);
     }
   }
 
@@ -105,15 +97,20 @@ export function TaskLaunchWindow(props) {
         setBusy(false);
         setError("");
         setNotice("");
-        setBinding(null);
-        setBindUri("");
-        setBindingWait(false);
         setProof(null);
         setPending(null);
         setConfirmImport(false);
       });
       anchorIndex = 0;
       void loadRoot(root, revision);
+    });
+  });
+
+  createEffect(() => {
+    const marker = binding();
+    untrack(() => {
+      setProof(null);
+      if (marker?.bindingState === "bound") void refreshOnFocus();
     });
   });
 
@@ -174,41 +171,6 @@ export function TaskLaunchWindow(props) {
     if (!selection.size || !listValid()) return;
     return changeList(root => setTaskListEntriesEnabled(root, snapshot, selection, enabled));
   };
-
-  function openBindingUri(uri) {
-    setBindingWait(true);
-    setNotice('После нажатия «Связать с Clark» еще раз выберите ("Выбрать каталог с проектом") в диалоге тот же базовый каталог и нажмите «Выбор папки». Если диалог закрыт или не появился, нажмите «Связать с Clark» повторно.');
-    setBindUri("");
-    window.location.href = uri;
-  }
-
-  async function bindWorkspace() {
-    if (locked() || !props.rootHandle) return;
-    const root = props.rootHandle;
-    const revision = rootRevision;
-    setBusy(true);
-    setError("");
-    setProof(null);
-    setBindUri("");
-    setBindingWait(false);
-    setConfirmImport(false);
-    try {
-      const prepared = await prepareWorkspaceBinding(root);
-      if (!current(root, revision)) return;
-      setBinding({ workspaceId: prepared.workspaceId, bindingState: "pending" });
-      // Slow filesystem access can expire the browser's activation. In that case
-      // the prepared link provides a fresh user click without repeating the write.
-      if (navigator.userActivation && !navigator.userActivation.isActive) {
-        setBindUri(prepared.uri);
-        setNotice("Нажмите «Открыть Clark», подтвердите открытие Clark в браузере, выберите тот же базовый каталог «"
-          + root.name + "» и нажмите «Выбор папки».");
-      } else openBindingUri(prepared.uri);
-    } catch (failure) {
-      if (current(root, revision)) setError(errorText(failure));
-    } finally {
-      if (current(root, revision)) setBusy(false);
-    }
-  }
 
   async function saveLoadedModel() {
     if (locked() || !includedDirty()) return;
@@ -276,11 +238,11 @@ export function TaskLaunchWindow(props) {
   }
 
   async function pollNative() {
-    if (polling || disposed || busy() || !props.rootHandle) return;
+    if (polling || disposed || busy() || props.bindingBusy || !props.rootHandle) return;
     const root = props.rootHandle;
     const revision = rootRevision;
     const run = pending();
-    if (!run && !bindingWait()) return;
+    if (!run) return;
     polling = true;
     try {
       if (run) {
@@ -324,18 +286,6 @@ export function TaskLaunchWindow(props) {
             if (current(root, revision)) setBusy(false);
           }
         }
-      } else {
-        const marker = await readWorkspaceBinding(root);
-        if (!current(root, revision) || pending()) return;
-        if (marker?.workspaceId === binding()?.workspaceId && marker.bindingState === "bound") {
-          setBinding(marker);
-          setBindingWait(false);
-          setBindUri("");
-          setNotice("Каталог связан с Clark. Выберите команду запуска для подключённых заданий.");
-          setBusy(true);
-          try { await armLaunch(root, revision, marker); }
-          finally { if (current(root, revision)) setBusy(false); }
-        }
       }
     } catch (failure) {
       if (current(root, revision)) setError(errorText(failure));
@@ -345,19 +295,12 @@ export function TaskLaunchWindow(props) {
   }
 
   async function refreshOnFocus() {
-    if (pending() || bindingWait()) { await pollNative(); return; }
-    if (busy() || disposed || !props.rootHandle) return;
+    if (pending()) { await pollNative(); return; }
+    if (busy() || props.bindingBusy || disposed || !props.rootHandle) return;
     const root = props.rootHandle;
     const revision = rootRevision;
     try {
-      const marker = await readWorkspaceBinding(root);
-      if (!current(root, revision) || pending() || busy()) return;
-      const changed = marker?.workspaceId !== binding()?.workspaceId
-        || marker?.bindingState !== binding()?.bindingState;
-      if (changed) {
-        setBinding(marker);
-        setProof(null);
-      }
+      const marker = binding();
       if (marker?.bindingState === "bound" && !proof()) {
         setBusy(true);
         try { await armLaunch(root, revision, marker); }
@@ -377,7 +320,12 @@ export function TaskLaunchWindow(props) {
       window.removeEventListener("focus", onFocus);
     });
   });
-  onCleanup(() => { disposed = true; rootRevision += 1; loadedRevision += 1; });
+  onCleanup(() => {
+    disposed = true;
+    rootRevision += 1;
+    loadedRevision += 1;
+    props.onBusyChange?.(false);
+  });
 
   function selectAll() {
     setSelected(new Set(entries().map(entry => entry.path)));
@@ -446,7 +394,7 @@ export function TaskLaunchWindow(props) {
     >
       <div class="task-launch-body">
         <div class="task-launch-hint">
-          «Обновить список» → выделить нужные задания → «Подключить» → перед первым запуском «Связать с Clark» → команда запуска.
+          «Обновить список» → выделить нужные задания → «Подключить» → команда запуска.
           {" "}Новые задания отключены (*).
         </div>
         <div class="task-launch-metadata">
@@ -455,20 +403,11 @@ export function TaskLaunchWindow(props) {
             class="task-launch-binding-status"
             classList={{ "is-unbound": binding()?.bindingState !== "bound" }}
           >{bindingLabel()}</span>
-          <button type="button" class="task-launch-bind-button" disabled={locked() || !props.rootHandle} onClick={bindWorkspace}>
-            Связать с Clark
-          </button>
-          <Show when={bindUri()}>
-            <a class="task-launch-link" href={bindUri()} onClick={event => {
-              event.preventDefault();
-              if (!locked()) openBindingUri(bindUri());
-            }}>Открыть Clark</a>
-          </Show>
         </div>
         <div class="task-launch-hint">
           {binding()?.bindingState === "bound"
-            ? "Связь с Clark сохранена. Повторно нажмите «Связать с Clark» после переноса каталога."
-            : "Для расчета со списком заданий нужен установленный решатель Clark. Нажмите «Связать с Clark» перед первым запуском для этого каталога с проектами."}
+            ? "Каталог связан с Решателем. Можно запускать подключённые задания."
+            : "Нажмите «Связать с Решателем» рядом с кнопкой «Выбрать каталог с проектами» на вкладке выбора задания."}
         </div>
         <div class="task-launch-toolbar">
           <button type="button" disabled={locked() || !props.rootHandle} onClick={updateList}>Обновить список</button>
