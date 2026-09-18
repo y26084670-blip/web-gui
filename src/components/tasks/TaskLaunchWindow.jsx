@@ -410,17 +410,27 @@ export function TaskLaunchWindow(props) {
             : "Нажмите «Связать с Решателем» рядом с кнопкой «Выбрать каталог с проектами» на вкладке выбора задания."}
         </div>
         <div class="task-launch-toolbar">
-          <button type="button" disabled={locked() || !props.rootHandle} onClick={updateList}>Обновить список</button>
-          <button type="button" disabled={locked() || !listValid() || !selected().size} onClick={() => toggleSelected(true)}>Подключить</button>
-          <button type="button" disabled={locked() || !listValid() || !selected().size} onClick={() => toggleSelected(false)}>Отключить</button>
-          <button type="button" disabled={!entries().length} onClick={selectAll}>Выделить все</button>
+          <button type="button" disabled={locked() || !props.rootHandle}
+            title="Обновить список заданий из базового каталога. Новые задания добавляются отключёнными; состояние существующих сохраняется."
+            onClick={updateList}>Обновить список</button>
+          <button type="button" disabled={locked() || !listValid() || !selected().size}
+            title="Включить выделенные задания в список для расчёта или импорта."
+            onClick={() => toggleSelected(true)}>Подключить</button>
+          <button type="button" disabled={locked() || !listValid() || !selected().size}
+            title="Исключить выделенные задания из запуска, сохранив их в списке."
+            onClick={() => toggleSelected(false)}>Отключить</button>
+          <button type="button" disabled={!entries().length}
+            title="Выделить все строки списка (Ctrl+A). Подключение заданий выполняется отдельной кнопкой."
+            onClick={selectAll}>Выделить все</button>
         </div>
         <Show when={error()}><div class="task-launch-error" role="alert">{error()}</div></Show>
         <Show when={notice()}><div class="task-launch-notice" role="status">{notice()}</div></Show>
         <Show when={includedDirty()}>
           <div class="task-launch-save-prompt">
             <span>Включённое задание содержит несохранённые изменения.</span>
-            <button type="button" disabled={locked() || !props.onSave} onClick={saveLoadedModel}>Сохранить модель</button>
+            <button type="button" disabled={locked() || !props.onSave}
+              title="Сохранить изменения загруженной модели перед запуском подключённых заданий."
+              onClick={saveLoadedModel}>Сохранить модель</button>
           </div>
         </Show>
         <div
@@ -449,16 +459,23 @@ export function TaskLaunchWindow(props) {
         <Show when={confirmImport()}>
           <div class="task-launch-import-confirm">
             <span>Импорт заменит исходные данные включённых заданий. Продолжить?</span>
-            <button type="button" disabled={!canLaunch()} onClick={() => launch("import")}>Выполнить импорт</button>
-            <button type="button" onClick={() => setConfirmImport(false)}>Отмена</button>
+            <button type="button" disabled={!canLaunch()}
+              title="Подтвердить импорт для всех подключённых заданий с заменой их исходных данных."
+              onClick={() => launch("import")}>Выполнить импорт</button>
+            <button type="button" title="Отменить подтверждение импорта. Исходные данные останутся без изменений."
+              onClick={() => setConfirmImport(false)}>Отмена</button>
           </div>
         </Show>
         <div class="task-launch-actions">
-          <button type="button" disabled={!canLaunch()} onClick={() => launch("solver")}>Запустить расчёт</button>
+          <button type="button" disabled={!canLaunch()}
+            title="Запустить расчёт всех подключённых заданий независимо от выделения строк."
+            onClick={() => launch("solver")}>Запустить расчёт</button>
           <button type="button" disabled={!canLaunch() || enabledEntries().length !== 1}
-            title="Для клиента цепи требуется одно подключённое задание REAL64 с конфигурацией цепи."
+            title="Запустить клиента электрической цепи. Требуется ровно одно подключённое задание REAL64 с конфигурацией цепи."
             onClick={() => launch("circuit")}>Запустить клиента — эл. цепь</button>
-          <button type="button" disabled={!canLaunch()} onClick={() => setConfirmImport(true)}>Запустить импорт данных</button>
+          <button type="button" disabled={!canLaunch()}
+            title="Открыть подтверждение импорта для всех подключённых заданий. Импорт заменит их исходные данные."
+            onClick={() => setConfirmImport(true)}>Запустить импорт данных</button>
         </div>
       </div>
     </FloatingWindow>
