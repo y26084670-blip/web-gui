@@ -44,9 +44,17 @@
   min-height: 90px;
 }
 
-.task-list-group > h4 {
+.task-list-heading {
+  display: flex;
+  align-items: center;
   flex: 0 0 auto;
-  margin-top: 0;
+  gap: 10px;
+  max-width: 600px;
+  margin-bottom: 10px;
+}
+
+.task-list-heading h4 {
+  margin: 0;
 }
 
 .task-list-group .listTask {
@@ -108,7 +116,44 @@
   min-width: 0;
 }
 
-.task-directory-actions .task-demo-button {
+.task-directory-buttons > button {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+}
+
+.task-directory-buttons .task-bind-button:not(:disabled) {
+  color: #a60000;
+  background: #ffdf55;
+}
+
+.task-directory-buttons .task-bind-button:hover:not(:disabled) {
+  background: #ffe984;
+}
+
+.task-directory-buttons > button:disabled {
+  color: #666;
+  background: #d1d5db;
+  cursor: default;
+}
+
+.task-binding-status {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: 12px;
+  color: #555;
+}
+
+.task-binding-status.is-unbound {
+  animation: task-binding-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes task-binding-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.task-list-heading .task-demo-button {
   flex: 0 0 auto;
   width: auto;
   margin-left: auto;
