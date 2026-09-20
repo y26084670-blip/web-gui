@@ -207,7 +207,7 @@ export function Tasks(props) {
 
   // выбор корневого каталога
   const handlePickDirectory = async () => {
-    if (bindingBusy() || launchBusy()) return;
+    if (bindingBusy()) return;
     const support = getFileSystemAccessSupport(window);
     if (!support.supported) {
       showTaskError(support.message);
@@ -440,8 +440,8 @@ export function Tasks(props) {
               <div class="task-directory-buttons">
                 <button
                   id="pickDir"
-                  disabled={bindingBusy() || launchBusy()}
-                  title={`Базовый каталог с проектами, обычно ${PROJECTS_ROOT_NAME}`}
+                  disabled={bindingBusy()}
+                  title={`Базовый каталог с проектами, обычно ${PROJECTS_ROOT_NAME}. Смена каталога не останавливает текущий расчёт. Одновременно допускается запуск только одного решателя.`}
                   onClick={handlePickDirectory}
                 >
                   Выбрать каталог с проектами
