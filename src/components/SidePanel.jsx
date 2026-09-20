@@ -142,6 +142,11 @@ export function SidePanel(props) {
                 >
                   Сделать немагнитными
                 </button>
+                <button class="side-panel-option"
+                  disabled={!props.open || !props.medActionEnabled}
+                  onClick={props.onAutofillMed}
+                  title="Проанализировать контакты всех проводящих элементов при t = 0 и предложить MED. Выделение и фильтры не ограничивают поиск."
+                >Автозаполнение MED</button>
               </div>
             </section>
           </>

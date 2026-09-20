@@ -9,6 +9,8 @@ import { TaskInfoBar } from "./TaskInfoBar";
 import { SidePanel } from "./components/SidePanel";
 import { MaterialSelectionDialog } from "./components/materials/MaterialSelectionDialog.jsx";
 import { GeometryViewerWindow } from "./components/geometry/GeometryViewerWindow.jsx";
+import { MedAutofillDialog } from "./components/elements/MedAutofillDialog.jsx";
+import { createMedRequest, medRequestIsCurrent, applyMedResult } from "./services/medAutofillService.js";
 import {
   TABS,
   VALIDATION_LEVELS,
@@ -103,6 +105,68 @@ export default function App() {
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
   const [geometryViewerOpen, setGeometryViewerOpen] = createSignal(false);
+  const [medOpen, setMedOpen] = createSignal(false);
+  const [medRequest, setMedRequest] = createSignal(null);
+  const [medResult, setMedResult] = createSignal(null);
+  const [medBusy, setMedBusy] = createSignal(false);
+  const [medError, setMedError] = createSignal("");
+  const [medNotice, setMedNotice] = createSignal("");
+  const [medNavigation, setMedNavigation] = createSignal(null);
+  let medWorker = null;
+  let medEditor = null;
+  let medRevision = 0;
+  const medStale = () => Boolean(medRequest()) && !medRequestIsCurrent(
+    medRequest(), modelService.getModel(), selectionService.loadedTaskHandle(),
+  );
+  function stopMedWorker() {
+    medWorker?.terminate(); medWorker = null; setMedBusy(false);
+  }
+  function closeMed() {
+    medRevision += 1; stopMedWorker(); setMedOpen(false);
+  }
+  async function analyzeCurrentMed() {
+    const revision = ++medRevision;
+    stopMedWorker(); setMedOpen(true); setMedBusy(true);
+    setMedResult(null); setMedError(""); setMedNotice(""); setMedRequest(null);
+    try {
+      await medEditor?.flush();
+      if (revision !== medRevision || !medOpen()) return;
+      const request = createMedRequest(modelService.getModel(), selectionService.loadedTaskHandle());
+      setMedRequest(request);
+      const worker = new Worker(new URL("./workers/medAnalysis.worker.js", import.meta.url), {type:"module"});
+      medWorker = worker;
+      worker.onmessage = ({data}) => {
+        if (revision !== medRevision || medWorker !== worker) return;
+        stopMedWorker();
+        if (!medRequestIsCurrent(request,modelService.getModel(),selectionService.loadedTaskHandle())) return;
+        if (data.error) setMedError(data.error); else setMedResult(data.result);
+      };
+      worker.onerror = event => {
+        if (revision !== medRevision || medWorker !== worker) return;
+        stopMedWorker(); setMedError(event.message || "Не удалось выполнить анализ MED.");
+      };
+      worker.postMessage(request.snapshot);
+      setSidePanelOpen(false);
+    } catch(error) {
+      if (revision !== medRevision) return;
+      stopMedWorker(); setMedError(error.message || String(error));
+    }
+  }
+  async function applyCurrentMed() {
+    try {
+      await medEditor?.flush();
+      const changed = applyMedResult({request:medRequest(),result:medResult(),modelService,
+        schema:tabRegistry.find(s=>s.id===TABS.ELEMENTS.id),taskKey:selectionService.loadedTaskHandle()});
+      if (!changed) return;
+      setMedRequest(null); setMedResult(null); setMedNavigation(null);
+      setMedNotice("MED применён. Изменение можно отменить через Undo на вкладке элементов.");
+      await performModelValidation({restart:true});
+    } catch(error) { setMedError(error.message || String(error)); }
+  }
+  createEffect(() => {
+    if (medStale()) { medRevision += 1; stopMedWorker(); setMedNavigation(null); }
+  });
+  onCleanup(() => { medRevision += 1; stopMedWorker(); });
   const [selectedGeometryElementIndices, setSelectedGeometryElementIndices] =
     createSignal([]);
   const [selectedGeometryRegionIndices, setSelectedGeometryRegionIndices] =
@@ -199,8 +263,12 @@ export default function App() {
   }
 
   async function handleModelValidation() {
+    return performModelValidation();
+  }
+
+  async function performModelValidation({restart=false} = {}) {
     const taskHandle = selectionService.loadedTaskHandle();
-    if (!taskHandle || validationPending()) return;
+    if (!taskHandle || (validationPending() && !restart)) return;
 
     const modelSnapshot = modelService.getModel();
     const context = {
@@ -234,7 +302,7 @@ export default function App() {
       showValidationFeedback(context, "error", message);
       console.error("Не удалось завершить проверку модели", error);
     } finally {
-      setValidationPending(null);
+      if (validationPending() === context) setValidationPending(null);
     }
   }
 
@@ -272,6 +340,8 @@ export default function App() {
           active={props.active}
           computedColumnsMode={props.computedColumnsMode}
           onRecordSelectionChange={handleGeometryRecordSelectionChange}
+          medNavigation={schema.id===TABS.ELEMENTS.id ? medNavigation() : null}
+          onMedEditorReady={schema.id===TABS.ELEMENTS.id ? (editor)=>{medEditor=editor;} : undefined}
         />
       ),
     })),
@@ -582,6 +652,8 @@ export default function App() {
         materialActionVisible={materialActionVisible()}
         materialActionEnabled={materialActionEnabled()}
         onChooseMaterial={handleMaterialSelectionOpen}
+        medActionEnabled={Boolean(selectionService.loadedTaskHandle()) && Array.isArray(modelService.getModel().elements)}
+        onAutofillMed={analyzeCurrentMed}
         onMakeNonmagnetic={handleMakeElementsNonmagnetic}
       />
       <div
@@ -665,6 +737,14 @@ export default function App() {
         onClose={() => {
           setGeometryViewerOpen(false);
           geometryViewerButton?.focus();
+        }}
+      />
+      <MedAutofillDialog open={medOpen()} busy={medBusy()} stale={medStale()}
+        result={medResult()} error={medError()} notice={medNotice()}
+        onAnalyze={analyzeCurrentMed} onApply={applyCurrentMed} onClose={closeMed}
+        onNavigate={(block,face)=>{
+          setActiveTab(TABS.ELEMENTS.id);
+          setMedNavigation({block,face,request:medRequest()});
         }}
       />
     </div>
