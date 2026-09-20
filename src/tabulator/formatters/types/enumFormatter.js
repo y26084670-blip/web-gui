@@ -32,5 +32,9 @@ export function enumFormatter(cell, formatterParams) {
         return imageEnumValue(option);
     }
 
-    return option?.label ?? String(value);
+    const defaultLabel = option?.label ?? String(value);
+    const displayLabel = formatterParams?.property?.displayLabel;
+    return typeof displayLabel === "function"
+        ? displayLabel({ value, rowData: cell.getRow().getData(), defaultLabel })
+        : defaultLabel;
 }

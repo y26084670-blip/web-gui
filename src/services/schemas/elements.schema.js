@@ -448,6 +448,8 @@ export default createSchema({
             description: "Модель материала объёмного элемента",
             default: 0,
             enum: EN_MODEL,
+            displayLabel: ({ rowData, defaultLabel }) =>
+                String(rowData?.xapName ?? "").trim() === "" ? "немагнитный" : defaultLabel,
         },
 
         xapName: {

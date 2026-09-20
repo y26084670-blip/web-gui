@@ -154,6 +154,8 @@ export function createSchema({
 
         FIELD_TYPES.ENUM
         ------------------------------------------------------------------------------
+        displayLabel    Необязательная чистая функция ({ value, rowData, defaultLabel }) => string.
+                        Меняет только подпись ячейки, не enum, editor или сериализацию.
         Тип, для которого зарегистрированы списочный enumEditor и enumFormatter.
         Список берётся только из property.enum и обязателен.
         Значение по умолчанию при отсутствии default — property.enum[0].value.
@@ -206,6 +208,10 @@ function validateSchema(schema) {
     for (const [propertyName, property] of Object.entries(schema.properties)) {
 
         validatePropertyEnum(schema.id, propertyName, property);
+        if (property.displayLabel !== undefined &&
+            (property.type !== FIELD_TYPES.ENUM || typeof property.displayLabel !== "function")) {
+            throw new Error(`Schema '${schema.id}', property '${propertyName}': displayLabel requires ENUM and a function.`);
+        }
         validateColumnWidth(schema, propertyName, property);
         validateVariantCodec(
             schema,

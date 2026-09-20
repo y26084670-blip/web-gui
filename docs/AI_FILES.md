@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-15 00:20 UTC+3.
+Обновлено: 2026-09-20 22:51 UTC+3.
 
 ## Назначение
 
@@ -98,7 +98,7 @@
 | Список и запуск | `src/services/taskLaunchService.js` | `clark.tasks.txt`, связь с обработчиком `clark://` и формирование команд запуска. |
 | Окно запуска | `src/components/tasks/TaskLaunchWindow.jsx` | Представление списка и операций; предметный файловый контракт остаётся у сервиса. |
 | Предпросмотр | `src/services/taskGeometryPreviewService.js`, `src/components/geometry/TaskGeometryPreview.jsx` | Подготовка и показ геометрии выбранного, но ещё не загруженного задания. |
-| Сводки | `src/services/taskSummaryService.js` | Чтение `_summary.txt` и `_summary_out.txt` без интерпретации формата результатов. |
+| Сводки | `src/services/taskSummaryService.js` | Формирование и запись `input3XX/_summary.txt` из снимка сохраняемой модели; чтение обеих сводок без разбора результатов. Вызов записи — `App.handleSave`. [Контракт](AI_CLARK_INTEGRATION.md#task-summaries). |
 | Демо | `src/services/demoTaskService.js` | Загружаемая копия демонстрационного задания в памяти браузера. |
 | Примеры | `src/services/examplesService.js`, `src/components/help/ExamplesInstaller.jsx` | Установка дерева примеров из HTTP-источника. |
 
