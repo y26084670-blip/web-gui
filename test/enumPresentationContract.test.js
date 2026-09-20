@@ -161,3 +161,18 @@ test("Tabulator tooltips use the enlarged bold font", async () => {
         /\.tabulator-tooltip\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*bold;/su,
     );
 });
+
+test("empty material characteristic changes only the displayed model label", async () => {
+  const schema=await readFile(elementsSchemaPath,"utf8");
+  const callback=schema.match(/displayLabel:\s*([\s\S]*?),\n\s*\},\n\n\s*xapName:/u)?.[1];
+  assert.ok(callback);
+  const displayLabel=new Function(`return (${callback});`)();
+  const formatterSource=(await readFile(enumFormatterPath,"utf8")).replace(/^import .*;$/mu,"").replace("export function enumFormatter","function enumFormatter");
+  const formatter=new Function("findNamedEnumOption",formatterSource+";return enumFormatter;")((options,value)=>options.find(item=>item.value===value));
+  for(const model of [0,2])for(const xapName of ["","   ","steel"]){
+    const row={model,xapName,rv:1,targ:0},original={...row};
+    const text=formatter({getValue:()=>model,getRow:()=>({getData:()=>row})},{property:{enum:EN_MODEL,displayLabel}});
+    assert.equal(text,xapName.trim() ? EN_MODEL.find(option=>option.value===model).label : "немагнитный");
+    assert.deepEqual(row,original);
+  }
+});

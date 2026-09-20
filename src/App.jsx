@@ -24,6 +24,7 @@ import { dataService } from "./services/dataService";
 import { viewSettingsService } from "./services/viewSettingsService";
 import { selectionContextService } from "./services/selectionContextService.js";
 import { unsavedChangesService } from "./services/unsavedChangesService.js";
+import { writeTaskSummary } from "./services/taskSummaryService.js";
 import { taskApprovalService } from "./services/taskApprovalService.js";
 import {
   assignSelectedElementMaterial,
@@ -536,6 +537,18 @@ export default function App() {
           saveFailed = true;
           saveErrors.push(`${schema.title}: ${error?.message ?? String(error)}`);
           console.warn(`Не удалось сохранить '${schema.id}'`, error);
+        }
+      }
+
+      // Publish only after all present input files were written successfully.
+      // Missing optional tabs retain the existing approval-marker semantics.
+      if (saveErrors.length === 0 && savedCount > 0) {
+        try {
+          await writeTaskSummary(dirHandle, modelSnapshot);
+        } catch (error) {
+          feedbackResult = { status: "error", message: "Не удалось сохранить _summary.txt: "
+            + (error?.message ?? String(error)) };
+          return;
         }
       }
 

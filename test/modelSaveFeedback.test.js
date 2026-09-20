@@ -24,7 +24,7 @@ const createSaveRuntime = new Function("dependencies", `
   "use strict";
   const {
     createSignal, createEffect, onCleanup, selectionService, modelService,
-    taskApprovalService, dataService, unsavedChangesService, diagnosticService,
+    taskApprovalService, writeTaskSummary, dataService, unsavedChangesService, diagnosticService,
     collectModelDiagnostics, tabRegistry, VALIDATION_LEVELS,
     setTimeout, clearTimeout, console,
   } = dependencies;
@@ -102,7 +102,7 @@ function createHarness(t, options = {}) {
       createSignal,
       createEffect,
       onCleanup,
-      selectionService: { loadedTaskHandle: task },
+      selectionService: { loadedTaskHandle: task, loadedTaskIsDemo: () => false, taskDataVersion: () => 0 },
       modelService: { getModel: model },
       taskApprovalService: {
         async markUnapproved(handle) {
@@ -114,6 +114,10 @@ function createHarness(t, options = {}) {
           return options.clear?.(handle);
         },
       },
+      async writeTaskSummary(handle, snapshot) {
+        events.push({ type: "summary", handle, snapshot });
+        return options.summary?.(handle, snapshot);
+      },
       dataService: {
         async save(handle, schema, item) {
           events.push({ type: "write", handle, schema, item });
@@ -122,6 +126,7 @@ function createHarness(t, options = {}) {
         },
       },
       unsavedChangesService: {
+        setExplicitDirty() {},
         setBaseline(id, item) {
           events.push({ type: "baseline", id, item });
         },
@@ -193,7 +198,7 @@ test("save stays pending until the last write and rejects duplicate clicks", asy
   assert.equal(h.calls("baseline").length, 3);
   assert.deepEqual(h.events.map(event => event.type), [
     "mark", "write", "baseline", "write", "baseline", "write", "baseline",
-    "validate", "diagnostics", "clear",
+    "summary", "validate", "diagnostics", "clear",
   ]);
 });
 
@@ -438,4 +443,27 @@ test("save with no loaded task has no side effects or pending state", async t =>
   assert.equal(h.saveFeedback(), null);
   assert.deepEqual(h.events, []);
   assert.equal(h.clock.pendingCount, 0);
+});
+
+test("summary uses the saved snapshot and holds the save lock until committed", async t => {
+  const pending = deferred();
+  const h = createHarness(t, {summary: () => pending.promise});
+  const saving = h.handleSave(); await flushMicrotasks();
+  assert.equal(h.calls("summary").length, 1);
+  assert.equal(h.calls("summary")[0].snapshot, h.initialModel);
+  assert.ok(h.savePending()); assert.equal(h.calls("clear").length, 0);
+  pending.resolve(); await saving;
+  assertFeedback(h, "success"); assert.equal(h.calls("clear").length, 1);
+});
+
+test("failed summary write reports failure and keeps the approval marker", async t => {
+  const h = createHarness(t, {summary: () => {throw new Error("disk full")}});
+  await h.handleSave(); assertFeedback(h, "error");
+  assert.match(h.saveFeedback().message, /_summary.txt.*disk full/);
+  assert.equal(h.calls("clear").length,0);
+});
+
+test("failed input write cannot replace the old summary", async t => {
+  const h = createHarness(t, {save: () => {throw new Error("denied")}});
+  await h.handleSave(); assert.equal(h.calls("summary").length,0);
 });
