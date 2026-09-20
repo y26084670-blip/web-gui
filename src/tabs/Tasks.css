@@ -172,6 +172,12 @@
   width: 100%;
   max-width: 600px;
   margin-top: 10px;
+  color: #fff;
+  background: #237a3b;
+}
+
+.task-launch-open-button:hover {
+  background: #1b622f;
 }
 
 .box {
