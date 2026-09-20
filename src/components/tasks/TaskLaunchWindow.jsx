@@ -48,18 +48,19 @@ export function TaskLaunchWindow(props) {
     return Boolean(path && enabledEntries().some(entry => keyOf(entry.path) === keyOf(path)));
   });
   const includedDirty = createMemo(() => unsavedChangesService.hasDirty() && loadedIncluded());
-  const locked = () => busy() || Boolean(pending()) || props.bindingBusy;
+  const awaitingAcceptance = () => pending()?.state === "waiting";
+  const locked = () => busy() || awaitingAcceptance() || props.bindingBusy;
   const canLaunch = () => !locked() && !resolvingLoaded() && !loadedPathError() && !includedDirty()
     && listExists() && listValid() && enabledEntries().length > 0
     && binding()?.bindingState === "bound" && Boolean(proof());
 
-  createEffect(() => props.onBusyChange?.(busy() || Boolean(pending())));
+  createEffect(() => props.onBusyChange?.(busy() || awaitingAcceptance()));
 
   async function armLaunch(root, revision, marker = binding()) {
     setProof(null);
     if (!marker || marker.bindingState !== "bound" || !listExists() || !listValid()) return;
     const prepared = await prepareLaunchRequest(root, marker);
-    if (current(root, revision) && !pending() && !props.bindingBusy
+    if (current(root, revision) && !awaitingAcceptance() && !props.bindingBusy
       && marker.workspaceId === binding()?.workspaceId
       && binding()?.bindingState === "bound") setProof(prepared);
   }
@@ -218,6 +219,21 @@ export function TaskLaunchWindow(props) {
     }
   }
 
+  async function acceptRun(root, revision, run, result) {
+    // Native acceptance means the proof was consumed and the task list captured.
+    // Keep observing this run, but prepare a new request and release the UI.
+    if (run.state === "accepted") return;
+    setBusy(true);
+    setPending({ ...run, state: "accepted" });
+    setError("");
+    setNotice(result.message || "Clark выполняет задания…");
+    try {
+      await armLaunch(root, revision);
+    } finally {
+      if (current(root, revision)) setBusy(false);
+    }
+  }
+
   async function finishRun(root, revision, run, result) {
     setBusy(true);
     setPending(null);
@@ -255,11 +271,11 @@ export function TaskLaunchWindow(props) {
         try { result = await readLaunchResult(root, run.requestId); }
         catch { /* A concurrent native replacement is retried on the next poll. */ }
         if (!current(root, revision) || pending()?.requestId !== run.requestId) return;
+        // A list write may have started while the result file was being read.
+        if (busy() || props.bindingBusy) return;
         if (result?.workspaceId === run.workspaceId && result.action === run.action) {
           if (result.state === "accepted") {
-            setPending({ ...run, state: "accepted" });
-            setError("");
-            setNotice(result.message || "Clark выполняет задания…");
+            await acceptRun(root, revision, run, result);
           } else {
             await finishRun(root, revision, run, result);
           }
@@ -274,9 +290,7 @@ export function TaskLaunchWindow(props) {
             if (!current(root, revision) || pending()?.requestId !== run.requestId) return;
             if (latest?.workspaceId === run.workspaceId && latest.action === run.action) {
               if (latest.state === "accepted") {
-                setPending({ ...run, state: "accepted" });
-                setError("");
-                setNotice(latest.message || "Clark выполняет задания…");
+                await acceptRun(root, revision, run, latest);
               } else await finishRun(root, revision, run, latest);
               return;
             }
@@ -300,7 +314,8 @@ export function TaskLaunchWindow(props) {
   }
 
   async function refreshOnFocus() {
-    if (pending()) { await pollNative(); return; }
+    if (pending()) await pollNative();
+    if (awaitingAcceptance()) return;
     if (busy() || props.bindingBusy || disposed || !props.rootHandle) return;
     const root = props.rootHandle;
     const revision = rootRevision;
