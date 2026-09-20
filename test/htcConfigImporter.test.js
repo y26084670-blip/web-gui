@@ -108,11 +108,12 @@ test("HTC parser rejects unsupported, malformed and truncated configs", () => {
 });
 
 test("HTC serializer defaults missing j_ani and rejects non-boolean values", () => {
-    const { record } = parseHtcMaterial({
-        name: "ВТСП",
-        config: buildHtcConfig(204),
-        comment: "Описание",
-    });
+    const record = Object.fromEntries(
+        HTC_PROPERTY_KEYS.map(key => [
+            key,
+            key === "comment" ? "Описание" : key === "M3D" ? false : 1,
+        ]),
+    );
     delete record.j_ani;
     assert.equal(htcMaterialStorageRecord(record).j_ani, true);
     for (const value of [true, false]) {
