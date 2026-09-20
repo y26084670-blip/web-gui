@@ -137,6 +137,12 @@
   cursor: default;
 }
 
+.task-directory-buttons .task-bind-button.is-bound:disabled {
+  color: #fff;
+  background: #237a3b;
+  opacity: 1;
+}
+
 .task-binding-status {
   flex: 1 0 100%;
   margin: 0;

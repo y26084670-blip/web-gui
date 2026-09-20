@@ -449,12 +449,16 @@ export function Tasks(props) {
                 <button
                   type="button"
                   class="task-bind-button"
+                  classList={{ "is-bound": workspaceBinding()?.bindingState === "bound" }}
                   disabled={bindingDisabled()}
                   aria-busy={bindingBusy()}
-                  title="Связать выбранный базовый каталог с установленным Решателем"
+                  title={workspaceBinding()?.bindingState === "bound"
+                    ? "Связь с Решателем для выбранного базового каталога установлена"
+                    : "Связать выбранный базовый каталог с установленным Решателем"}
                   onClick={bindWorkspace}
                 >
-                  Связать с Решателем
+                  {workspaceBinding()?.bindingState === "bound"
+                    ? "Решатель доступен" : "Связать с Решателем"}
                 </button>
               </div>
               <p class="task-directory-hint">
