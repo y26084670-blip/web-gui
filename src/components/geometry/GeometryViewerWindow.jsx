@@ -106,7 +106,7 @@ export function GeometryViewerWindow(props) {
   let renderModeBeforeSources = null;
   let sourceSettingsButton;
   let sourceSettingsBackButton;
-  let timeAnimationFrame;
+  let viewportFrameController;
   let pendingTimeSelection;
 
   const [sceneModel, setSceneModel] = createSignal(null);
@@ -171,10 +171,6 @@ export function GeometryViewerWindow(props) {
   } с`;
 
   const cancelTimeSelection = () => {
-    if (timeAnimationFrame !== undefined) {
-      cancelAnimationFrame(timeAnimationFrame);
-      timeAnimationFrame = undefined;
-    }
     pendingTimeSelection = undefined;
   };
   const applyTimeIndex = (index) => {
@@ -189,15 +185,12 @@ export function GeometryViewerWindow(props) {
   };
   const scheduleTimeIndex = (index) => {
     pendingTimeSelection = { taskKey: props.taskKey, index };
-    if (timeAnimationFrame !== undefined) return;
-    timeAnimationFrame = requestAnimationFrame(() => {
-      timeAnimationFrame = undefined;
-      const pending = pendingTimeSelection;
-      pendingTimeSelection = undefined;
-      if (pending?.taskKey === props.taskKey && props.open) {
-        applyTimeIndex(pending.index);
-      }
-    });
+    viewportFrameController?.requestRender();
+  };
+  const commitPendingTime = () => {
+    const pending = pendingTimeSelection;
+    pendingTimeSelection = undefined;
+    if (pending?.taskKey === props.taskKey && props.open) applyTimeIndex(pending.index);
   };
 
   createEffect(() => {
@@ -926,6 +919,12 @@ export function GeometryViewerWindow(props) {
         <div class="geometry-viewer-canvas-region">
           <ThreeGeometryViewport
             scene={displayScene()}
+            geometryRevision={props.model}
+            beforeRender={commitPendingTime}
+            onFrameController={(controller) => {
+              viewportFrameController = controller;
+              if (pendingTimeSelection) controller?.requestRender();
+            }}
             filters={filters()}
             mode={renderMode()}
             showEdges={showEdges()}
@@ -965,7 +964,7 @@ export function GeometryViewerWindow(props) {
             aria-label="Номер момента времени"
             aria-valuetext={timeTitle()}
             onInput={(event) => scheduleTimeIndex(event.currentTarget.valueAsNumber)}
-            onChange={(event) => applyTimeIndex(event.currentTarget.valueAsNumber)}
+            onChange={(event) => scheduleTimeIndex(event.currentTarget.valueAsNumber)}
           />
           <output for="geometry-viewer-time-index">{timeLabel()}</output>
         </div>
