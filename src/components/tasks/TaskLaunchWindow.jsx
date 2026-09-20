@@ -172,6 +172,14 @@ export function TaskLaunchWindow(props) {
     return changeList(root => setTaskListEntriesEnabled(root, snapshot, selection, enabled));
   };
 
+  const toggleEntry = entry => {
+    if (!listValid()) return;
+    const snapshot = entries();
+    return changeList(root => setTaskListEntriesEnabled(
+      root, snapshot, new Set([entry.path]), !entry.enabled,
+    ));
+  };
+
   async function saveLoadedModel() {
     if (locked() || !includedDirty()) return;
     const root = props.rootHandle;
@@ -449,6 +457,10 @@ export function TaskLaunchWindow(props) {
               class="task-launch-row"
               classList={{ "is-disabled": !entry.enabled, "is-selected": selected().has(entry.path), "is-active": activeIndex() === index() }}
               onClick={event => selectRow(index(), event)}
+              onDblClick={() => toggleEntry(entry)}
+              title={entry.enabled
+                ? "Двойной щелчок — отключить это задание от запуска"
+                : "Двойной щелчок — подключить это задание к запуску"}
             >{entry.enabled ? "" : "*"}{entry.path}</div>
           )}</For>
         </div>
