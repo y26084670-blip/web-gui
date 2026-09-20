@@ -52,9 +52,6 @@ export function TaskLaunchWindow(props) {
   const canLaunch = () => !locked() && !resolvingLoaded() && !loadedPathError() && !includedDirty()
     && listExists() && listValid() && enabledEntries().length > 0
     && binding()?.bindingState === "bound" && Boolean(proof());
-  const bindingLabel = () => binding()?.bindingState === "bound"
-    ? "Каталог связан с Решателем"
-    : "Каталог не связан с Решателем";
 
   createEffect(() => props.onBusyChange?.(busy() || Boolean(pending())));
 
@@ -170,6 +167,14 @@ export function TaskLaunchWindow(props) {
     const selection = new Set(selected());
     if (!selection.size || !listValid()) return;
     return changeList(root => setTaskListEntriesEnabled(root, snapshot, selection, enabled));
+  };
+
+  const toggleEntry = entry => {
+    if (!listValid()) return;
+    const snapshot = entries();
+    return changeList(root => setTaskListEntriesEnabled(
+      root, snapshot, new Set([entry.path]), !entry.enabled,
+    ));
   };
 
   async function saveLoadedModel() {
@@ -393,31 +398,19 @@ export function TaskLaunchWindow(props) {
       onClose={props.onClose}
     >
       <div class="task-launch-body">
-        <div class="task-launch-hint">
-          «Обновить список» → выделить нужные задания → «Подключить» → команда запуска.
-          {" "}Новые задания отключены (*).
-        </div>
         <div class="task-launch-metadata">
+          <span>путь к файлу со списком заданий:</span>
           <span title={props.rootHandle?.name}>{props.rootHandle?.name}/{TASK_LIST_FILE}</span>
-          <span
-            class="task-launch-binding-status"
-            classList={{ "is-unbound": binding()?.bindingState !== "bound" }}
-          >{bindingLabel()}</span>
-        </div>
-        <div class="task-launch-hint">
-          {binding()?.bindingState === "bound"
-            ? "Каталог связан с Решателем. Можно запускать подключённые задания."
-            : "Нажмите «Связать с Решателем» рядом с кнопкой «Выбрать каталог с проектами» на вкладке выбора задания."}
         </div>
         <div class="task-launch-toolbar">
           <button type="button" disabled={locked() || !props.rootHandle}
             title="Обновить список заданий из базового каталога. Новые задания добавляются отключёнными; состояние существующих сохраняется."
             onClick={updateList}>Обновить список</button>
           <button type="button" disabled={locked() || !listValid() || !selected().size}
-            title="Включить выделенные задания в список для расчёта или импорта."
+            title="Включить выделенные задания в список для расчёта или импорта. Или дважды щелкнуть по строке в списке."
             onClick={() => toggleSelected(true)}>Подключить</button>
           <button type="button" disabled={locked() || !listValid() || !selected().size}
-            title="Исключить выделенные задания из запуска, сохранив их в списке."
+            title="Исключить выделенные задания из запуска, сохранив их в списке. Или дважды щелкнуть по строке в списке."
             onClick={() => toggleSelected(false)}>Отключить</button>
           <button type="button" disabled={!entries().length}
             title="Выделить все строки списка (Ctrl+A). Подключение заданий выполняется отдельной кнопкой."
@@ -449,6 +442,10 @@ export function TaskLaunchWindow(props) {
               class="task-launch-row"
               classList={{ "is-disabled": !entry.enabled, "is-selected": selected().has(entry.path), "is-active": activeIndex() === index() }}
               onClick={event => selectRow(index(), event)}
+              onDblClick={() => toggleEntry(entry)}
+              title={entry.enabled
+                ? "Двойной щелчок — отключить это задание от запуска"
+                : "Двойной щелчок — подключить это задание к запуску"}
             >{entry.enabled ? "" : "*"}{entry.path}</div>
           )}</For>
         </div>
