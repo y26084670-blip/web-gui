@@ -517,6 +517,10 @@ export function Tasks(props) {
                     selected: selectedTask()?.handle === task.handle,
                   }}
                   onClick={() => selectTaskCandidate(task)}
+                  onDblClick={() => {
+                    if (selectedTask()?.handle === task.handle) void requestTaskLoad();
+                  }}
+                  title="Двойной щелчок — загрузить задание для редактирования"
                 >
                   {task.name}
                 </div>
