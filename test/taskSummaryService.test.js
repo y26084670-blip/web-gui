@@ -123,3 +123,14 @@ test("summary aborts a failed write and propagates the error", async () => {
   await assert.rejects(writeTaskSummary(handle,summaryModel,savedAt),/disk full/);
   assert.ok(aborted);
 });
+
+
+test("summary accepts absent optional time tables represented by null", async () => {
+  const { formatTaskSummary } = await import("../src/services/taskSummaryService.js");
+  const model = {general:{doubleFloat:true,timeStep:1,countTimeSteps:0},elements:[],regions:[],amps:null,moves:null};
+  const before = structuredClone(model);
+  const text = formatTaskSummary(model, new Date("2026-09-20T00:00:00Z"));
+  assert.match(text, /Число амплитуд: 0/);
+  assert.match(text, /Число траекторий: 0/);
+  assert.deepEqual(model, before);
+});
