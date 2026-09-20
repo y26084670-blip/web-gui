@@ -22,6 +22,7 @@ for (const version of [201, 202, 203, 204]) {
         assert.equal(parsed.version, version);
         assert.equal(parsed.property.j_HC0, 2300);
         assert.equal(parsed.property.JC0, 150);
+        assert.equal(parsed.property.j_ani, true);
         assert.equal(parsed.property.j_gmin, Math.fround(0.01));
         assert.equal(parsed.property.j1_delta, Math.fround(0.03));
         assert.equal(parsed.property.j2_n, 21);
@@ -104,6 +105,27 @@ test("HTC parser rejects unsupported, malformed and truncated configs", () => {
 
     const truncated = buildHtcConfig(204).split(/\r?\n/).slice(0, 20).join("\n");
     assert.throws(() => parseHtcConfig(truncated), /оборван/);
+});
+
+test("HTC serializer defaults missing j_ani and rejects non-boolean values", () => {
+    const { record } = parseHtcMaterial({
+        name: "ВТСП",
+        config: buildHtcConfig(204),
+        comment: "Описание",
+    });
+    delete record.j_ani;
+    assert.equal(htcMaterialStorageRecord(record).j_ani, true);
+    for (const value of [true, false]) {
+        record.j_ani = value;
+        assert.equal(JSON.parse(serializeHtcMaterial(record)).j_ani, value);
+    }
+    for (const value of [0, 1, "false", null, undefined]) {
+        record.j_ani = value;
+        assert.throws(
+            () => serializeHtcMaterial(record),
+            /j_ani.*логическим значением/u,
+        );
+    }
 });
 
 test("HTC material parser does not require unrelated version 204 circuit data", () => {

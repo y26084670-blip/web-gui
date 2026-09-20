@@ -175,12 +175,13 @@ test("HTC model drops legacy fields and supplies solver defaults", () => {
     assert.equal(material.KHabc, 1);
     assert.equal(material.Diag, 0);
     assert.equal(material.M3D, false);
+    assert.equal(material.j_ani, true);
 });
 
 test("normalized legacy HTC material serializes as the current local format", () => {
     const legacyProperty = Object.fromEntries(
         HTC_PARAMETER_NAMES
-            .filter(name => !["KHabc", "Diag", "M3D"].includes(name))
+            .filter(name => !["j_ani", "KHabc", "Diag", "M3D"].includes(name))
             .map((name, index) => [name, index + 1]),
     );
     const [material] = toHtcLibraryModel([{
@@ -203,5 +204,24 @@ test("normalized legacy HTC material serializes as the current local format", ()
     assert.equal(file.data.KHabc, 1);
     assert.equal(file.data.Diag, 0);
     assert.equal(file.data.M3D, false);
+    assert.equal(file.data.j_ani, true);
     assert.equal(file.text.includes("m2_dh"), false);
+});
+
+test("isotropic HTC choice survives model projection, save and reload", () => {
+    const legacyProperty = Object.fromEntries(
+        HTC_PARAMETER_NAMES
+            .filter(name => !["j_ani", "KHabc", "Diag", "M3D"].includes(name))
+            .map((name, index) => [name, index + 1]),
+    );
+    const [material] = toHtcLibraryModel([{
+        name: "Изотропная ВТСП",
+        data: { ...legacyProperty, j_ani: false },
+    }]);
+    assert.equal(material.j_ani, false);
+    const file = createHtcMaterialFile(material);
+    const data = JSON.parse(file.text);
+    assert.equal(data.j_ani, false);
+    const [reloaded] = toHtcLibraryModel([{ name: material.name, data }]);
+    assert.equal(reloaded.j_ani, false);
 });

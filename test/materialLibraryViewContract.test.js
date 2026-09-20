@@ -24,6 +24,10 @@ test("FMM detail projection has twelve H-M rows", () => {
 test("HTC detail contract lists eighteen current scalar parameters", () => {
     assert.equal(HTC_PARAMETER_NAMES.length, 18);
     assert.deepEqual(
+        HTC_PARAMETER_NAMES.slice(3, 6),
+        ["JCb", "j_ani", "j_type"],
+    );
+    assert.deepEqual(
         HTC_PARAMETER_NAMES.slice(-3),
         ["KHabc", "Diag", "M3D"],
     );

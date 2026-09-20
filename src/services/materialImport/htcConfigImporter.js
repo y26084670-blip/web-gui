@@ -1,3 +1,4 @@
+import { HTC_EFFECTIVE_DEFAULTS } from "../materials/materialConstants.js";
 import {
     legacyMaterialFileName,
     validateLegacyMaterialName,
@@ -15,6 +16,7 @@ export const HTC_PROPERTY_KEYS = Object.freeze([
     "JC0",
     "JCa",
     "JCb",
+    "j_ani",
     "j_type",
     "j_gmin",
     "j1_delta",
@@ -234,6 +236,7 @@ export function parseHtcConfig(source) {
             JC0,
             JCa,
             JCb,
+            j_ani: HTC_EFFECTIVE_DEFAULTS.j_ani,
             j_type,
             j_gmin,
             j1_delta,
@@ -287,6 +290,9 @@ export function parseHtcMaterial({ name, config, comment }) {
 }
 
 function requirePropertyValue(record, key) {
+    if (key === "j_ani" && !Object.hasOwn(record, key)) {
+        return HTC_EFFECTIVE_DEFAULTS.j_ani;
+    }
     const value = record[key];
 
     if (key === "comment") {
@@ -295,9 +301,9 @@ function requirePropertyValue(record, key) {
         }
         return value;
     }
-    if (key === "M3D") {
+    if (key === "M3D" || key === "j_ani") {
         if (typeof value !== "boolean") {
-            throw new Error("M3D характеристики ВТСП должен быть логическим значением.");
+            throw new Error(`${key} характеристики ВТСП должен быть логическим значением.`);
         }
         return value;
     }

@@ -67,6 +67,16 @@ export default createSchema({
             "Второй показатель степени критического тока",
         ),
         // токовая подсистема
+        j_ani: {
+            ...scalar(
+                FIELD_TYPES.BOOLEAN,
+                "Тип токовой подсистемы",
+                "true - планарная модель электропроводящих свойств с нулевой X компонентой в плоскости анизотропии, false - изотропные электропроводящие свойства",
+                HTC_EFFECTIVE_DEFAULTS.j_ani,
+            ),
+            textOn: "Планарная",
+            textOff: "Изотропная",
+        },
         j_type: scalar(
             FIELD_TYPES.INTEGER,
             "j_type",
