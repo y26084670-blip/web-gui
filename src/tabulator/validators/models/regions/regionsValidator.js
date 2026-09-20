@@ -1,3 +1,4 @@
+import { validateRegionReferences } from "../../../../services/modelReferenceValidation.js";
 import {
     createError,
     createWarning,
@@ -18,6 +19,7 @@ export function regionsValidator(
 ) {
     const regions = service.getModel()[TABS.REGIONS.id];
     if (!Array.isArray(regions)) return;
+    validateRegionReferences(service.getModel(), diagnostics);
 
     regions.forEach((record, index) => {
         for (const shape of FIXED_ARRAY_SHAPES) {
@@ -65,16 +67,6 @@ function validateRecordRules(record, index, diagnostics) {
                     + "угол симметрии (шаг по углу) излишне",
             }));
         }
-    }
-
-    if (Number.isFinite(record?.indMove) && record.indMove < 0) {
-        diagnostics.push(createError({
-            tab: TABS.REGIONS,
-            row: index + 1,
-            property: "indMove",
-            message:
-                "индекс движения не может быть отрицательным",
-        }));
     }
 
     if (!hasCompleteShape(record?.dp, { rows: 2, columns: 1 })) return;

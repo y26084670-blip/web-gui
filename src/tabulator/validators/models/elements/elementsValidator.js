@@ -1,3 +1,4 @@
+import { validateElementReferences } from "../../../../services/modelReferenceValidation.js";
 import {
     createError,
     createWarning,
@@ -91,6 +92,7 @@ export function elementsValidator(
 ) {
     const elements = service.getModel()[TABS.ELEMENTS.id];
     if (!Array.isArray(elements)) return;
+    validateElementReferences(service.getModel(), diagnostics);
 
     validateArrayShapes(elements, diagnostics);
     validateRecordRules(elements, diagnostics);
@@ -145,16 +147,6 @@ function validateRecordRules(elements, diagnostics) {
                 "при отсутствии периодических образов задавать "
                 + "шаг вдоль оси излишне",
         });
-
-        if (Number.isFinite(record?.indMove) && record.indMove < 0) {
-            diagnostics.push(createError({
-                tab: TABS.ELEMENTS,
-                row: index + 1,
-                property: "indMove",
-                message:
-                    "индекс движения не может быть отрицательным",
-            }));
-        }
 
         if (Number.isFinite(record?.rv) && record.rv < 0) {
             diagnostics.push(createError({
