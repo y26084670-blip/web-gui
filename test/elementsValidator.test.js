@@ -3,6 +3,16 @@ import assert from "node:assert/strict";
 
 import { elementsValidator }
     from "../src/tabulator/validators/models/elements/elementsValidator.js";
+import {medModel,medBox} from "./fixtures/medContactCases.js";
+
+test("MED diagnostics use the full model and do not modify stored pointers",()=>{
+    const model=medModel([medBox(),medBox({origin:[1,.25,.25],size:[1,.5,.5]})]);
+    const before=structuredClone(model),messages=[];
+    elementsValidator({getModel:()=>model},messages);
+    assert.ok(messages.some(d=>d.code==="PARTIAL_CONTACT"&&d.row===1));
+    assert.ok(messages.some(d=>d.code==="PARTIAL_CONTACT"&&d.row===2));
+    assert.deepEqual(model,before);
+});
 
 const EPS = 0.03;
 

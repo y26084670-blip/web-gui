@@ -92,6 +92,32 @@ export function DataEditor(props) {
   let latestModelRevision = 0;
   let observedModelRevision = 0;
   let modelApplyQueue = Promise.resolve();
+  async function flushMedEdits() {
+    document.activeElement?.blur();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await modelApplyQueue;
+  }
+  createEffect(() => {
+    const request = props.medNavigation;
+    if (!request || !props.active) return;
+    void flushMedEdits().then(async () => {
+      if (!table || props.medNavigation !== request) return;
+      // Default getRows() retains source order; "active" applies filtering and
+      // sorting. getData() may return accessor copies, so identity is unsuitable.
+      const row = table.getRows()[request.block - 1];
+      if (!row) return;
+      if (!table.getRows("active").includes(row)) table.clearFilter(true);
+      table.deselectRow(); row.select();
+      await table.scrollToRow(row, "center", false);
+      if (props.medNavigation !== request) return;
+      const cell = row.getCell("med");
+      if (cell) {
+        const property = table._gui.schema.properties.med;
+        viewRegistry.get(property.view ?? VIEW_TYPES.TABLE)?.activate?.(cell, {property});
+        cell.getElement()?.focus();
+      }
+    }).catch(error => console.error("MED navigation:", error));
+  });
   let pendingCellChange = null;
   let selectionRevision = 0;
   let observedViewDependencyKey = null;
@@ -227,6 +253,8 @@ export function DataEditor(props) {
     };
 
     table = new Tabulator(tableDiv, options);
+    props.onMedEditorReady?.({flush:flushMedEdits});
+    onCleanup(() => props.onMedEditorReady?.(null));
 
     // Контекст GUI данного экземпляра Tabulator.
     // См. архитектурный контракт использования schema в начале файла.

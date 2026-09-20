@@ -1,0 +1,12 @@
+.med-autofill { padding: 12px; overflow: auto; height: 100%; box-sizing: border-box; font-size: 13px; color: #18222e; background: #f8fafc; }
+.med-autofill p { margin: 0 0 10px; }
+.med-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+.med-toolbar button:disabled { background: #d1d5db; color: #64748b; cursor: default; }
+.med-autofill table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.med-autofill th, .med-autofill td { padding: 6px; border: 1px solid #cbd5e1; text-align: left; }
+.med-autofill th { background: #eef2f6; }
+.med-autofill small { display: block; color: #475569; }
+.med-autofill .med-element-link { background: transparent; border: 0; color: #1d4ed8; text-decoration: underline; padding: 2px 4px; cursor: pointer; }
+.med-autofill .med-element-link:disabled { color: #64748b; cursor: default; }
+.med-error { color: #b91c1c; }
+.med-counts { font-weight: bold; }

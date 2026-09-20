@@ -10,6 +10,7 @@ import {
     from "../../../../services/solver/geometryKv.js";
 import { validateElementMaterialReferences }
     from "../../../../services/materialReferenceValidation.js";
+import { analyzeMed, medDiagnostics } from "../../../../services/medAnalysisService.js";
 
 const GEO_SHAPE = Object.freeze({
     property: "geo",
@@ -100,6 +101,7 @@ export function elementsValidator(
         context.materialCatalog,
         diagnostics,
     );
+    diagnostics.push(...medDiagnostics(analyzeMed(service.getModel())));
 }
 
 function validateRecordRules(elements, diagnostics) {
