@@ -4,6 +4,7 @@ export const TASK_LIST_FILE = "clark.tasks.txt";
 export const WORKSPACE_FILE = "clark.workspace.json";
 export const PROOF_FILE = "clark.launch.json";
 export const RESULT_FILE = "clark.launch-result.json";
+export const SETTINGS_FILE = "clark.settings.json";
 export const LAUNCH_ACTIONS = Object.freeze(["solver", "circuit", "import"]);
 
 const SCHEMA_VERSION = 1;
@@ -210,13 +211,50 @@ export async function prepareLaunchRequest(root, binding) {
 }
 
 // Keep opening the URI synchronous in the click handler; prepare files beforehand.
-export function createNativeLaunchUri(workspaceId, action, requestId) {
+export function parseMpiRanks(value) {
+  const text = String(value ?? "").trim();
+  if (!text || text.toLowerCase() === "default") return null;
+  if (!/^[1-9]\d*$/.test(text) || !Number.isSafeInteger(Number(text)) || Number(text) > 2147483647) {
+    throw new Error("Число процессов MPI: целое число от 1 до 2147483647 или default.");
+  }
+  return Number(text);
+}
+
+export function formatMpiRanks(value) {
+  return Number.isInteger(value) && value >= 1 && value <= 2147483647 ? String(value) : "default";
+}
+
+export function createNativeSettingsRequest(binding) {
+  if (binding?.bindingState !== "bound" || binding.launchOptionsVersion !== 1) return null;
+  const workspaceId = requireGuid(binding.workspaceId);
+  const requestId = globalThis.crypto.randomUUID();
+  const query = new URLSearchParams({ workspace: workspaceId, request: requestId });
+  return { workspaceId, requestId, uri: `clark://settings?${query}` };
+}
+
+export async function readRuntimeSettings(root, request) {
+  const result = await readJsonFile(root, SETTINGS_FILE);
+  if (result === null || result.requestId !== request.requestId
+    || result.workspaceId !== request.workspaceId) return null;
+  if (result.schemaVersion !== SCHEMA_VERSION
+    || (result.mpiRanks !== null && formatMpiRanks(result.mpiRanks) === "default")) {
+    throw new Error("Некорректные настройки запуска Clark.");
+  }
+  return result;
+}
+
+export function createNativeLaunchUri(workspaceId, action, requestId, mpiRanks = null) {
   if (!LAUNCH_ACTIONS.includes(action)) throw new Error("Неизвестное действие Clark.");
   const query = new URLSearchParams({
     workspace: requireGuid(workspaceId),
     action,
     request: requireGuid(requestId),
   });
+  const ranks = parseMpiRanks(mpiRanks);
+  if (ranks !== null) {
+    if (action === "import") throw new Error("Для импорта число процессов MPI не задаётся.");
+    query.set("mpiRanks", String(ranks));
+  }
   return `clark://run?${query}`;
 }
 
