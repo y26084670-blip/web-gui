@@ -9,6 +9,7 @@ import {
   TASK_LIST_FILE, createNativeLaunchUri, invalidateLaunchRequest,
   prepareLaunchRequest, readLaunchResult,
   readTaskList, refreshTaskList, setTaskListEntriesEnabled,
+  parseMpiRanks, formatMpiRanks, readRuntimeSettings,
 } from "../../services/taskLaunchService.js";
 import "./TaskLaunchWindow.css";
 
@@ -26,6 +27,13 @@ export function TaskLaunchWindow(props) {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [notice, setNotice] = createSignal("");
+  const [mpiValue, setMpiValue] = createSignal("default");
+  const [mpiEdited, setMpiEdited] = createSignal(false);
+  const [settingsPending, setSettingsPending] = createSignal(null);
+  const mpiError = createMemo(() => {
+    try { parseMpiRanks(mpiValue()); return ""; }
+    catch (failure) { return errorText(failure); }
+  });
   const binding = () => props.binding ?? null;
   const [proof, setProof] = createSignal(null);
   const [pending, setPending] = createSignal(null);
@@ -39,6 +47,7 @@ export function TaskLaunchWindow(props) {
   let loadedRevision = 0;
   let disposed = false;
   let polling = false;
+  let settingsPolling = false;
 
   const current = (root, revision) => !disposed
     && root === props.rootHandle && revision === rootRevision;
@@ -98,6 +107,9 @@ export function TaskLaunchWindow(props) {
         setProof(null);
         setPending(null);
         setConfirmImport(false);
+        setMpiValue("default");
+        setMpiEdited(false);
+        setSettingsPending(null);
       });
       anchorIndex = 0;
       void loadRoot(root, revision);
@@ -108,9 +120,39 @@ export function TaskLaunchWindow(props) {
     const marker = binding();
     untrack(() => {
       setProof(null);
+      if (!mpiEdited()) setMpiValue(formatMpiRanks(marker?.mpiRanks));
       if (marker?.bindingState === "bound") void refreshOnFocus();
     });
   });
+
+  createEffect(() => {
+    const request = props.settingsRequest;
+    untrack(() => {
+      setSettingsPending(request ? { ...request, startedAt: Date.now() } : null);
+      if (request && !mpiEdited()) setMpiValue("default");
+      void pollSettings();
+    });
+  });
+
+  async function pollSettings() {
+    const request = settingsPending();
+    const root = props.rootHandle;
+    const revision = rootRevision;
+    if (!request || !root || disposed || settingsPolling) return;
+    settingsPolling = true;
+    try {
+      const result = await readRuntimeSettings(root, request);
+      if (!current(root, revision) || settingsPending()?.requestId !== request.requestId) return;
+      if (result) {
+        if (!mpiEdited()) setMpiValue(formatMpiRanks(result.mpiRanks));
+        setSettingsPending(null);
+      } else if (Date.now() - request.startedAt >= ACCEPT_TIMEOUT_MS) setSettingsPending(null);
+    } catch {
+      // An unavailable/being-replaced settings file leaves the explicit default.
+      if (current(root, revision) && settingsPending()?.requestId === request.requestId
+        && Date.now() - request.startedAt >= ACCEPT_TIMEOUT_MS) setSettingsPending(null);
+    } finally { settingsPolling = false; }
+  }
 
   createEffect(() => {
     const root = props.rootHandle;
@@ -201,7 +243,11 @@ export function TaskLaunchWindow(props) {
     const prepared = proof();
     const snapshot = entries().map(entry => ({ ...entry }));
     try {
-      const uri = createNativeLaunchUri(prepared.workspaceId, action, prepared.requestId);
+      const ranks = action === "import" || !mpiEdited() ? null : parseMpiRanks(mpiValue());
+      if (ranks !== null && binding()?.launchOptionsVersion !== 1) {
+        throw new Error("Для выбора числа процессов обновите установленный Clark и повторите привязку.");
+      }
+      const uri = createNativeLaunchUri(prepared.workspaceId, action, prepared.requestId, ranks);
       if (action === "import") props.onBeforeImport?.(snapshot, loadedIncluded());
       setPending({
         ...prepared, action, entries: snapshot, startedAt: Date.now(), state: "waiting",
@@ -332,8 +378,8 @@ export function TaskLaunchWindow(props) {
   }
 
   onMount(() => {
-    const timer = window.setInterval(() => { void pollNative(); }, 1000);
-    const onFocus = () => { void refreshOnFocus(); };
+    const timer = window.setInterval(() => { void pollNative(); void pollSettings(); }, 1000);
+    const onFocus = () => { void refreshOnFocus(); void pollSettings(); };
     window.addEventListener("focus", onFocus);
     onCleanup(() => {
       window.clearInterval(timer);
@@ -478,11 +524,20 @@ export function TaskLaunchWindow(props) {
               onClick={() => setConfirmImport(false)}>Отмена</button>
           </div>
         </Show>
+        <label class="task-launch-mpi">
+          <span>Процессов MPI:</span>
+          <input type="text" inputMode="numeric" value={mpiValue()} disabled={locked()}
+            aria-invalid={Boolean(mpiError())}
+            title="Число процессов для расчёта и полевого решателя цепи. default — значение из настроек Clark. Импорт не использует MPI."
+            onInput={event => { setMpiEdited(true); setMpiValue(event.currentTarget.value); }}
+            onBlur={() => { if (!mpiValue().trim()) setMpiValue("default"); }} />
+          <Show when={mpiError()}><span class="task-launch-error" role="alert">{mpiError()}</span></Show>
+        </label>
         <div class="task-launch-actions">
-          <button type="button" disabled={!canLaunch()}
+          <button type="button" disabled={!canLaunch() || Boolean(mpiError())}
             title="Запустить расчёт всех подключённых заданий независимо от выделения строк."
             onClick={() => launch("solver")}>Запустить расчёт</button>
-          <button type="button" disabled={!canLaunch() || enabledEntries().length !== 1}
+          <button type="button" disabled={!canLaunch() || Boolean(mpiError()) || enabledEntries().length !== 1}
             title="Запустить клиента электрической цепи. Требуется ровно одно подключённое задание REAL64 с конфигурацией цепи."
             onClick={() => launch("circuit")}>Запустить клиента — эл. цепь</button>
           <button type="button" disabled={!canLaunch()}

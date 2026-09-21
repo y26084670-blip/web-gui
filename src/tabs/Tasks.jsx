@@ -13,6 +13,7 @@ import { TaskLaunchWindow } from "../components/tasks/TaskLaunchWindow.jsx";
 import {
   prepareWorkspaceBinding,
   readWorkspaceBinding,
+  createNativeSettingsRequest,
 } from "../services/taskLaunchService.js";
 import {
   readTaskResultsSummary,
@@ -47,6 +48,7 @@ export function Tasks(props) {
   const [taskResultsText, setTaskResultsText] = createSignal("");
   const [demoLoading, setDemoLoading] = createSignal(false);
   const [taskLaunchOpen, setTaskLaunchOpen] = createSignal(false);
+  const [settingsRequest, setSettingsRequest] = createSignal(null);
   const [previewRevision, setPreviewRevision] = createSignal(1);
   const [workspaceBinding, setWorkspaceBinding] = createSignal(null);
   const [bindingBusy, setBindingBusy] = createSignal(false);
@@ -108,6 +110,7 @@ export function Tasks(props) {
   const resetWorkspaceBinding = () => {
     bindingRevision += 1;
     setWorkspaceBinding(null);
+    setSettingsRequest(null);
     setBindingBusy(false);
     setBindUri("");
     setBindingNotice("");
@@ -118,6 +121,14 @@ export function Tasks(props) {
     setBindingNotice("Выберите в окне Решателя тот же базовый каталог «"
       + rootHandle().name + "». После отмены можно нажать «Связать с Решателем» повторно.");
     window.location.href = uri;
+  }
+
+  function openTaskLaunch() {
+    const request = createNativeSettingsRequest(workspaceBinding());
+    setSettingsRequest(request);
+    setTaskLaunchOpen(true);
+    // A direct click retains browser permission to open the protocol handler.
+    if (request) window.location.href = request.uri;
   }
 
   async function bindWorkspace() {
@@ -557,7 +568,7 @@ export function Tasks(props) {
             type="button"
             class="task-launch-open-button"
             disabled={!rootHandle()}
-            onClick={() => setTaskLaunchOpen(true)}
+            onClick={openTaskLaunch}
           >
             Формирование списка заданий и запуск решателей или импорта
           </button>
@@ -607,6 +618,7 @@ export function Tasks(props) {
         open={taskLaunchOpen() && props.active !== false}
         rootHandle={rootHandle()}
         binding={workspaceBinding()}
+        settingsRequest={settingsRequest()}
         bindingBusy={bindingBusy()}
         onBusyChange={setLaunchBusy}
         onClose={() => setTaskLaunchOpen(false)}

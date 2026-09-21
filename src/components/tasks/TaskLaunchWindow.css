@@ -205,3 +205,26 @@
 .task-launch-actions button {
     background: #244e77;
 }
+
+.task-launch-mpi {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.task-launch-mpi input {
+    box-sizing: border-box;
+    width: 105px;
+    padding: 5px 7px;
+    color: #edf2f7;
+    background: #151a20;
+    border: 1px solid #667789;
+    border-radius: 4px;
+    font: inherit;
+}
+
+.task-launch-mpi input[aria-invalid="true"] {
+    border-color: #ffafaf;
+}
