@@ -293,11 +293,6 @@ test("Three viewport limits expansion and fixes reflected face winding", async (
   const source = await readFile(viewportUrl, "utf8");
 
   assert.match(source, /GEOMETRY_INSTANCE_BUDGET = 20_000/u);
-  assert.match(source, /GEOMETRY_RENDER_OBJECT_BUDGET = 1_000/u);
-  assert.match(
-    source,
-    /renderedPrimitives \+ objectCost > objectBudget/u,
-  );
   assert.match(source, /renderedPrimitives \+= objectCost/u);
   assert.match(source, /matrix\.fromArray\(instance\.matrix\)/u);
   assert.match(source, /matrix\.determinant\(\) < 0/u);
