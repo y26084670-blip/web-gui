@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-20 23:51 UTC+3.
+Обновлено: 2026-09-22.
 
 ## Назначение
 
@@ -282,3 +282,16 @@ File System Access API и разрешение `readwrite` сохраняютс�
 и допустимого кода виртуального направления; вызывается валидаторами элементов
 и областей. [Контракт](AI_DATA_CONTRACTS.md#time-references),
 тесты — `test/modelReferenceValidation.test.js`.
+
+## Маршрут по намерению, 22.09.2026
+
+| Намерение | Прочитать и использовать |
+|---|---|
+| Сгенерировать/укрупнить ШГ | [AI_GEOMETRY_GENERATION.md](AI_GEOMETRY_GENERATION.md), схемы elements/regions, solver-совместимая геометрия, MED-анализ |
+| Изменить сохранение input3XX | [AI_DATA_CONTRACTS.md](AI_DATA_CONTRACTS.md), [AI_CLARK_INTEGRATION.md](AI_CLARK_INTEGRATION.md), modelSerializer/dataService |
+| Разобраться в текущем J/λ | [solver/AI_NUMERICAL_CONTRACTS.md](https://github.com/y26084670-blip/solver/blob/main/docs/AI_NUMERICAL_CONTRACTS.md#nc-jweak-nonlinear) и src/vsolver/02_current_newton.jl |
+| Сравнить расчёт с эталоном | [clark.tests/AI_FILES.md](https://github.com/y26084670-blip/clark.tests/blob/main/docs/AI_FILES.md), затем контракт задачи и датированные данные |
+
+Проверенная база кода для этого маршрута: web-gui f8c85c8a3197eb50e3baf5030d06831244b86528,
+solver ab322751dc1756471b657902f675f12cac514693. Другие даты в карте относятся
+к своим разделам и не подтверждают повторную проверку всего проекта.
