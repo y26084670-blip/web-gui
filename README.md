@@ -1,6 +1,6 @@
 # Clark UI Editor
 
-Обновлено: 2026-09-22.
+Обновлено: 2026-09-22 13:16 UTC+3.
 
 Текущая версия: **4.25.0**.
 
@@ -215,5 +215,5 @@ npm test
 или пустые таблицы. Для виртуального элемента допустим целый `indAmp` от 0 до 3.
 [Правила диагностики](docs/AI_DATA_CONTRACTS.md#time-references).
 
-Для AI: [вход](AGENTS.md) → [политика](DOC_POLICY.md) → [карта файлов](docs/AI_FILES.md).
+Для AI: [политика](DOC_POLICY.md) → [карта файлов](docs/AI_FILES.md).
 Подготовка геометрии и контрольных точек: [единое руководство](docs/AI_GEOMETRY_GENERATION.md).
