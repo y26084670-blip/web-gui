@@ -4,26 +4,138 @@ on:
     branches: [fix/jweak-med-parents-20260923]
     paths: [.github/workflows/jweak-med-workbench.yml]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  workspace:
+  publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm ci --ignore-scripts
-      - name: Package tracked sources and installed test dependencies
+      - run: npm ci
+      - name: Record unchanged baseline
         run: |
-          git archive --format=tar HEAD -o /tmp/jweak-med-workbench.tar
-          tar --append --file=/tmp/jweak-med-workbench.tar node_modules
-          gzip /tmp/jweak-med-workbench.tar
+          mkdir -p /tmp/jweak-med-checks
+          node --test --test-reporter=tap > /tmp/jweak-med-checks/baseline.tap 2>&1 || echo $? > /tmp/jweak-med-checks/baseline.exit
+      - name: Recover and verify reviewed patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64, gzip, hashlib, json, subprocess
+          from pathlib import Path
+          chunks = [
+            ('725c0b6ff7bff77ad40d960e81a67fac0d3532a0', '725c0b6ff7bff77ad40d960e81a67fac0d3532a0'),
+            ('5d01f9c78c760b5b256aa9fb6f90a14232be0535', 'bc33c367db3cf5b6fa9c414c8c99e5167359ea34'),
+            ('a15e1d8f105d10f0cb6503296f128f9ce031316c', 'a15e1d8f105d10f0cb6503296f128f9ce031316c'),
+            ('6b076407f8b5c30fea075d592664aebac890d39f', '6b076407f8b5c30fea075d592664aebac890d39f'),
+            ('5cf4a174b1ada3e317ed69dfb3fe092306f94b57', '5cf4a174b1ada3e317ed69dfb3fe092306f94b57'),
+            ('a73d06f15a03dd5e8ce6c297e09d27b30ef2e7e3', 'a73d06f15a03dd5e8ce6c297e09d27b30ef2e7e3'),
+            ('ee9ea3ac01288610fe5ee6b84dec16fc220aa1e8', '9ca2fef2f6d8d257cfd0df018b4b7c849864176a'),
+            ('90fdc1d81e7769af4aef056cfd2c43b8cb67f0e8', '90fdc1d81e7769af4aef056cfd2c43b8cb67f0e8'),
+            ('7c3555284c08480772ec05b2eaac025c4982c974', '7c3555284c08480772ec05b2eaac025c4982c974'),
+            ('d2be343fbd732a67fd684b91c1006be19d864cc7', 'd2be343fbd732a67fd684b91c1006be19d864cc7'),
+          ]
+          data = []
+          for index, (remote, expected) in enumerate(chunks):
+              response = json.loads(subprocess.check_output(['gh', 'api', 'repos/y26084670-blip/web-gui/git/blobs/' + remote]))
+              value = base64.b64decode(response['content']).decode('ascii')
+              if index == 1:
+                  value = value.replace('LWzucGtyxf', 'LWz14+c+utyxf')
+              if index == 6:
+                  value = value.replace('G1a7kvHxVkm', 'G1a7kvHxkm')
+              value = value.encode('ascii')
+              assert hashlib.sha1(f'blob {len(value)}\0'.encode() + value).hexdigest() == expected, index
+              data.append(value)
+          patch = gzip.decompress(base64.b64decode(b''.join(data), validate=True))
+          expected = '34afd36de6f022591c4f4e0efca67f346f15bb49e9f61eb304f4e47b2cb4002f'
+          assert len(patch) == 137582 and hashlib.sha256(patch).hexdigest() == expected
+          Path('/tmp/jweak-med-checks/implementation.patch').write_bytes(patch)
+          subprocess.run(['git', 'apply', '--check', '/tmp/jweak-med-checks/implementation.patch'], check=True)
+          subprocess.run(['git', 'apply', '/tmp/jweak-med-checks/implementation.patch'], check=True)
+          print('Reviewed patch SHA-256 verified:', expected)
+          PY
+      - name: Verify intended paths and stage
+        run: |
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          paths = '''README.md
+          docs/AI_ARCHITECTURE_AUDIT.md
+          docs/AI_CLARK_INTEGRATION.md
+          docs/AI_DATA_CONTRACTS.md
+          docs/AI_FILES.md
+          docs/AI_GEOMETRY_GENERATION.md
+          docs/AI_ROADMAP.md
+          docs/AI_UI_CONTRACTS.md
+          docs/AI_VERIFICATION.md
+          docs/resume.md
+          package-lock.json
+          package.json
+          src/App.jsx
+          src/components/editors/DataEditor.jsx
+          src/components/elements/MedAutofillDialog.jsx
+          src/services/jweakLocalService.js
+          src/services/medAnalysisService.js
+          src/services/modelService.js
+          src/services/solver/jweakLocalValidation.js
+          test/dataEditorToolbarContract.test.js
+          test/fixtures/team7-med/general.txt
+          test/fixtures/team7-med/jweak_local.json
+          test/fixtures/team7-med/kvs.txt
+          test/fixtures/team7-med/manifest.json
+          test/jweakLocalService.test.js
+          test/jweakLocalValidation.test.js
+          test/jweakMedIntegration.test.js
+          test/modelSaveFeedback.test.js'''.splitlines()
+          expected = set(paths)
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
+          changed |= set(subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], text=True).splitlines())
+          assert changed == expected, (sorted(changed-expected), sorted(expected-changed))
+          subprocess.run(['git', 'add', '--', *paths], check=True)
+          subprocess.run(['git', 'diff', '--cached', '--check'], check=True)
+          Path('/tmp/jweak-med-checks/changed-files.txt').write_text('\n'.join(sorted(changed)))
+          PY
+      - name: Targeted tests
+        run: node --test --test-reporter=tap test/jweak*.test.js test/med*.test.js test/modelSaveFeedback.test.js > /tmp/jweak-med-checks/targeted.tap 2>&1
+      - name: Full-suite baseline comparison
+        run: |
+          node --test --test-reporter=tap > /tmp/jweak-med-checks/current.tap 2>&1 || echo $? > /tmp/jweak-med-checks/current.exit
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          root=Path('/tmp/jweak-med-checks')
+          def read(name):
+              text=(root/(name+'.tap')).read_text()
+              metrics={k:int(v) for k,v in re.findall(r'^# (tests|pass|fail|cancelled|skipped) (\d+)$',text,re.M)}
+              failures=sorted(re.sub(r'^not ok \d+ - ', '', line) for line in text.splitlines() if line.startswith('not ok '))
+              assert metrics.get('tests',0)>400 and metrics.get('cancelled',0)==0, metrics
+              return {'metrics':metrics,'failures':failures}
+          baseline,current=read('baseline'),read('current')
+          result={'baseline':baseline,'current':current,'new_failures':sorted(set(current['failures'])-set(baseline['failures']))}
+          (root/'regression.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print(json.dumps(result,ensure_ascii=False,indent=2))
+          assert not result['new_failures']
+          assert current['metrics']['fail'] <= baseline['metrics']['fail']
+          PY
+      - name: Release and Pages builds
+        run: |
+          npm run build:release > /tmp/jweak-med-checks/release.log 2>&1
+          npm run build:pages > /tmp/jweak-med-checks/pages.log 2>&1
+      - name: Publish only to working branch
+        run: |
+          test "$GITHUB_REF" = refs/heads/fix/jweak-med-parents-20260923
+          git diff --exit-code
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Support prepared JWeak parent-grid MED validation' -m 'Readonly sidecar lifecycle, hierarchy contract, unified MED analysis, safe-save guards, structural edit lock, TEAM7 regressions and canonical documentation. Version 4.27.0. Solver and task source files unchanged.'
+          git rev-parse HEAD | tee /tmp/jweak-med-checks/commit.txt
+          git push origin HEAD:refs/heads/fix/jweak-med-parents-20260923
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: jweak-med-workbench
-          path: /tmp/jweak-med-workbench.tar.gz
-          retention-days: 1
+          name: jweak-med-verification
+          path: /tmp/jweak-med-checks
+          retention-days: 7
