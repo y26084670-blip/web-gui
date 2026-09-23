@@ -1,0 +1,54 @@
+name: Online guide publication
+on:
+  push:
+    branches: [feat/online-guide-local-library-20260924]
+    paths: [.github/workflows/online-guide-publish.yml]
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read previously uploaded patch objects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64,hashlib,json,subprocess,lzma,gzip
+          from pathlib import Path
+          out=Path('/tmp/guide-transfer');out.mkdir()
+          hashes='''b65976c65ed9661886d4f0aa1bb4485b5b8d93ef
+          70062391fb60a94520168046371c12b03e172c8d
+          cc330e6e07050d6c4850c188f0837a59d257743f
+          dfce7288d7bf8adbbad111aa639b2d7078e73aa2
+          584aedef6b530fab45111efd70a156ced935ddc1
+          0ff04e076c85b3eca1a0b1a6f09f1c5a839a6004
+          3fe87b2fae641a5d9202ca5e1a7a37f87b26514b
+          ac8ece5e1ab67c5d9714cc607b8ccadc7ceba83a
+          dc881cff54f06791d95b96d50b06128df9fd1634
+          3de6fd9a17afa2be6acff6cd55a2e9f15dc93cdf
+          6fe55f7c4e60731eeeaa66e341052b6041435d59
+          494156e0cd85d68cb4d8f5d1003f694ad42968bd'''.split()
+          chunks=[];manifest=[]
+          for i,sha in enumerate(hashes):
+              obj=json.loads(subprocess.check_output(['gh','api','repos/y26084670-blip/web-gui/git/blobs/'+sha]))
+              data=base64.b64decode(obj['content'])
+              assert hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()==sha
+              (out/f'{i:02}.bin').write_bytes(data);chunks.append(data)
+              manifest.append({'index':i,'sha':sha,'size':len(data),'prefix':data[:12].hex()})
+          (out/'manifest.json').write_text(json.dumps(manifest,indent=2))
+          print(json.dumps(manifest,indent=2))
+          data=b''.join(chunks);(out/'joined.bin').write_bytes(data)
+          for name,decoder in [('xz',lzma.decompress),('gzip',gzip.decompress)]:
+              try:
+                  raw=decoder(data);(out/('decoded-'+name+'.bin')).write_bytes(raw)
+                  print('DECODED',name,len(raw),hashlib.sha256(raw).hexdigest(),repr(raw[:240]))
+              except Exception as e: print(name,type(e).__name__,str(e)[:200])
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: online-guide-transfer
+          path: /tmp/guide-transfer
+          retention-days: 7
