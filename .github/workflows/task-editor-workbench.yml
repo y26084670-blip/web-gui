@@ -1,0 +1,38 @@
+name: Task editor workbench
+on:
+  push:
+    branches: [feat/task-editor-guide-20260923]
+    paths: [.github/workflows/task-editor-workbench.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Record baseline without suppressing its status
+        shell: bash
+        run: |
+          mkdir -p /tmp/task-editor-checks
+          set +e
+          node --test --test-reporter=tap > /tmp/task-editor-checks/baseline.tap 2>&1
+          code=$?
+          set -e
+          echo "$code" > /tmp/task-editor-checks/baseline.exit
+          tail -n 8 /tmp/task-editor-checks/baseline.tap
+      - name: Export read-only source and offline test dependencies
+        run: |
+          git rev-parse HEAD > /tmp/task-editor-checks/base-commit.txt
+          tar --exclude=.git --exclude=.generated --exclude=dist -czf /tmp/task-editor-checks/workspace.tar.gz .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: task-editor-workspace
+          path: /tmp/task-editor-checks
+          retention-days: 7
