@@ -10,8 +10,10 @@ const steps = [
   ['scripts/default-library-assets.mjs', 'prepare'],
   ['scripts/prepare-examples-config.mjs'],
   ['scripts/prepare-demo-assets.mjs'],
+  ['scripts/user-guide-assets.mjs', 'prepare'],
   ['node_modules/vite/bin/vite.js', 'build', ...process.argv.slice(2)],
   ['scripts/default-library-assets.mjs', 'verify'],
+  ['scripts/user-guide-assets.mjs', 'verify'],
 ];
 
 try {

@@ -13,6 +13,11 @@ https://{$CLARK_GUI_HOST} {
         file_server
     }
 
+    @user_guide path /user-guide/*
+    handle @user_guide {
+        file_server
+    }
+
     handle {
         try_files {path} /index.html
         file_server

@@ -32,6 +32,11 @@
 }
 
 .general-information-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    flex-wrap: wrap;
     border-bottom: 1px solid #465360;
 }
 
@@ -266,4 +271,16 @@
         padding-left: 8px;
         padding-right: 8px;
     }
+}
+
+.general-information-guide-link {
+    margin-left: auto;
+    color: #b9d8ff;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-size: 15px;
+}
+.general-information-guide-link:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
 }

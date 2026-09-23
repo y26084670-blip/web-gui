@@ -1,5 +1,7 @@
 import {
   createEffect,
+  createMemo,
+  untrack,
   createSignal,
   onCleanup,
   onMount,
@@ -128,7 +130,19 @@ export function MaterialLibraryTab(props) {
   const [actionBusy, setActionBusy] = createSignal(false);
   const [actionMessage, setActionMessage] = createSignal("");
   const [actionError, setActionError] = createSignal("");
-  const [librarySource, setLibrarySource] = createSignal("default");
+  // A fresh session also handles A -> B -> A: an old manual choice must not
+  // override the local default of a newly loaded task. No DOM change event
+  // or asynchronously ordered "auto-switch" effect is required.
+  const librarySession = createMemo(() => ({ destination: taskHandle() }));
+  const [sourceChoice, setSourceChoice] = createSignal(null);
+  const librarySource = createMemo(() => {
+    const session = librarySession();
+    const choice = sourceChoice();
+    return choice?.session === session
+      ? choice.source : session.destination ? "task" : "default";
+  });
+  const [loadedLibrary, setLoadedLibrary] = createSignal(null);
+  const [emptyLibrary, setEmptyLibrary] = createSignal(false);
   const [nameFilter, setNameFilter] = createSignal("");
   const [dirtyRecords, setDirtyRecords] = createSignal([]);
   const [deleteRequest, setDeleteRequest] = createSignal(null);
@@ -157,6 +171,10 @@ export function MaterialLibraryTab(props) {
   const tableLoadQueue = createMaterialLibraryLoadQueue();
 
   const isTaskSource = () => librarySource() === "task";
+  const recordsReady = () => !loading() && !error()
+    && loadedLibrary()?.session === librarySession()
+    && loadedLibrary()?.source === librarySource();
+  const canEditLibrary = () => isTaskSource() && recordsReady() && !actionBusy();
 
   function beginAction() {
     setActionBusy(true);
@@ -217,12 +235,12 @@ export function MaterialLibraryTab(props) {
   }
 
   function recordLibraryChange(before, after) {
-    if (!isTaskSource() || applyingHistory) return;
+    if (!canEditLibrary() || applyingHistory) return;
     materialLibraryHistoryService.record(schema, before, after);
   }
 
   async function applyLibrarySnapshot(snapshot) {
-    if (!isTaskSource() || !Array.isArray(snapshot?.records)) {
+    if (!canEditLibrary() || !Array.isArray(snapshot?.records)) {
       throw new Error(
         "История локальной библиотеки не соответствует текущему источнику.",
       );
@@ -248,7 +266,7 @@ export function MaterialLibraryTab(props) {
   }
 
   function markRecordDirty(record) {
-    if (!isTaskSource() || !record?._taskLibraryRecord) return;
+    if (!canEditLibrary() || !record?._taskLibraryRecord) return;
     setDirtyRecords(current =>
       current.includes(record) ? current : [...current, record]);
     setActionMessage("");
@@ -273,7 +291,7 @@ export function MaterialLibraryTab(props) {
     const view = new HtcMaterialDetailView({
       schema: tableSchema,
       record: rowData,
-      isWritable: () => isTaskSource() && !actionBusy(),
+      isWritable: () => canEditLibrary(),
       setValue: async (propertyName, value) => {
         const before = captureLibrarySnapshot();
         await row.update({ [propertyName]: structuredClone(value) });
@@ -306,7 +324,7 @@ export function MaterialLibraryTab(props) {
         getValue: () => rowData[propertyName],
         getRecord: () => record,
         getModelSnapshot: () => ({}),
-        isWritable: () => isTaskSource() && !actionBusy(),
+        isWritable: () => canEditLibrary(),
         setValue: async (value) => {
           const before = captureLibrarySnapshot();
           await row.update({
@@ -388,7 +406,7 @@ export function MaterialLibraryTab(props) {
     for (const column of columns) {
       const property = tableSchema.properties[column.field];
       if (!property || property.type === FIELD_TYPES.ARRAY) continue;
-      column.editable = () => isTaskSource() && !actionBusy();
+      column.editable = () => canEditLibrary();
     }
 
     if (definition.detail.type === "property") {
@@ -438,7 +456,7 @@ export function MaterialLibraryTab(props) {
 
     table.on("rowSelectionChanged", handleSelectionChanged);
     table.on("cellEdited", (cell) => {
-      if (!isTaskSource() || applyingHistory) return;
+      if (!canEditLibrary() || applyingHistory) return;
       const row = cell.getRow();
       const rowIndex = table.getRows().indexOf(row);
       const before = captureLibrarySnapshot();
@@ -463,6 +481,12 @@ export function MaterialLibraryTab(props) {
     destination = taskHandle(),
   } = {}) {
     const revision = ++recordLoadRevision;
+    const session = librarySession();
+    const isCurrent = () => !disposed && revision === recordLoadRevision
+      && session === librarySession() && destination === taskHandle()
+      && source === librarySource();
+    setLoadedLibrary(null);
+    setEmptyLibrary(false);
     clearLibraryHistory();
     setLoading(true);
     setError("");
@@ -471,24 +495,27 @@ export function MaterialLibraryTab(props) {
 
     try {
       await tableLoadQueue.run(() => {
-        if (disposed) return undefined;
+        if (!isCurrent()) return undefined;
         return table.clearData();
       });
-      if (disposed || revision !== recordLoadRevision) return;
+      if (!isCurrent()) return;
 
       const records = source === "task"
         ? destination
           ? await loadTaskMaterialLibrary(definition.kind, destination)
           : []
         : await definition.loadRecords();
-      if (disposed || revision !== recordLoadRevision) return;
+      if (!isCurrent()) return;
       const rows = modelToRows(tableSchema, records);
       await tableLoadQueue.run(() => {
-        if (disposed || revision !== recordLoadRevision) return undefined;
+        if (!isCurrent()) return undefined;
         return table.setData(rows);
       });
+      if (!isCurrent()) return;
+      setEmptyLibrary(records.length === 0);
+      setLoadedLibrary({ session, source });
     } catch (loadError) {
-      if (disposed || revision !== recordLoadRevision) return;
+      if (!isCurrent()) return;
       console.error(`${definition.id} ${source} loading error:`, loadError);
       setError(
         loadError instanceof Error
@@ -496,15 +523,16 @@ export function MaterialLibraryTab(props) {
           : String(loadError),
       );
       await tableLoadQueue.run(() => {
-        if (disposed || revision !== recordLoadRevision) return undefined;
+        if (!isCurrent()) return undefined;
         return table.setData([]);
       });
     } finally {
-      if (!disposed && revision === recordLoadRevision) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }
 
   async function copySelectedMaterials() {
+    if (!recordsReady() || actionBusy()) return;
     const destination = taskHandle();
     if (!destination) {
       setActionError(
@@ -617,6 +645,7 @@ export function MaterialLibraryTab(props) {
   }
 
   async function importLegacyFmmMaterials() {
+    if (!recordsReady() || actionBusy()) return;
     const destination = taskHandle();
     if (!destination) {
       setActionError(
@@ -693,6 +722,7 @@ export function MaterialLibraryTab(props) {
   }
 
   function requestDeleteSelectedMaterials() {
+    if (!recordsReady() || actionBusy()) return;
     const destination = taskHandle();
     const selected = selectedRecords()
       .filter(record => record._taskLibraryRecord);
@@ -730,6 +760,7 @@ export function MaterialLibraryTab(props) {
   }
 
   async function saveEditedMaterials() {
+    if (!recordsReady() || actionBusy()) return;
     const destination = taskHandle();
     const pending = [...dirtyRecords()];
     if (!destination || pending.length === 0) return;
@@ -778,6 +809,12 @@ export function MaterialLibraryTab(props) {
 
   function changeLibrarySource(event) {
     const nextSource = event.currentTarget.value;
+    if (!["task", "default"].includes(nextSource)
+      || (nextSource === "task" && !taskHandle()) || actionBusy()) {
+      event.currentTarget.value = librarySource();
+      return;
+    }
+    if (nextSource === librarySource()) return;
     if (
       dirtyRecords().length > 0
       && !window.confirm(
@@ -787,7 +824,7 @@ export function MaterialLibraryTab(props) {
       event.currentTarget.value = librarySource();
       return;
     }
-    setLibrarySource(nextSource);
+    setSourceChoice({ session: librarySession(), source: nextSource });
   }
 
   function localImportTitle() {
@@ -942,7 +979,7 @@ export function MaterialLibraryTab(props) {
     if (source === "task") {
       materialLibraryRevisionService.revision(definition.kind);
     }
-    void loadRecords({ source, destination });
+    untrack(() => { void loadRecords({ source, destination }); });
   });
 
   createEffect(() => {
@@ -1002,8 +1039,9 @@ export function MaterialLibraryTab(props) {
             disabled={actionBusy()}
             onChange={changeLibrarySource}
           >
-            <option value="default">Базовая библиотека</option>
-            <option value="task">Локальная библиотека задания</option>
+            <option value="task" disabled={!taskHandle()}
+              selected={librarySource() === "task"}>Локальная библиотека задания</option>
+            <option value="default" selected={librarySource() === "default"}>Базовая библиотека</option>
           </select>
         </label>
         <Show when={isFmm}>
@@ -1032,7 +1070,7 @@ export function MaterialLibraryTab(props) {
         <Show when={!isTaskSource()}>
           <button
             disabled={
-              actionBusy()
+              actionBusy() || !recordsReady()
               || !taskHandle()
               || selectedRecords().length === 0
             }
@@ -1050,7 +1088,7 @@ export function MaterialLibraryTab(props) {
           <Show when={isFmm}>
             <button
               disabled={
-                actionBusy()
+                actionBusy() || !recordsReady()
                 || !taskHandle()
                 || legacyFmmStatus() !== "importable"
                 || dirtyRecords().length > 0
@@ -1062,7 +1100,7 @@ export function MaterialLibraryTab(props) {
             </button>
           </Show>
           <button
-            disabled={actionBusy() || dirtyRecords().length === 0}
+            disabled={actionBusy() || !recordsReady() || dirtyRecords().length === 0}
             title="Сохранить изменённые локальные характеристики"
             onClick={saveEditedMaterials}
           >
@@ -1070,7 +1108,7 @@ export function MaterialLibraryTab(props) {
           </button>
           <button
             disabled={
-              actionBusy()
+              actionBusy() || !recordsReady()
               || selectedRecords().length === 0
               || dirtyRecords().length > 0
             }
@@ -1122,8 +1160,16 @@ export function MaterialLibraryTab(props) {
         </div>
       </Show>
 
+      <Show when={recordsReady() && isTaskSource() && emptyLibrary()}>
+        <div class="material-library-message" role="status">
+          Локальная библиотека {definition.kind === "FMM" ? "ФММ" : "ВТСП"} отсутствует или пуста.
+          Для подбора характеристик выберите «Базовая библиотека».
+        </div>
+      </Show>
       <div
         class="material-library-table"
+        aria-busy={!recordsReady()}
+        style={{ visibility: recordsReady() ? "visible" : "hidden" }}
         ref={(element) => (tableHost = element)}
       />
 

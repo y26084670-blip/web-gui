@@ -1,0 +1,449 @@
+{
+  "case": "team7_200Hz",
+  "method": "JWeak1 simplified Newton; no GMRES",
+  "frequency_Hz": 200,
+  "units": {
+    "coordinates": "mm",
+    "J": "A/mm^2",
+    "time": "s",
+    "error": "percent"
+  },
+  "metric": "100*norm(CLARK_complex_J-NGSolve_complex_J)/norm(NGSolve_complex_J); 24 equally weighted centers, all three complex components",
+  "phase": "S+iC for sin excitation; exp(+i*omega*t), peak phasor relative to coil; no phase, amplitude, coordinate or time fitting",
+  "n_centers": 24,
+  "n_conductor_cells": 4736,
+  "n_prescribed_cells": 160,
+  "n_states": 577,
+  "n_periods": 12,
+  "time_step_s": 0.00010416666666666667,
+  "steps_per_period": 48,
+  "last_period_steps": [
+    529,
+    576
+  ],
+  "last_period_time_window_s": [
+    0.055,
+    0.060000000000000005
+  ],
+  "precision": "Float64",
+  "MPI_ranks": 12,
+  "fullJNewton_present_in_profiles": [
+    false,
+    false
+  ],
+  "effective_mode_verified_by_log": true,
+  "J_eps1_NGSolve_percent": 8.753398782089883,
+  "J_eps1_iomega_percent": 2.7912534298447405,
+  "baseline": {
+    "repository": "y26084670-blip/clark.tests",
+    "path": "regression/team7_coil/results/jweak1_time_discretization.json",
+    "git_blob_sha": "593d6d6da4819583901036978ef69fe7d5b99eb8",
+    "selection": "runs: frequency_Hz=200, steps_per_period=48",
+    "retrieval": "GitHub.fetch_file; numerical excerpt, not full-file byte copy",
+    "J_eps1_NGSolve_percent": 8.753398782069139,
+    "current_minus_baseline_error_percentage_points": 2.0744295170516125e-11,
+    "new_vs_old_phasors_eps1_percent": 6.192328759546734e-10,
+    "new_vs_old_phasors_max_absolute_A_per_mm2": 1.7216789736846312e-11,
+    "runtime_minutes": 27.147,
+    "runtime_signed_change_percent": -0.9687994990238313,
+    "input_sha256_equal": {
+      "amplitudes.txt": true,
+      "conrab.txt": true,
+      "general.txt": true,
+      "jweak_local.json": false,
+      "kvs.txt": false,
+      "mhj.txt": true,
+      "moves.txt": true,
+      "tks.txt": true
+    },
+    "limitation": "Only 24 complex control vectors were compared to the stored old run, not every old HDF5 state. Historical baseline is not a matching full-Newton run."
+  },
+  "reference": {
+    "repository": "y26084670-blip/clark.tests",
+    "path": "regression/team7_coil/results/jweak1_local.json",
+    "git_blob_sha": "2bf639263760e3995a086d2e8cefa76cb47b012b",
+    "selection": "200 Hz NGSolve values and configurations metadata",
+    "retrieval": "GitHub.fetch_file; numerical excerpt, not full-file byte copy",
+    "configuration": {
+      "version": "6.2.2607",
+      "run": "p4_far3",
+      "mesh_tetrahedra": 92133,
+      "field_order": 4,
+      "geometry_order": 5,
+      "threads": 6,
+      "repository_commit": "a7c64338538beb44f218cd0d68971e016fc1a662"
+    },
+    "all_144_values_equal": true
+  },
+  "validation": {
+    "coordinate_max_error_mm": 5.684341886080802e-14,
+    "coordinate_interpolation": false,
+    "all_coordinates_time_change_mm": 0.0,
+    "initial_eddy_J_max": 0.0,
+    "material_E_minus_J_over_sigma_max": 1.3877787807814457e-17,
+    "source_waveform_max_error": 2.220446049250313e-16,
+    "independent_extraction_max_error": 9.485749680535094e-16,
+    "all_577_JE_states_finite": true,
+    "magnetic_state_count": 0
+  },
+  "periodicity": {
+    "last_two_phasors_eps1_percent": 0.0023674753396538406,
+    "last_two_sampled_histories_eps1_percent": 0.032203562061990966,
+    "all_conductor_last_two_period_histories_eps1_percent": 0.03823542341369613
+  },
+  "excitation": {
+    "knots_total": 289,
+    "table_intervals_per_period": 24,
+    "first_harmonic": [
+      0.9957224306869052,
+      -2.878754051408155e-17
+    ],
+    "amplitude_deficit_percent": 0.42775693130947534,
+    "normalization_applied": false,
+    "note": "Piecewise-linear tabulated sin; as in historical comparison. The reference source remains unit-amplitude."
+  },
+  "convergence": {
+    "n_steps": 576,
+    "all_equations_and_constraints_meet_tolerance": true,
+    "requested_EPS": 1e-06,
+    "TAU": 0.05,
+    "max_equation": 9.999357091822235e-07,
+    "max_constraint": 3.97654779552083e-14,
+    "iterations_min": 147,
+    "iterations_max": 292,
+    "iterations_sum": 108231,
+    "iterations_mean": 187.90104166666666,
+    "GMRES_iterations_sum": 0
+  },
+  "runtime": {
+    "total_minutes": 26.884,
+    "matrices_minutes": 0.047,
+    "sources_minutes": 26.092,
+    "field_minutes": 0.299
+  },
+  "point_metrics": [
+    {
+      "probe_id": 1,
+      "x_mm": 289.8,
+      "y_mm": 4.5,
+      "z_mm": 2.375,
+      "native_EO_1based": 4549,
+      "J_eps1_percent": 31.4852765507063,
+      "J_error_norm_A_per_mm2": 0.06390623424157627,
+      "J_reference_norm_A_per_mm2": 0.20297180537276457,
+      "squared_error_share_percent": 2.7078348577663993
+    },
+    {
+      "probe_id": 2,
+      "x_mm": 289.8,
+      "y_mm": 4.5,
+      "z_mm": 16.625,
+      "native_EO_1based": 4552,
+      "J_eps1_percent": 6.334686784002875,
+      "J_error_norm_A_per_mm2": 0.058995750343954934,
+      "J_reference_norm_A_per_mm2": 0.9313128234364834,
+      "squared_error_share_percent": 2.307688463530602
+    },
+    {
+      "probe_id": 3,
+      "x_mm": 4.5,
+      "y_mm": 289.8,
+      "z_mm": 2.375,
+      "native_EO_1based": 185,
+      "J_eps1_percent": 38.058931828418004,
+      "J_error_norm_A_per_mm2": 0.004047668676994596,
+      "J_reference_norm_A_per_mm2": 0.01063526610584553,
+      "squared_error_share_percent": 0.010862896275943999
+    },
+    {
+      "probe_id": 4,
+      "x_mm": 4.5,
+      "y_mm": 289.8,
+      "z_mm": 16.625,
+      "native_EO_1based": 188,
+      "J_eps1_percent": 3.815337814130341,
+      "J_error_norm_A_per_mm2": 0.0023926621974188376,
+      "J_reference_norm_A_per_mm2": 0.06271167361792877,
+      "squared_error_share_percent": 0.003795757832290723
+    },
+    {
+      "probe_id": 5,
+      "x_mm": 13.5,
+      "y_mm": 13.5,
+      "z_mm": 2.375,
+      "native_EO_1based": 225,
+      "J_eps1_percent": 13.736216580908527,
+      "J_error_norm_A_per_mm2": 0.08202788451092187,
+      "J_reference_norm_A_per_mm2": 0.5971650492532963,
+      "squared_error_share_percent": 4.461272417959614
+    },
+    {
+      "probe_id": 6,
+      "x_mm": 13.5,
+      "y_mm": 13.5,
+      "z_mm": 16.625,
+      "native_EO_1based": 228,
+      "J_eps1_percent": 10.586809658032557,
+      "J_error_norm_A_per_mm2": 0.09653982955833773,
+      "J_reference_norm_A_per_mm2": 0.9118878366259265,
+      "squared_error_share_percent": 6.179435111374218
+    },
+    {
+      "probe_id": 7,
+      "x_mm": 130.2,
+      "y_mm": 13.5,
+      "z_mm": 2.375,
+      "native_EO_1based": 1765,
+      "J_eps1_percent": 24.12803564290368,
+      "J_error_norm_A_per_mm2": 0.06753735240711495,
+      "J_reference_norm_A_per_mm2": 0.2799123534409169,
+      "squared_error_share_percent": 3.0242924386702184
+    },
+    {
+      "probe_id": 8,
+      "x_mm": 130.2,
+      "y_mm": 13.5,
+      "z_mm": 16.625,
+      "native_EO_1based": 1768,
+      "J_eps1_percent": 6.354352110676068,
+      "J_error_norm_A_per_mm2": 0.0840372671468896,
+      "J_reference_norm_A_per_mm2": 1.322515115360022,
+      "squared_error_share_percent": 4.68251915384569
+    },
+    {
+      "probe_id": 9,
+      "x_mm": 13.5,
+      "y_mm": 130.2,
+      "z_mm": 2.375,
+      "native_EO_1based": 377,
+      "J_eps1_percent": 14.019559872809015,
+      "J_error_norm_A_per_mm2": 0.07300364615948918,
+      "J_reference_norm_A_per_mm2": 0.5207270900214207,
+      "squared_error_share_percent": 3.533660514097557
+    },
+    {
+      "probe_id": 10,
+      "x_mm": 13.5,
+      "y_mm": 130.2,
+      "z_mm": 16.625,
+      "native_EO_1based": 380,
+      "J_eps1_percent": 10.444227001700025,
+      "J_error_norm_A_per_mm2": 0.09477286851821874,
+      "J_reference_norm_A_per_mm2": 0.9074186964989598,
+      "squared_error_share_percent": 5.955301756842688
+    },
+    {
+      "probe_id": 11,
+      "x_mm": 130.2,
+      "y_mm": 130.2,
+      "z_mm": 2.375,
+      "native_EO_1based": 1917,
+      "J_eps1_percent": 15.571844258390438,
+      "J_error_norm_A_per_mm2": 0.15455812371167693,
+      "J_reference_norm_A_per_mm2": 0.9925486098308346,
+      "squared_error_share_percent": 15.838694951991926
+    },
+    {
+      "probe_id": 12,
+      "x_mm": 130.2,
+      "y_mm": 130.2,
+      "z_mm": 16.625,
+      "native_EO_1based": 1920,
+      "J_eps1_percent": 11.36877352047419,
+      "J_error_norm_A_per_mm2": 0.20698110846615253,
+      "J_reference_norm_A_per_mm2": 1.820610711378824,
+      "squared_error_share_percent": 28.405153308017386
+    },
+    {
+      "probe_id": 13,
+      "x_mm": 197.4,
+      "y_mm": 13.5,
+      "z_mm": 2.375,
+      "native_EO_1based": 2113,
+      "J_eps1_percent": 12.664065619252879,
+      "J_error_norm_A_per_mm2": 0.053213510001671877,
+      "J_reference_norm_A_per_mm2": 0.4201929427842875,
+      "squared_error_share_percent": 1.8774982168830956
+    },
+    {
+      "probe_id": 14,
+      "x_mm": 197.4,
+      "y_mm": 13.5,
+      "z_mm": 16.625,
+      "native_EO_1based": 2116,
+      "J_eps1_percent": 4.0212946871870425,
+      "J_error_norm_A_per_mm2": 0.0726557301325613,
+      "J_reference_norm_A_per_mm2": 1.8067745784476468,
+      "squared_error_share_percent": 3.5000597926809296
+    },
+    {
+      "probe_id": 15,
+      "x_mm": 281.4,
+      "y_mm": 80.3076923076923,
+      "z_mm": 2.375,
+      "native_EO_1based": 3001,
+      "J_eps1_percent": 11.596666718652974,
+      "J_error_norm_A_per_mm2": 0.053023743921638805,
+      "J_reference_norm_A_per_mm2": 0.4572326273406765,
+      "squared_error_share_percent": 1.8641313032016014
+    },
+    {
+      "probe_id": 16,
+      "x_mm": 281.4,
+      "y_mm": 80.3076923076923,
+      "z_mm": 16.625,
+      "native_EO_1based": 3004,
+      "J_eps1_percent": 4.173080567533887,
+      "J_error_norm_A_per_mm2": 0.07710351865766696,
+      "J_reference_norm_A_per_mm2": 1.8476403081580535,
+      "squared_error_share_percent": 3.941704981517105
+    },
+    {
+      "probe_id": 17,
+      "x_mm": 197.4,
+      "y_mm": 189.0,
+      "z_mm": 2.375,
+      "native_EO_1based": 3693,
+      "J_eps1_percent": 6.331683607547835,
+      "J_error_norm_A_per_mm2": 0.011629870968399542,
+      "J_reference_norm_A_per_mm2": 0.1836773864464086,
+      "squared_error_share_percent": 0.08967791726222671
+    },
+    {
+      "probe_id": 18,
+      "x_mm": 197.4,
+      "y_mm": 189.0,
+      "z_mm": 16.625,
+      "native_EO_1based": 3696,
+      "J_eps1_percent": 4.300166684376714,
+      "J_error_norm_A_per_mm2": 0.056029564785728785,
+      "J_reference_norm_A_per_mm2": 1.302962626758036,
+      "squared_error_share_percent": 2.081470302007787
+    },
+    {
+      "probe_id": 19,
+      "x_mm": 105.23076923076923,
+      "y_mm": 138.6,
+      "z_mm": 2.375,
+      "native_EO_1based": 1405,
+      "J_eps1_percent": 11.8479112753773,
+      "J_error_norm_A_per_mm2": 0.05381399378722992,
+      "J_reference_norm_A_per_mm2": 0.45420658997563435,
+      "squared_error_share_percent": 1.9201102643501362
+    },
+    {
+      "probe_id": 20,
+      "x_mm": 105.23076923076923,
+      "y_mm": 138.6,
+      "z_mm": 16.625,
+      "native_EO_1based": 1408,
+      "J_eps1_percent": 9.40829490905864,
+      "J_error_norm_A_per_mm2": 0.1060567688081749,
+      "J_reference_norm_A_per_mm2": 1.127268754150762,
+      "squared_error_share_percent": 7.457830416322635
+    },
+    {
+      "probe_id": 21,
+      "x_mm": 197.4,
+      "y_mm": 105.23076923076923,
+      "z_mm": 2.375,
+      "native_EO_1based": 2573,
+      "J_eps1_percent": 8.51757350072241,
+      "J_error_norm_A_per_mm2": 0.0035881333421767395,
+      "J_reference_norm_A_per_mm2": 0.04212623867434094,
+      "squared_error_share_percent": 0.008536362878599157
+    },
+    {
+      "probe_id": 22,
+      "x_mm": 197.4,
+      "y_mm": 105.23076923076923,
+      "z_mm": 16.625,
+      "native_EO_1based": 2576,
+      "J_eps1_percent": 5.825940223948254,
+      "J_error_norm_A_per_mm2": 0.0034021915945421075,
+      "J_reference_norm_A_per_mm2": 0.058397296638179955,
+      "squared_error_share_percent": 0.007674555926675442
+    },
+    {
+      "probe_id": 23,
+      "x_mm": 47.07692307692308,
+      "y_mm": 222.6,
+      "z_mm": 2.375,
+      "native_EO_1based": 941,
+      "J_eps1_percent": 7.27015843881963,
+      "J_error_norm_A_per_mm2": 0.0039331260328948885,
+      "J_reference_norm_A_per_mm2": 0.05409959172132519,
+      "squared_error_share_percent": 0.01025678960435123
+    },
+    {
+      "probe_id": 24,
+      "x_mm": 47.07692307692308,
+      "y_mm": 222.6,
+      "z_mm": 16.625,
+      "native_EO_1based": 944,
+      "J_eps1_percent": 4.9306250126454625,
+      "J_error_norm_A_per_mm2": 0.014031358916438273,
+      "J_reference_norm_A_per_mm2": 0.2845756649603724,
+      "squared_error_share_percent": 0.1305374691603361
+    }
+  ],
+  "component_metrics": [
+    {
+      "component": "Jx",
+      "J_eps1_percent": 8.23416742918182,
+      "squared_error_share_percent": 41.135422082546405,
+      "reference_squared_norm_share_percent": 46.48683721190102
+    },
+    {
+      "component": "Jy",
+      "J_eps1_percent": 9.08839110632948,
+      "squared_error_share_percent": 57.66566361893995,
+      "reference_squared_norm_share_percent": 53.49296945029397
+    },
+    {
+      "component": "Jz",
+      "J_eps1_percent": 67.44763543661904,
+      "squared_error_share_percent": 1.1989142985136485,
+      "reference_squared_norm_share_percent": 0.0201933378049964
+    }
+  ],
+  "layer_metrics": [
+    {
+      "z_mm": 2.375,
+      "n_points": 12,
+      "J_eps1_percent": 15.020372997631892,
+      "squared_error_share_percent": 35.34682893094166
+    },
+    {
+      "z_mm": 16.625,
+      "n_points": 12,
+      "J_eps1_percent": 7.503109544429559,
+      "squared_error_share_percent": 64.65317106905833
+    }
+  ],
+  "sha256": {
+    "input3XX/amplitudes.txt": "afdb78d12cbf04a40e0d4005faa48a0603124843e6bd16967d4c7ee78ca1c7dd",
+    "input3XX/conrab.txt": "a8f3ba4a6c5e385a44889b395211a8de19ac9cddb65c599005defaf551111394",
+    "input3XX/general.txt": "f4f84180880e47f6c3d53011c7c55d08a50684eb8dcbe2ec5847f69800b6ab93",
+    "input3XX/jweak_local.json": "a685014dd82433a5eb4fc60055b0aad57ad1db843fa5fba20e6351a731b36bc3",
+    "input3XX/kvs.txt": "663f21997e7a6f5f1c26b6e6b944f3834b81d827e2247442abc0d7eb0546e178",
+    "input3XX/mhj.txt": "33495843af80f481c9d97ad5567d815ec65d8ab298a498223c407a3b119fc84c",
+    "input3XX/moves.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "input3XX/tks.txt": "9f3dc014a089266b5739c09335f3991266a6a3b48b60bf2c4002363eb48f83f5",
+    "reference/comparison.json": "195c4dd4359db5d1b901fada374b1bef24eb58aa0e8aa275f132f9bb22befdcd",
+    "output3XX/JE.h5": "2893a6866edb28176b867644f71935078877a69c45a39e9dcf0ce93700161702",
+    "output3XX/MH.h5": "12583e44f83b721252f62f5f44befe5618f0316f2450018a5b977c433d10b89e",
+    "output3XX/prot-iter.txt": "982ef76533aec4dba8cd6b7166c7d069d8ce9d9426aa401a38916ae73c2d9b18",
+    "output3XX/prot-data.txt": "3400622533060ff8c7eee27e9b917b1e38666ec96c4034821c98ed11dee62e35",
+    "output3XX/timing.txt": "9ce35d6cd3bd057610f1fd039fa80f951c849bedd9ac7b4fab61a0daeb43a840",
+    "output3XX/_summary_out.txt": "cad6694c3b6eb2413c141a39b4e86c27b5fa5249a7561f61991ad380ccd6771a"
+  },
+  "binary_commit": "Not recorded in supplied logs; no SHA inferred from repository main.",
+  "scope": "Postprocessing only. No solver, FEM reference, project-file changes or repository updates were performed.",
+  "analysis_script_sha256": "60b0982a36396432071407de2c18e51acbf3c400e1a5847800e36096d768648b",
+  "source_archive": {
+    "name": "team7_200Hz.zip",
+    "bytes": 285628185,
+    "sha256": "12dd50959e56d9c81298e55d69b9b60124a07a619bbf8fdc31af997aeb79964d"
+  }
+}
