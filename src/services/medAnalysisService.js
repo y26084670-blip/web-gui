@@ -1,3 +1,4 @@
+import { validateJweakLocal, isJweakLocalCartesian } from "./solver/jweakLocalValidation.js";
 import { unpackKvVertices } from "./solver/geometryKv.js";
 import { expandElementSymmetry } from "./solver/symmetryExpansion.js";
 import { buildGeometryTimeModel } from "./visualization/geometryTimeModel.js";
@@ -32,6 +33,11 @@ export function analyzeMed(model = {}, { maxImages = 100_000, maxPairs = 2_000_0
         return result;
     };
     if (!Array.isArray(model.elements)) { fail("MODEL", "Не загружен массив элементов."); return done(); }
+    const hierarchy = validateJweakLocal(model);
+    errors.push(...hierarchy.errors);
+    result.gridLevel = hierarchy.hierarchical ? "parent" : "actual";
+    result.refinedBlocks = hierarchy.refinedBlocks;
+    if (errors.length) return done();
     const relevant = model.elements.map((r,i)=>r?.targ===0 && r.rv>0 ? i : -1).filter(i=>i>=0);
     if (!relevant.length) return done();
     const relevantSet = new Set(relevant);
@@ -71,7 +77,13 @@ export function analyzeMed(model = {}, { maxImages = 100_000, maxPairs = 2_000_0
             const vertices = unpacked.vertices.map(p=>transform(image.matrix,p,cast));
             if (!vertices.flat().every(Number.isFinite)) { fail("NONFINITE", "Координаты выходят за диапазон выбранной разрядности.",owner); continue; }
             for (const p of vertices) for (const x of p) scale=Math.max(scale,Math.abs(x));
-            images.push({ block, image:imageName(image), vertices, dp });
+            if (hierarchy.hierarchical && !isJweakLocalCartesian(vertices, result.doubleFloat)) {
+                fail("JWEAK_LOCAL_CARTESIAN", `ШГ №${block}: иерархия требует декартовых ЭО `
+                    + "с исходным порядком вершин после преобразований.", owner);
+                continue;
+            }
+            images.push({ block, image:imageName(image), vertices, dp,
+                contactDp: hierarchy.hierarchical ? hierarchy.divisions[index] : dp });
         }
     }
     if (errors.length) return done();
@@ -109,10 +121,15 @@ export function analyzeMed(model = {}, { maxImages = 100_000, maxPairs = 2_000_0
             if (matchingFaces(af,bf,tol)) {
                 af.neighbors.push(bf); bf.neighbors.push(af);
                 let compatible=false;
-                try { compatible=matchingGrids(af,a.dp,bf,b.dp,tol); }
+                try { compatible=matchingGrids(af,a.contactDp,bf,b.contactDp,tol); }
                 catch(e) { af.unresolved=bf.unresolved=true; fail("GRID_BUDGET",e.message,[ao,bo]); continue; }
-                if (!compatible) { af.unresolved=bf.unresolved=true; fail("GRID_MISMATCH","Не совпадают элементарные грани сетки стыка.",[ao,bo]); }
-                contacts.push({a:ao,b:bo,compatible,oldA:oldMed(model.elements[a.block-1],af.index),oldB:oldMed(model.elements[b.block-1],bf.index)});
+                if (!compatible) { af.unresolved=bf.unresolved=true; fail(hierarchy.hierarchical ? "PARENT_GRID_MISMATCH" : "GRID_MISMATCH",
+                    hierarchy.hierarchical
+                        ? `Не совпадают грани родительской сетки стыка ШГ №${a.block} `
+                            + `(${MED_FACE_NAMES[af.index]}, [${a.contactDp}]) / ШГ №${b.block} `
+                            + `(${MED_FACE_NAMES[bf.index]}, [${b.contactDp}]).`
+                        : "Не совпадают элементарные грани сетки стыка.",[ao,bo]); }
+                contacts.push({a:ao,b:bo,compatible,gridLevel:result.gridLevel,contactDpA:a.contactDp,contactDpB:b.contactDp,actualDpA:a.dp,actualDpB:b.dp,oldA:oldMed(model.elements[a.block-1],af.index),oldB:oldMed(model.elements[b.block-1],bf.index)});
             } else {
                 const area=faceOverlapArea(af,bf,tol);
                 const extent=Math.max(...af.box.map(([lo,hi])=>hi-lo),...bf.box.map(([lo,hi])=>hi-lo));

@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-22.
+Обновлено: 2026-09-23 10:36 UTC+3.
 
 ## Назначение
 
@@ -80,6 +80,7 @@
 | Ограничения значения | `src/tabulator/validators/types/constraintValidator.js` и `src/tabulator/validators/constraints/` | Диспетчер и зарегистрированные проверки дескрипторных ограничений отдельной ячейки. |
 | Модельные ограничения | `src/tabulator/validators/types/modelValidator.js`, `src/tabulator/validators/models/modelRegistry.js` и профильные каталоги `models/*/` | Условные, межполевые и предметные проверки BaseModel. |
 | Сводка ограничений | `src/services/modelConstraintDiagnostics.js` | Подсчёт нарушений независимо от наличия экземпляров таблиц. |
+| Готовая иерархия JWeak1 | `src/services/jweakLocalService.js`, `src/services/solver/jweakLocalValidation.js` | Readonly-загрузка, проверка неизменности файла, допустимость родителей; публикация в `modelService.setJweakLocal`, координация в `App`. [Контракт](AI_DATA_CONTRACTS.md#jweak-local-input). |
 | Общая диагностика | `src/services/diagnosticService.js` | Нормализация и группировка ошибок с координатами вкладки, записи и поля. |
 | UI диагностики | `src/components/diagnostics/` | Окно сообщений и индикаторы проверки; не определяют предметные условия. |
 | Ссылки материалов | `src/services/materialReferenceValidation.js` | Проверка `elements.xapName` относительно доступных библиотек. |

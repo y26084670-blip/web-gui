@@ -57,6 +57,16 @@ function setModelPart(
     return update;
 }
 
+// Read-only task attachment: part of the immutable snapshot and revision,
+// but not a tab, editable history item, dirty value or serialization target.
+function setJweakLocal(data) {
+    batch(() => {
+        const update = { data, revision: ++nextRevision, source: null, computedPatches: [] };
+        setModel(current => ({ ...current, jweakLocal: data }));
+        setPartUpdates(current => ({ ...current, jweakLocal: update }));
+    });
+}
+
 function clearModel({ source = null } = {}) {
     const ids = new Set([
         ...Object.keys(model()),
@@ -125,6 +135,7 @@ export const modelService = {
     getModel,
     getModelPartUpdate,
     setModelPart,
+    setJweakLocal,
     clearModel,
     undo,
     redo,

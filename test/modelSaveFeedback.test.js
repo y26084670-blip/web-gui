@@ -25,7 +25,7 @@ const createSaveRuntime = new Function("dependencies", `
   const {
     createSignal, createEffect, onCleanup, selectionService, modelService,
     taskApprovalService, writeTaskSummary, dataService, unsavedChangesService, diagnosticService,
-    collectModelDiagnostics, tabRegistry, VALIDATION_LEVELS,
+    collectModelDiagnostics, assertJweakLocalUnchanged, createError, TABS, tabRegistry, VALIDATION_LEVELS,
     setTimeout, clearTimeout, console,
   } = dependencies;
   let modelValidationRevision = 0;
@@ -104,6 +104,9 @@ function createHarness(t, options = {}) {
       onCleanup,
       selectionService: { loadedTaskHandle: task, loadedTaskIsDemo: () => false, taskDataVersion: () => 0 },
       modelService: { getModel: model },
+      async assertJweakLocalUnchanged(handle, section) {
+        return options.companion?.(handle, section);
+      },
       taskApprovalService: {
         async markUnapproved(handle) {
           events.push({ type: "mark", handle });
@@ -140,6 +143,8 @@ function createHarness(t, options = {}) {
         events.push({ type: "validate", handle, snapshot });
         return options.validate ? options.validate(handle, snapshot) : [];
       },
+      createError: entry => ({ ...entry, level: "error" }),
+      TABS: { ELEMENTS: { id: "elements", label: "Элементы модели" } },
       tabRegistry: schemas,
       VALIDATION_LEVELS: { ERROR: "error" },
       setTimeout: clock.setTimeout,
@@ -466,4 +471,28 @@ test("failed summary write reports failure and keeps the approval marker", async
 test("failed input write cannot replace the old summary", async t => {
   const h = createHarness(t, {save: () => {throw new Error("denied")}});
   await h.handleSave(); assert.equal(h.calls("summary").length,0);
+});
+
+
+test("companion preflight failure keeps marker and prevents every task write", async t => {
+  const h = createHarness(t, { companion: async () => { throw new Error("jweak_local.json changed"); } });
+  await h.handleSave();
+  assert.equal(h.calls("mark").length, 1);
+  assert.equal(h.calls("write").length, 0);
+  assert.equal(h.calls("clear").length, 0);
+  assertFeedback(h, "error");
+});
+
+test("companion changed during saving cannot remove approval marker", async t => {
+  let checks = 0;
+  const h = createHarness(t, { companion: async () => {
+    if (++checks > 1) throw new Error("jweak_local.json changed");
+  } });
+  await h.handleSave();
+  assert.equal(checks, 2);
+  assertFeedback(h, "error");
+  assert.equal(h.calls("diagnostics").at(-1).diagnostics[0].level, "error");
+  assert.equal(h.calls("write").length, 3);
+  assert.equal(h.calls("validate").length, 1);
+  assert.equal(h.calls("clear").length, 0);
 });
