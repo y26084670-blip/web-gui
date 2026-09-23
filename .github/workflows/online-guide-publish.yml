@@ -4,21 +4,41 @@ on:
     branches: [feat/online-guide-local-library-20260924]
     paths: [.github/workflows/online-guide-publish.yml]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  recover:
+  verify-and-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - name: Read previously uploaded patch objects
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Check isolated base and install locked dependencies
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = refs/heads/feat/online-guide-local-library-20260924
+          git diff --exit-code e43182bc5355ceb3b4ed7ed56617c1d7b30a6044 -- . ':!.github/workflows/online-guide-publish.yml'
+          npm ci
+      - name: Record unchanged full-suite baseline
+        shell: bash
+        run: |
+          mkdir -p /tmp/online-guide-checks
+          set +e
+          node --test --test-reporter=tap > /tmp/online-guide-checks/baseline.tap 2>&1
+          code=$?
+          set -e
+          echo "$code" > /tmp/online-guide-checks/baseline.exit
+          tail -n 9 /tmp/online-guide-checks/baseline.tap
+      - name: Restore exact reviewed patch and remove temporary workflow
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           python - <<'PY'
-          import base64,hashlib,json,subprocess,lzma,gzip
+          import base64,hashlib,json,subprocess,lzma
           from pathlib import Path
-          out=Path('/tmp/guide-transfer');out.mkdir()
+          out=Path('/tmp/online-guide-checks')
           hashes='''b65976c65ed9661886d4f0aa1bb4485b5b8d93ef
           70062391fb60a94520168046371c12b03e172c8d
           cc330e6e07050d6c4850c188f0837a59d257743f
@@ -30,25 +50,76 @@ jobs:
           dc881cff54f06791d95b96d50b06128df9fd1634
           3de6fd9a17afa2be6acff6cd55a2e9f15dc93cdf
           6fe55f7c4e60731eeeaa66e341052b6041435d59
-          494156e0cd85d68cb4d8f5d1003f694ad42968bd'''.split()
-          chunks=[];manifest=[]
-          for i,sha in enumerate(hashes):
+          f5f9d61cfde049686392a2d94f61c7b91c636b57'''.split()
+          chunks=[]
+          for sha in hashes:
               obj=json.loads(subprocess.check_output(['gh','api','repos/y26084670-blip/web-gui/git/blobs/'+sha]))
               data=base64.b64decode(obj['content'])
               assert hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()==sha
-              (out/f'{i:02}.bin').write_bytes(data);chunks.append(data)
-              manifest.append({'index':i,'sha':sha,'size':len(data),'prefix':data[:12].hex()})
-          (out/'manifest.json').write_text(json.dumps(manifest,indent=2))
-          print(json.dumps(manifest,indent=2))
-          data=b''.join(chunks);(out/'joined.bin').write_bytes(data)
-          for name,decoder in [('xz',lzma.decompress),('gzip',gzip.decompress)]:
-              try:
-                  raw=decoder(data);(out/('decoded-'+name+'.bin')).write_bytes(raw)
-                  print('DECODED',name,len(raw),hashlib.sha256(raw).hexdigest(),repr(raw[:240]))
-              except Exception as e: print(name,type(e).__name__,str(e)[:200])
+              chunks.append(data)
+          patch=lzma.decompress(b''.join(chunks))
+          digest=hashlib.sha256(patch).hexdigest()
+          assert len(patch)==338326 and digest=='5110285686bbfa3a3da12462178750686ffae465f0066254647b4cf9d74fe555'
+          target=out/'implementation.patch';target.write_bytes(patch)
+          subprocess.run(['git','apply','--check',str(target)],check=True)
+          subprocess.run(['git','apply','--index',str(target)],check=True)
+          subprocess.run(['git','rm','.github/workflows/online-guide-publish.yml'],check=True)
+          tree=subprocess.check_output(['git','write-tree'],text=True).strip()
+          assert tree=='c06aaf7f03660810cf5e0fa46c95c4aba53388c2',tree
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          (out/'source-verification.json').write_text(json.dumps({'base':'e43182bc5355ceb3b4ed7ed56617c1d7b30a6044','patch_sha256':digest,'tree':tree},indent=2))
+          print('Exact saved patch and all file contents verified:',tree)
           PY
+      - name: Targeted guide, materials, MED and save tests
+        shell: bash
+        run: |
+          node --test --test-reporter=tap test/userGuideAssets.test.js test/materialLibrarySource.test.js test/*Material*.test.js test/material*.test.js test/jweak*.test.js test/med*.test.js test/modelSaveFeedback.test.js > /tmp/online-guide-checks/targeted.tap 2>&1
+          tail -n 9 /tmp/online-guide-checks/targeted.tap
+      - name: Compare complete suite with baseline
+        shell: bash
+        run: |
+          set +e
+          node --test --test-reporter=tap > /tmp/online-guide-checks/current.tap 2>&1
+          code=$?
+          set -e
+          echo "$code" > /tmp/online-guide-checks/current.exit
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          root=Path('/tmp/online-guide-checks')
+          def result(name):
+              text=(root/(name+'.tap')).read_text()
+              totals={k:int(v) for k,v in re.findall(r'^# (tests|pass|fail|cancelled|skipped) (\d+)$',text,re.M)}
+              failures=sorted(re.sub(r'^not ok \d+ - ','',s) for s in text.splitlines() if s.startswith('not ok '))
+              assert totals['tests']>=514 and totals['cancelled']==0
+              return {'totals':totals,'failures':failures}
+          baseline=result('baseline');current=result('current')
+          data={'baseline':baseline,'current':current,'identical_failures':baseline['failures']==current['failures']}
+          (root/'regression.json').write_text(json.dumps(data,indent=2))
+          print(json.dumps(data,indent=2))
+          assert data['identical_failures'] and current['totals']['fail']==baseline['totals']['fail']==26
+          PY
+      - name: Build Release and Pages with resource verification
+        shell: bash
+        run: |
+          npm run build:release > /tmp/online-guide-checks/release.log 2>&1
+          npm run build:pages > /tmp/online-guide-checks/pages.log 2>&1
+          tail -n 5 /tmp/online-guide-checks/release.log
+          tail -n 5 /tmp/online-guide-checks/pages.log
+      - name: Publish only to working branch
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = refs/heads/feat/online-guide-local-library-20260924
+          git diff --exit-code
+          test "$(git write-tree)" = c06aaf7f03660810cf5e0fa46c95c4aba53388c2
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Publish HTML user guide and coherent local-first material libraries' -m 'Version 4.28.0. Exact saved patch verified by SHA-256 and final tree. Guide assets, help link, concise README, local source loading and tests. No task lifecycle commands or solver changes. Temporary publication workflow removed.'
+          git rev-parse HEAD | tee /tmp/online-guide-checks/commit.txt
+          git push origin HEAD:refs/heads/feat/online-guide-local-library-20260924
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
-          name: online-guide-transfer
-          path: /tmp/guide-transfer
+          name: online-guide-4.28.0-verification
+          path: /tmp/online-guide-checks
           retention-days: 7
