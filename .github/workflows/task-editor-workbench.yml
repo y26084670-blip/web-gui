@@ -6,33 +6,76 @@ on:
 permissions:
   contents: read
 jobs:
-  snapshot:
+  recover:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      - run: npm ci
-      - name: Record baseline without suppressing its status
+      - name: Recover known prepared objects
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          mkdir -p /tmp/task-editor-checks
-          set +e
-          node --test --test-reporter=tap > /tmp/task-editor-checks/baseline.tap 2>&1
-          code=$?
-          set -e
-          echo "$code" > /tmp/task-editor-checks/baseline.exit
-          tail -n 8 /tmp/task-editor-checks/baseline.tap
-      - name: Export read-only source and offline test dependencies
-        run: |
-          git rev-parse HEAD > /tmp/task-editor-checks/base-commit.txt
-          tar --exclude='./.git' --exclude='./.generated' --exclude='./dist' -czf /tmp/task-editor-checks/workspace.tar.gz .
+          mkdir -p /tmp/task-recovery
+          python - <<'PY'
+          import base64,hashlib,json,subprocess,concurrent.futures
+          from pathlib import Path
+          root=Path('/tmp/task-recovery')
+          hashes='''dc1bb16a01ffec4854471a34f8940755be2ba2a3
+          310caab8008e975b9e5ad21a43b86a2b213c1c06
+          af5ba58337b10765b44bb108656d682ad6662410
+          0c776a5d9243e506ca27a473e4b12c08c408f00b
+          70ab3667ab9f295f344cf6f3ce612c5e732bd5fe
+          05f5059ea027e3edd33ff32ba9eb4a7b49f3051e
+          3b94ba5ef3e6e7e2d5f652b73d86d27504eb6735
+          1aba3ea0715a6f163739ea4eaada4964535e535c
+          c55201c55b65ba517f075b418ab2a4dc79433ba5
+          e76fb1103d70445a327aa8530b3cc1f4a86ac19b
+          564f815c00c8b384f817e0c4f7d26c32763e9dc3
+          b783edd26c3f6ef1e2cc696dc81e9f7065d0b3c7
+          b807c78fd50dd49324b8a3794349028558664ce0
+          6ad7d27cebeff00b17ba4d87be7080a63b9a588d
+          abfb15ba54f97f7fd0cbc16fbd763b9110735f93
+          78dfbf12041ca083caa24b9ded6a62039a53bbcb
+          838646eef928f6ffa96e19487c660158bdf454af
+          42854244b00238b79d907ec5492a7f8e72d8faa1
+          1e8c6b2bedf21317091458ac0e73b911ba4eb3d9
+          25905302f840e580dbfad0466a41aca8ea71b568
+          a99b8d55025ba745ae06854c97215f8c1e79e969
+          928990b9c284309cb3f514391899506d425a62ea
+          e59ea60f7df1ca6f4df6a03ffde36639c2663360
+          73b12e0ffa0aab0661eb96bab93ff8900cda72d6
+          83317dd30041d10f9745ad76b0ff867f77517e86
+          fb5e82073f779fd0f682839de8d82268974ef879
+          040af5695440383c2c693338b60cdca6acd6407f
+          85f3ed48dc01853eac7263fc24101853dd2a7337
+          2195b8221ef1e914491b5e35185f39e7bec1943a
+          26037368ff7f5978cae70267c2ee66a70a8d330b
+          44e26e0855de2bb07a62cecbde7984070a6d2f06
+          160eb1cc6336e239d47a1c3fd28d90e573384789
+          06117d5711eab22b95776df51e67791d261e27bb
+          52d1b8612fd130ed12d0f34e19f78ff5b721f497
+          5d3bbac235d9a6df5f7f34e0181ca3aa369452c9
+          cae0663c424c13031281d168d3d7f807a6f75581
+          9e74bc1dc3236350227adb64606353fa54d5bbd3
+          1ce5e91cfe554b9476029f7ba382b98dbd7ef3a6
+          2f01be3ec6800b9e929f2224d3a27924daacc749
+          d2d65830f97a1d2513c6ca5a7ad2ca395dca9f67
+          b5f3e1346e888b1f11e1003cefa3644ed44b5429
+          4af96c6cb1c8eb5a37ad68c66821507c9a1415bf
+          128188d3f4949cd8a4ad173165cfc4e89bafd3ba'''.split()
+          def read(sha):
+              p=subprocess.run(['gh','api','repos/y26084670-blip/web-gui/git/blobs/'+sha],capture_output=True)
+              if p.returncode: return {'sha':sha,'found':False}
+              obj=json.loads(p.stdout);data=base64.b64decode(obj['content'])
+              assert hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()==sha
+              (root/(sha+'.bin')).write_bytes(data)
+              return {'sha':sha,'found':True,'size':len(data)}
+          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool: results=list(pool.map(read,hashes))
+          (root/'manifest.json').write_text(json.dumps(results,indent=2))
+          print(json.dumps(results,indent=2))
+          PY
       - uses: actions/upload-artifact@v7
         with:
-          name: task-editor-workspace
-          path: /tmp/task-editor-checks
+          name: prepared-task-editor-objects
+          path: /tmp/task-recovery
           retention-days: 7
