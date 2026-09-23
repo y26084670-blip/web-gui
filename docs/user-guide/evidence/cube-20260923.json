@@ -1,0 +1,211 @@
+{
+  "case": "cube_n25_isotropic (roc 25000)",
+  "comparison_method": "Frozen 27 exact centers x 51 states x 3 signed components; equal sample weights. No interpolation or phase/amplitude/time fitting.",
+  "reference": "MUFEM 0.5.64; native export, not digitized paper values",
+  "reference_excitation_multiplier": -1,
+  "reference_sign_basis": "Existing independent vacuum audit in clark.tests; official positive MUFEM parameter gives physical -Y, CLARK excitation is +Y. Input geometrical/excitation hashes unchanged.",
+  "n_states": 51,
+  "n_control_centers": 27,
+  "n_scalar_component_samples": 4131,
+  "n_cube_cells": 8000,
+  "time_step_s": 0.0004,
+  "final_time_s": 0.02,
+  "period_type": "First period from zero, not steady-state",
+  "center_matching_max_distance_mm": 0.0,
+  "reference_time_max_difference_s": 1.0408340855860843e-16,
+  "native_cube_cell_ids_1based": [
+    4211,
+    4215,
+    4220,
+    4291,
+    4295,
+    4300,
+    4391,
+    4395,
+    4400,
+    5811,
+    5815,
+    5820,
+    5891,
+    5895,
+    5900,
+    5991,
+    5995,
+    6000,
+    7811,
+    7815,
+    7820,
+    7891,
+    7895,
+    7900,
+    7991,
+    7995,
+    8000
+  ],
+  "units": {
+    "coordinates": "mm",
+    "J_comparison": "A/mm2",
+    "J_reference_raw": "A/m2",
+    "E": "V/m"
+  },
+  "raw_relative_l2_percent": {
+    "J": 192.13722812023383,
+    "E": 200.13402938627283
+  },
+  "excitation_aligned_relative_l2_percent": {
+    "J": 28.305971108710093,
+    "E": 7.780861183885159
+  },
+  "J_RMSE_A_per_mm2": 0.4462024267885029,
+  "J_magnitude_only_relative_l2_percent_diagnostic": 17.623517212808146,
+  "components": [
+    {
+      "component": "x",
+      "relative_l2_percent": 24.769603849765996,
+      "RMSE_A_per_mm2": 0.4691451086133362,
+      "reference_energy_share_percent": 48.122399165116974,
+      "error_energy_share_percent": 36.84930274476439
+    },
+    {
+      "component": "y",
+      "relative_l2_percent": 100.68733759839564,
+      "RMSE_A_per_mm2": 0.41797599619050063,
+      "reference_energy_share_percent": 2.3116600944021317,
+      "error_energy_share_percent": 29.24944112797522
+    },
+    {
+      "component": "z",
+      "relative_l2_percent": 23.409615337341364,
+      "RMSE_A_per_mm2": 0.4499875005915026,
+      "reference_energy_share_percent": 49.56594074048089,
+      "error_energy_share_percent": 33.901256127260396
+    }
+  ],
+  "diagnostic_plane_x_equals_z": {
+    "n_points": 9,
+    "J_relative_l2_percent": 40.960234580222156,
+    "error_energy_share_percent": 58.88697922702334,
+    "reference_energy_share_percent": 28.122279759633024,
+    "J_off_plane_relative_l2_percent": 21.40772936830507,
+    "max_abs_Jy_A_per_mm2": {
+      "CLARK": 0.0002131003490004701,
+      "MUFEM": 2.286339894443393
+    },
+    "max_abs_Jx_plus_Jz_A_per_mm2": {
+      "CLARK": 0.0003348627911326091,
+      "MUFEM": 3.2261386349238936
+    },
+    "interpretation": "Diagnostic only; no points removed from the primary metric, no proof of a MUFEM defect."
+  },
+  "power_relative_l2_percent": 0.7743660300864099,
+  "first_period_energy_J": {
+    "CLARK": 0.00024685566057144496,
+    "MUFEM": 0.0002487009221757224,
+    "signed_difference_percent": -0.7419600973468277
+  },
+  "peak_power_W": {
+    "CLARK": 0.029732778301884078,
+    "MUFEM": 0.0298213348850315
+  },
+  "material": {
+    "j_HC0": 1000000000,
+    "JC0": 2.5,
+    "JCa": 1,
+    "JCb": 0,
+    "j_ani": false,
+    "j_type": 2,
+    "j_gmin": 25000,
+    "j1_delta": 0.1,
+    "j2_n": 24,
+    "m_type": 1,
+    "m_HC0": 1000,
+    "m1_delta": 0.1,
+    "m3_Mmax": 0,
+    "m3_a": 2,
+    "m3_b": 1,
+    "KHabc": 1,
+    "Diag": 0,
+    "M3D": false,
+    "comment": "Berger/MUFEM cube: isotropic n=25, constant Jc=2.5 A/mm2, Ec=1e-4 V/m. htcMu=false. Pure power law; MUFEM regularization differs."
+  },
+  "material_checks": {
+    "saved_E_vs_offset_law_relative_l2_percent": 1.5527572871697298e-14,
+    "saved_E_vs_ideal_Ec_law_relative_l2_percent": 0.9552165951723381,
+    "Ec_effective_at_Jc_V_per_m": 9.904478340482754e-05,
+    "E_scale_new_over_previous_at_fixed_J": 0.9904478340482753,
+    "J_scale_new_over_previous_at_fixed_E_not_actual_solution_ratio": 1.0003839969284258
+  },
+  "CLARK_max_absolute_M_kA_per_m": 0.0,
+  "Q_vs_JdotE_relative_l2_percent": 0.0,
+  "nonlinear_log": {
+    "all_50_steps_converged": true,
+    "full_HTC_mode_messages": 50,
+    "max_equation": 9.947988477209738e-07,
+    "max_constraint": 1.1269414998242115e-15,
+    "outer_iterations_min": 55,
+    "outer_iterations_max": 82,
+    "outer_iterations_sum": 3406,
+    "GMRES_iterations_sum": 31848
+  },
+  "timing_minutes": {
+    "new": 45.595,
+    "previous": 47.148,
+    "reduction_percent": 3.2938830915415385
+  },
+  "binary_commit": "Not identified in archive; do not infer from current solver/main",
+  "fullJNewton_present_in_profiles": [
+    false,
+    false
+  ],
+  "baseline": {
+    "provenance": "clark.tests/regression/mufem_hts_cube/results/2026-09-22/comparison.json",
+    "source_blob_sha": "e81416f25a1b48ef9defa81b36c7e344fc1ede3a",
+    "J_aligned_percent": 28.31312537088556,
+    "E_aligned_percent": 7.784081540996615,
+    "power_relative_l2_percent": 0.7866078733663965,
+    "energy_CLARK_J": 0.00024681193724941094,
+    "energy_MUFEM_J": 0.0002487009221757235,
+    "energy_signed_percent": -0.7595407808652532,
+    "J_off_diagonal_plane_percent": 21.412067827382927,
+    "outer_iterations_sum": 3406,
+    "time_minutes": 47.148,
+    "j_gmin_MS_per_m": 24761.19585120688
+  },
+  "J_error_change_percentage_points": -0.007154262175468773,
+  "sha256": {
+    "input3XX/amplitudes.txt": "a19a68a26c0a1d4671521ea4b01d2dc2710f6c2e8fa4e1990f0bacf002bc4b2e",
+    "input3XX/conrab.txt": "89d506171691a87f0b2e3f2b55b3a09583065d3fe9d92c9ebb4d11bffd221e64",
+    "input3XX/general.txt": "f06ce5a4a6bc71c835938e8f13f2afdb8473ef7879d935397f3e1caaabf46451",
+    "input3XX/kvs.txt": "805b7403489f0a235c96187453dba0e599169656712c323884ccdb89b1012ae3",
+    "input3XX/mhj.txt": "208a4b5e2ea988d2bbe357c2aaabe1c20a1d7f821664bb495a8e6461da9054dc",
+    "input3XX/moves.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "input3XX/tks.txt": "03d11b05f47e6276f2423413278cb1148ba54025957d674551454e43260788b5",
+    "input3XX/xapLibHTC/HTS_cube_n25.txt": "684cd218865d09807c9a77188775589f9cf954df72aa95e8a41ca3e6e2ea1b4d",
+    "output3XX/JE.h5": "e07340580a91c7106d7368ac0019bab7216b0b05b929e8b1c9ec105825ccd3ab",
+    "output3XX/MH.h5": "f46305669b08f0332e1a0be8709a3cb60d1bd4621261be239c2341c448766d2c",
+    "output3XX/Q.h5": "de53f4cfb65fc9f80b0d83738ca4dbdff0ea0588822b3d29b2eb351be34ba8f2",
+    "output3XX/_summary_out.txt": "0752655bce6f1ff7390111af841cc069b01e8ffa67f164570ffd92fc9e5f4228",
+    "output3XX/prot-data.txt": "0dc4dd63a369351d54cb56f502fe5b48d115e96bda9f4e3dfe95a6c9f6c971a2",
+    "output3XX/prot-iter.txt": "cb5c974270e3cfb8489ac401d75fb009e8a8b200a9312739de9b104cb146fbad",
+    "output3XX/timing.txt": "e89b9b15ec0f05c394ab740444e9949dff6f557530523051525713b5fa70f0f7",
+    "reference/mufem_EJ_centers.csv": "647b89fb530028ac417781d12490021127b5e1d27f719c9cd2e5f7fd25ce7043",
+    "reference/mufem_losses.csv": "f5b1becbab48d7b801f790d8618fa00a509ab7f60898058f75e01520c7a03dca",
+    "reference/mufem_run.json": "2c4d527daf8b6646029fd4a216a4a3eb5657dbb37a034cbad84a2ad9e09294ad",
+    "reference/probes_requested.json": "23f9f34a9e291d592d9065264cfcdfe8749cb3ca29db16d266a7b3d4a2a8c998",
+    "reference/source_manifest.json": "b4ec0a77449c6db2420fa6fae124b64df0d6ca84b3e26da110c16e33097ea78e"
+  },
+  "matches_previous_sha256": {
+    "input3XX/amplitudes.txt": true,
+    "input3XX/conrab.txt": true,
+    "input3XX/general.txt": true,
+    "input3XX/kvs.txt": true,
+    "input3XX/mhj.txt": true,
+    "input3XX/moves.txt": true,
+    "input3XX/tks.txt": true,
+    "input3XX/xapLibHTC/HTS_cube_n25.txt": false,
+    "reference/mufem_EJ_centers.csv": true,
+    "reference/mufem_losses.csv": true,
+    "reference/mufem_run.json": true,
+    "reference/source_manifest.json": true
+  }
+}

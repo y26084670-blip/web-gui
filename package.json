@@ -1,13 +1,13 @@
 {
   "name": "samp_app4",
   "private": true,
-  "version": "4.27.0",
+  "version": "4.28.0",
   "type": "module",
   "scripts": {
     "test": "node --test",
     "verify:med:solver": "node scripts/verify-med-with-solver.mjs",
-    "assets:prepare": "node scripts/default-library-assets.mjs prepare && node scripts/prepare-examples-config.mjs && node scripts/prepare-demo-assets.mjs",
-    "assets:verify": "node scripts/default-library-assets.mjs verify",
+    "assets:prepare": "node scripts/default-library-assets.mjs prepare && node scripts/prepare-examples-config.mjs && node scripts/prepare-demo-assets.mjs && node scripts/user-guide-assets.mjs prepare",
+    "assets:verify": "node scripts/default-library-assets.mjs verify && node scripts/user-guide-assets.mjs verify",
     "dev": "npm run assets:prepare && vite",
     "build": "node scripts/build.mjs",
     "build:release": "node scripts/build.mjs --mode production",
