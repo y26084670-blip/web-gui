@@ -1,0 +1,29 @@
+name: JWeak MED workbench
+on:
+  push:
+    branches: [fix/jweak-med-parents-20260923]
+    paths: [.github/workflows/jweak-med-workbench.yml]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - name: Package tracked sources and installed test dependencies
+        run: |
+          git archive --format=tar HEAD -o /tmp/jweak-med-workbench.tar
+          tar --append --file=/tmp/jweak-med-workbench.tar node_modules
+          gzip /tmp/jweak-med-workbench.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jweak-med-workbench
+          path: /tmp/jweak-med-workbench.tar.gz
+          retention-days: 1
