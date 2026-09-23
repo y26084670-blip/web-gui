@@ -30,7 +30,7 @@ jobs:
       - name: Export read-only source and offline test dependencies
         run: |
           git rev-parse HEAD > /tmp/task-editor-checks/base-commit.txt
-          tar --exclude=.git --exclude=.generated --exclude=dist -czf /tmp/task-editor-checks/workspace.tar.gz .
+          tar --exclude='./.git' --exclude='./.generated' --exclude='./dist' -czf /tmp/task-editor-checks/workspace.tar.gz .
       - uses: actions/upload-artifact@v7
         with:
           name: task-editor-workspace
