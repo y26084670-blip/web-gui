@@ -24,6 +24,7 @@ Tabulator, должен использовать table._gui.schema, а не вн
 */
 import {
   FIELD_TYPES,
+  TABS,
   STORAGE_TYPES,
   VIEW_TYPES,
 } from "../../services/schemas/common/constants";
@@ -74,6 +75,9 @@ import {
   referenceViewEntries,
   referenceViewValues,
 } from "../../services/referenceViewService.js";
+
+import { jweakLocalLocksStructure, JWEAK_STRUCTURE_NOTICE }
+  from "../../services/solver/jweakLocalValidation.js";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
 import "../../tabs/Tasks.css";
@@ -217,6 +221,11 @@ export function DataEditor(props) {
     !hasMainView && hasNestedArrays(schema);
   const hasGraphRegion =
     hasDetailRegion && Boolean(schema.views?.graph);
+  const jweakStructureLocked = () => schema.id === TABS.ELEMENTS.id
+    && Boolean(selectionService.loadedTaskHandle())
+    && (!modelService.getModel().jweakLocal
+      || jweakLocalLocksStructure(modelService.getModel().jweakLocal));
+  const structureTitle = text => jweakStructureLocked() ? JWEAK_STRUCTURE_NOTICE : text;
   const hasMainToolbar =
     schema.config.storage === STORAGE_TYPES.RECORDS &&
     !hasRecordColumns &&
@@ -280,7 +289,7 @@ export function DataEditor(props) {
         },
       },
       structure: {
-        mutable: !hasRecordColumns,
+        get mutable() { return !hasRecordColumns && !jweakStructureLocked(); },
         createDefaultRow: () => dataService.createDefaultRecord(schema),
         beginChange() {
           pendingCellChange = null;
@@ -1233,10 +1242,10 @@ export function DataEditor(props) {
           }}
         >
           <button
-            disabled={!hasActiveTask()}
-            title={!hasActiveTask()
+            disabled={!hasActiveTask() || jweakStructureLocked()}
+            title={structureTitle(!hasActiveTask()
               ? "Сначала загрузите задание"
-              : hasMainView ? "Добавить строку" : "Добавить запись"}
+              : hasMainView ? "Добавить строку" : "Добавить запись")}
             onClick={mainAction(() => recordsActions.addRecord())}
           >
             +
@@ -1254,10 +1263,10 @@ export function DataEditor(props) {
                 C
               </button>
               <button
-                disabled={!hasActiveTask()}
-                title={!hasActiveTask()
+                disabled={!hasActiveTask() || jweakStructureLocked()}
+                title={structureTitle(!hasActiveTask()
                   ? "Сначала загрузите задание"
-                  : "Вставить скопированные"}
+                  : "Вставить скопированные")}
                 onClick={mainAction(() => recordsActions.pasteRecords())}
               >
                 P
@@ -1265,32 +1274,37 @@ export function DataEditor(props) {
             </>
           )}
           <button
-            disabled={!hasActiveTask()}
-            title={!hasActiveTask()
+            disabled={!hasActiveTask() || jweakStructureLocked()}
+            title={structureTitle(!hasActiveTask()
               ? "Сначала загрузите задание"
-              : hasMainView ? "Удалить строки" : "Удалить выделенные"}
+              : hasMainView ? "Удалить строки" : "Удалить выделенные")}
             onClick={mainAction(() => recordsActions.removeRecord())}
           >
             −
           </button>
           <button
-            disabled={!hasActiveTask()}
-            title={!hasActiveTask()
+            disabled={!hasActiveTask() || jweakStructureLocked()}
+            title={structureTitle(!hasActiveTask()
               ? "Сначала загрузите задание"
-              : hasMainView ? "Переместить строки вверх" : "Переместить выделенные вверх"}
+              : hasMainView ? "Переместить строки вверх" : "Переместить выделенные вверх")}
             onClick={mainAction(() => recordsActions.moveRecordUp())}
           >
             ↑
           </button>
           <button
-            disabled={!hasActiveTask()}
-            title={!hasActiveTask()
+            disabled={!hasActiveTask() || jweakStructureLocked()}
+            title={structureTitle(!hasActiveTask()
               ? "Сначала загрузите задание"
-              : hasMainView ? "Переместить строки вниз" : "Переместить выделенные вниз"}
+              : hasMainView ? "Переместить строки вниз" : "Переместить выделенные вниз")}
             onClick={mainAction(() => recordsActions.moveRecordDown())}
           >
             ↓
           </button>
+          {jweakStructureLocked() && (
+            <span role="status" title={JWEAK_STRUCTURE_NOTICE} style={{ "align-self": "center" }}>
+              Иерархия: состав и порядок ШГ зафиксированы
+            </span>
+          )}
         </div>
       )}
 

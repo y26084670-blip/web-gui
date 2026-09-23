@@ -34,6 +34,7 @@ import {
 } from "./tabulator/actions/elementMaterialActions.js";
 import { loadMaterialReferenceCatalog } from "./services/materialReferenceValidation.js";
 import { createError } from "./tabulator/validators/common/createDiagnostic.js";
+import { assertJweakLocalUnchanged, createJweakLocalLoader } from "./services/jweakLocalService.js";
 
 import "./App.css";
 
@@ -102,6 +103,15 @@ export default function App() {
     });
   });
 
+  // The companion belongs to the same task snapshot, not to a separate editor.
+  const jweakLoader = createJweakLocalLoader(data => modelService.setJweakLocal(data));
+  createEffect(() => {
+    const taskHandle = selectionService.loadedTaskHandle();
+    selectionService.taskDataVersion();
+    void jweakLoader.load(taskHandle);
+  });
+  onCleanup(() => jweakLoader.dispose());
+
   const [admin, setAdmin] = createSignal(false);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
@@ -133,6 +143,11 @@ export default function App() {
       await medEditor?.flush();
       if (revision !== medRevision || !medOpen()) return;
       const request = createMedRequest(modelService.getModel(), selectionService.loadedTaskHandle());
+      await assertJweakLocalUnchanged(request.taskKey, request.snapshot.jweakLocal);
+      if (revision !== medRevision || !medOpen()) return;
+      if (!medRequestIsCurrent(request, modelService.getModel(), selectionService.loadedTaskHandle())) {
+        stopMedWorker(); setMedError("Исходные данные изменены. Повторите анализ MED."); return;
+      }
       setMedRequest(request);
       const worker = new Worker(new URL("./workers/medAnalysis.worker.js", import.meta.url), {type:"module"});
       medWorker = worker;
@@ -156,7 +171,10 @@ export default function App() {
   async function applyCurrentMed() {
     try {
       await medEditor?.flush();
-      const changed = applyMedResult({request:medRequest(),result:medResult(),modelService,
+      const request = medRequest();
+      if (!request) throw new Error("Сначала выполните анализ MED.");
+      await assertJweakLocalUnchanged(request.taskKey, request.snapshot.jweakLocal);
+      const changed = applyMedResult({request,result:medResult(),modelService,
         schema:tabRegistry.find(s=>s.id===TABS.ELEMENTS.id),taskKey:selectionService.loadedTaskHandle()});
       if (!changed) return;
       setMedRequest(null); setMedResult(null); setMedNavigation(null);
@@ -251,8 +269,17 @@ export default function App() {
 
   async function collectModelDiagnostics(taskHandle, modelSnapshot) {
     const materialResult = await loadMaterialReferenceCatalog(taskHandle);
+    let checkedSnapshot = modelSnapshot;
+    try {
+      await assertJweakLocalUnchanged(taskHandle, modelSnapshot.jweakLocal);
+    } catch (error) {
+      // Fail closed: a lost/changed companion is not an ordinary mesh.
+      checkedSnapshot = { ...modelSnapshot, jweakLocal: {
+        status: "error", error: String(error?.message ?? error),
+      } };
+    }
     const diagnostics = modelValidator(
-      { getModel: () => modelSnapshot },
+      { getModel: () => checkedSnapshot },
       { materialCatalog: materialResult.catalog },
     );
     diagnostics.push(...materialResult.errors.map(message => createError({
@@ -505,6 +532,14 @@ export default function App() {
         return;
       }
 
+      try {
+        await assertJweakLocalUnchanged(dirHandle, modelSnapshot.jweakLocal);
+      } catch (error) {
+        feedbackResult = { status: "error", message: "Сохранение отменено: "
+          + (error?.message ?? String(error)) };
+        return; // Marker stays; no task files have been written.
+      }
+
       let saveFailed = false;
       let savedCount = 0;
       const saveErrors = [];
@@ -589,6 +624,21 @@ export default function App() {
       );
       if (hasErrors) return;
 
+      try {
+        // Recheck after all async writes/validation, immediately before approval.
+        await assertJweakLocalUnchanged(dirHandle, modelSnapshot.jweakLocal);
+      } catch (error) {
+        const message = "Данные записаны, но иерархия не подтверждена: "
+          + (error?.message ?? String(error));
+        feedbackResult = { status: "error", message };
+        if (dirHandle === selectionService.loadedTaskHandle()
+          && modelSnapshot === modelService.getModel()) {
+          diagnosticService.setValidationResult([createError({
+            tab: TABS.ELEMENTS, property: "med", message,
+          })]);
+        }
+        return; // Do not erase the marker or leave stale successful diagnostics.
+      }
       try {
         await taskApprovalService.clearUnapproved(dirHandle);
       } catch (error) {

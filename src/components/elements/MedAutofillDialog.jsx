@@ -28,6 +28,11 @@ export function MedAutofillDialog(props) {
       <Show when={props.result}>{result => <>
         <p class="med-counts">Физических контактов: {result().counts.contacts} · Свободных граней исходных записей: {result().counts.freeFaces}
           {" · "}Изменений MED: {result().counts.changedFaces} · Ошибок: {result().counts.errors}</p>
+        <Show when={result().gridLevel === "parent"}>
+          <p role="status">Иерархическая сетка JWeak1. Контакты проверяются по родительскому
+            разбиению; отображаемая сетка ЭО соответствует dp.
+            {" "}Уточнённых ШГ: {result().refinedBlocks.length}.</p>
+        </Show>
         <p>Разрядность: {result().doubleFloat?"REAL64":"REAL32"}; допуск: {result().tolerance.toExponential(3)} мм.</p>
         <Show when={result().errors.length}><section aria-label="Ошибки MED">
           <h3>Ошибки — применение заблокировано</h3>
@@ -40,7 +45,12 @@ export function MedAutofillDialog(props) {
           <tbody><For each={result().contacts}>{c=><tr>
             <td>{link(c.a.block,c.a.face)}<small>{c.a.image}</small></td>
             <td>{link(c.b.block,c.b.face)}<small>{c.b.image}</small></td>
-            <td>{c.oldA} → {proposed(c.a)}; {c.oldB} → {proposed(c.b)}</td><td>{c.compatible?"Совпадает":"Ошибка"}</td>
+            <td>{c.oldA} → {proposed(c.a)}; {c.oldB} → {proposed(c.b)}</td><td>{c.compatible?"Совпадает":"Ошибка"}
+              <Show when={c.gridLevel === "parent"}><small>
+                Родители: [{c.contactDpA.join(",")}] ↔ [{c.contactDpB.join(",")}];
+                {" "}ЭО: [{c.actualDpA.join(",")}] ↔ [{c.actualDpB.join(",")}]
+              </small></Show>
+            </td>
           </tr>}</For></tbody></table>
         <h3>Предлагаемые изменения</h3>
         <Show when={!props.stale&&!result().changes.length&&!result().errors.length}><p>Изменений MED не требуется.</p></Show>

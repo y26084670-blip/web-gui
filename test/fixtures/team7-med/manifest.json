@@ -1,0 +1,16 @@
+{
+  "source": "team7_200Hz.zip supplied by the owner, 2026-09-23; input3XX files copied without changes",
+  "sha256": {
+    "general.txt": "f4f84180880e47f6c3d53011c7c55d08a50684eb8dcbe2ec5847f69800b6ab93",
+    "kvs.txt": "663f21997e7a6f5f1c26b6e6b944f3834b81d827e2247442abc0d7eb0546e178",
+    "jweak_local.json": "a685014dd82433a5eb4fc60055b0aad57ad1db843fa5fba20e6351a731b36bc3"
+  },
+  "expected": {
+    "blocks": 83,
+    "conducting_blocks": 55,
+    "refined_blocks": 16,
+    "contacts": 88,
+    "ordinary_mismatches": 32,
+    "hierarchical_mismatches": 0
+  }
+}

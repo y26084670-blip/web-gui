@@ -9,9 +9,11 @@ const componentUrl = new URL(
 
 test("record list actions are disabled until a task is loaded", async () => {
     const source = await readFile(componentUrl, "utf8");
-    const disabled = source.match(/disabled=\{!hasActiveTask\(\)\}/gu) ?? [];
+    const disabled = source.match(/disabled=\{!hasActiveTask\(\)(?: \|\| jweakStructureLocked\(\))?\}/gu) ?? [];
 
     assert.equal(disabled.length, 6);
+    assert.equal((source.match(/disabled=\{!hasActiveTask\(\) \|\| jweakStructureLocked\(\)\}/gu) ?? []).length, 5);
+    assert.match(source, /get mutable\(\) \{ return !hasRecordColumns && !jweakStructureLocked\(\); \}/u);
     assert.match(source, /if \(!hasActiveTask\(\)\) return;/u);
     assert.match(source, /Сначала загрузите задание/u);
 });
