@@ -1,7 +1,10 @@
 //
 // вкладка выбора задания
 //
-import { Show, batch, createSignal, onCleanup, onMount } from "solid-js";
+import { Show, batch, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { TaskOperationDialog } from "../components/tasks/TaskOperationDialog.jsx";
+import { runTaskDirectoryOperation, suggestTaskCopyName } from "../services/taskDirectoryService.js";
+import { initializeTaskDirectory } from "../services/taskTemplateService.js";
 import { selectionService } from "../services/selectionService";
 import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
@@ -55,6 +58,89 @@ export function Tasks(props) {
   const [bindUri, setBindUri] = createSignal("");
   const [bindingNotice, setBindingNotice] = createSignal("");
   const [launchBusy, setLaunchBusy] = createSignal(false);
+  const [operation, setOperation] = createSignal(null);
+  const [operationBusy, setOperationBusy] = createSignal(false);
+  const [operationError, setOperationError] = createSignal("");
+  const [operationFailed, setOperationFailed] = createSignal(false);
+
+  const operationsBlocked = () => Boolean(operation()) || demoLoading() || bindingBusy()
+    || launchBusy() || taskLaunchOpen() || props.editorBusy;
+  createEffect(() => props.onTaskActionsChange?.({
+    createEnabled: Boolean(selectedProject()) && !operationsBlocked(),
+    selectedEnabled: Boolean(selectedTask()) && !operationsBlocked(),
+    run: openTaskOperation,
+  }));
+
+  function openTaskOperation(kind) {
+    if (operationsBlocked() || !selectedProject() || (kind !== "create" && !selectedTask())) return;
+    const parent = projects().find(project => project.name === selectedProject())?.handle;
+    if (!parent) return;
+    invalidateBrowserSelection();
+    setOperationError("");
+    setOperationFailed(false);
+    setOperation({ kind, parent, root: rootHandle(), projectName: selectedProject(), task: selectedTask(),
+      name: kind === "create" ? "Новое задание" : selectedTask().name });
+    if (kind === "copy") {
+      const request = operation();
+      setOperationBusy(true);
+      suggestTaskCopyName(parent, request.name).then(name => {
+        if (operation() === request) setOperation({ ...request, name });
+      }).catch(error => setOperationError(error.message)).finally(() => setOperationBusy(false));
+    }
+  }
+
+  async function submitTaskOperation(name) {
+    const request = operation();
+    if (!request || operationBusy() || operationFailed()) return;
+    const relocate = ["rename", "move"].includes(request.kind);
+    setOperationError("");
+    setOperationBusy(true);
+    let destination = request.parent;
+    let wasLoaded = false;
+    let completedResult = null;
+    try {
+      // Invoke the picker directly from the submit gesture, before any await.
+      if (request.kind === "move") destination = await window.showDirectoryPicker({ mode: "readwrite", id: "task-move-project" });
+      if (loadedTaskHandle() && request.task) wasLoaded = await loadedTaskHandle().isSameEntry(request.task.handle);
+      if (relocate && wasLoaded && unsavedChangesService.hasDirty()) {
+        throw new Error("Сначала сохраните изменения выбранного задания и его библиотек. Операция не выполнялась.");
+      }
+      const result = await runTaskDirectoryOperation({ kind: request.kind, root: request.root,
+        sourceParent: request.parent, source: request.kind === "create" ? null : request.task?.handle,
+        destinationParent: destination, name: request.kind === "move" ? request.name : name,
+        initialize: initializeTaskDirectory });
+      completedResult = result;
+      await finishTaskOperation(request, destination, result, relocate && wasLoaded);
+      setOperation(null);
+    } catch (error) {
+      if (isFilePickerCancellation(error)) return;
+      const result = error.operationResult ?? completedResult;
+      if (completedResult) error.message = `Файловая операция завершена, но обновление интерфейса не удалось. Назначение: «${destination.name}/${result.name}». ${error.message}`;
+      if (result) {
+        setOperationFailed(true);
+        try { await finishTaskOperation(request, destination, result, relocate && wasLoaded && result.deletionStarted); }
+        catch (refreshError) { error.message += `\nНе удалось обновить список: ${refreshError.message}`; }
+      }
+      setOperationError(error.message);
+    } finally {
+      setOperationBusy(false);
+    }
+  }
+
+  async function finishTaskOperation(request, destination, result, rebindLoaded) {
+    if (rebindLoaded) {
+      const relative = await request.root.resolve(result.handle);
+      const fullPath = relative ? `${request.root.name}/${relative.join("/")}` : `${destination.name}/${result.name}`;
+      commitTaskLoad({ task: { name: result.name, handle: result.handle }, fullPath });
+    }
+    const updated = await getSubdirs(request.parent);
+    setTasks(updated);
+    const sameProject = await destination.isSameEntry(request.parent);
+    const chosen = sameProject && result.verified ? updated.find(task => task.name === result.name)
+      : updated.find(task => task.name === request.task?.name);
+    if (chosen) await selectTaskCandidate(chosen);
+    else { setSelectedTask(null); setTaskInfo(EMPTY_TASK_INFO); setTaskResultsText(""); }
+  }
 
   let taskErrorDialog;
   let taskErrorCloseButton;
@@ -218,7 +304,7 @@ export function Tasks(props) {
 
   // выбор корневого каталога
   const handlePickDirectory = async () => {
-    if (bindingBusy()) return;
+    if (bindingBusy() || operation()) return;
     const support = getFileSystemAccessSupport(window);
     if (!support.supported) {
       showTaskError(support.message);
@@ -260,6 +346,7 @@ export function Tasks(props) {
 
   // выбор проекта
   const handleProjectChange = async (event) => {
+    if (operation()) return;
     const projectName = event.currentTarget.value;
     const requestId = invalidateBrowserSelection();
     setSelectedProject(projectName);
@@ -362,6 +449,7 @@ export function Tasks(props) {
   };
 
   const requestDemoLoad = async () => {
+    if (operation()) return;
     if (demoLoading()) return;
     const requestId = ++taskLoadRevision;
     setDemoLoading(true);
@@ -384,6 +472,7 @@ export function Tasks(props) {
   };
 
   const requestTaskLoad = async () => {
+    if (operation()) return;
     const task = selectedTask();
     if (!task || task.handle === loadedTaskHandle()) return;
     const requestId = ++taskLoadRevision;
@@ -494,6 +583,7 @@ export function Tasks(props) {
             <select
               id="listProject"
               value={selectedProject()}
+              disabled={Boolean(operation())}
               onChange={handleProjectChange}
             >
               <option value="">Выбрать проект</option>
@@ -628,6 +718,9 @@ export function Tasks(props) {
         }}
         onLaunchComplete={handleLaunchComplete}
       />
+
+      <TaskOperationDialog request={operation()} busy={operationBusy()} error={operationError()}
+        failed={operationFailed()} onSubmit={submitTaskOperation} onClose={() => setOperation(null)} />
 
       <dialog
         class="task-load-error-dialog"

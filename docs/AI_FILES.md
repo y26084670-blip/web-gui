@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-24 01:31 UTC+3.
+Обновлено: 2026-09-24 19:38 UTC+3.
 
 ## Назначение
 
@@ -300,3 +300,19 @@ File System Access API и разрешение `readwrite` сохраняютс�
 Проверенная база кода для этого маршрута: web-gui f8c85c8a3197eb50e3baf5030d06831244b86528,
 solver ab322751dc1756471b657902f675f12cac514693. Другие даты в карте относятся
 к своим разделам и не подтверждают повторную проверку всего проекта.
+
+## Файловые команды заданий (4.29.0)
+
+- `src/services/taskDirectoryService.js` — имена, состав копии, последовательное
+  копирование, SHA-256, проверка источника, перенос и обновление списка запуска.
+- `src/services/taskTemplateService.js` — начальная модель через текущие схемы,
+  `dataService` и штатную сводку; не содержит отдельного формата solver.
+- `src/components/tasks/TaskOperationDialog.jsx` / `.css` — имя, подтверждение,
+  состояние операции и ошибки; `Tasks.jsx` владеет выбором и обновлением путей.
+- `App.jsx` передаёт доступные действия в `SidePanel.jsx`; доступность сохраняет
+  единственный источник состояния в `Tasks`.
+- `TaskInfoBar.jsx` / `.css` — кнопка «Документация» и адрес с `BASE_URL`.
+- `test/taskDirectoryService.test.js`, `test/browser/taskOperations.fixture.jsx`,
+  `scripts/check-task-operations-browser.mjs` — файловые отказы и браузерная приёмка.
+
+Механизм: [файловый контракт](AI_CLARK_INTEGRATION.md#task-directory-operations).

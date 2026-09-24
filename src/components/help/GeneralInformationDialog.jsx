@@ -56,12 +56,6 @@ export function GeneralInformationDialog(props) {
     >
       <header class="general-information-header">
         <h2 id="general-information-title">Общая информация</h2>
-        <a class="general-information-guide-link"
-          href={`${import.meta.env.BASE_URL}user-guide/index.html`}
-          target="_blank" rel="noopener noreferrer"
-          title="Открыть руководство в новой вкладке">
-          Руководство пользователя <span aria-hidden="true">↗</span>
-        </a>
       </header>
 
       <div
@@ -221,6 +215,11 @@ export function GeneralInformationDialog(props) {
             выдвижное меню слева. В нём доступны:
           </p>
           <ul>
+            <li>
+              На вкладке «Выбор задания»: <strong>«Создать задание»</strong>,
+              <strong> «Создать копию»</strong>, <strong>«Переименовать»</strong> и
+              <strong> «Перенести в другой каталог»</strong>.
+            </li>
             <li>
               <strong>«История текущей вкладки»</strong> — отмена и повтор
               изменений (undo/redo), отдельно для каждой вкладки.

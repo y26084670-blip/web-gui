@@ -1,0 +1,17 @@
+.task-operation-dialog {
+  width: min(540px, calc(100vw - 48px));
+  box-sizing: border-box;
+  border: 1px solid #78838e;
+  border-radius: 8px;
+  padding: 20px;
+  background: #fff;
+  color: #17212b;
+}
+.task-operation-dialog::backdrop { background: rgb(0 0 0 / 40%); }
+.task-operation-dialog h2 { margin-top: 0; font-size: 19px; }
+.task-operation-dialog p { line-height: 1.45; }
+.task-operation-dialog input[name="taskName"] { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 7px; }
+.task-operation-confirm { display: flex; align-items: baseline; gap: 8px; }
+.task-operation-error { white-space: pre-wrap; color: #a11423; }
+.task-operation-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.task-operation-actions button { padding: 6px 10px; }

@@ -40,6 +40,7 @@ import "./App.css";
 
 export default function App() {
   const [activeTab, setActiveTab] = createSignal(TABS.TASKS.id);
+  const [taskActions, setTaskActions] = createSignal(null);
   const [taskSummaryBounds, setTaskSummaryBounds] = createSignal(null);
   const tabButtons = new Map();
   let tabsViewport;
@@ -346,6 +347,8 @@ export default function App() {
       label: "Выбор задания",
       component: (props) => (
         <Tasks
+          onTaskActionsChange={setTaskActions}
+          editorBusy={Boolean(savePending() || validationPending())}
           active={props.active}
           summaryBounds={taskSummaryBounds()}
           admin={admin()}
@@ -696,6 +699,8 @@ export default function App() {
         }}
       />
       <SidePanel
+        taskActions={activeTab() === TABS.TASKS.id ? taskActions() : null}
+        onTaskAction={kind => { setSidePanelOpen(false); taskActions()?.run(kind); }}
         open={sidePanelOpen()}
         onClose={() => setSidePanelOpen(false)}
         computedColumnsMode={viewSettingsService.computedColumnsMode()}

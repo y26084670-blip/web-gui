@@ -1,0 +1,205 @@
+// Filesystem-only operations. A verified destination is retained on any partial
+// relocation; the caller receives its handle and whether deletion was attempted.
+import { DIRECTORIES, TASK_UNAPPROVED_FILE } from "./schemas/common/constants.js";
+import { readTaskList, writeTaskList } from "./taskLaunchService.js";
+
+export function validateTaskName(value) {
+  if (typeof value !== "string" || !value || value !== value.trim()
+      || value.length > 120 || /[<>:"/\\|?*\u0000-\u001f]/u.test(value)
+      || /[. ]$/u.test(value) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(value)) {
+    throw new Error("Введите имя до 120 символов без служебных символов, пробелов по краям и зарезервированных имён Windows.");
+  }
+  return value;
+}
+
+export function includeTaskInput(path) {
+  const parts = path.toLowerCase().split("/");
+  return !parts.some(name => [DIRECTORIES.OUTPUT.toLowerCase(), "logs", "tmp", "temp", ".git"].includes(name))
+    && !/(?:\.log|\.tmp|\.temp|~)$/iu.test(parts.at(-1))
+    && !["_summary_out.txt", TASK_UNAPPROVED_FILE].includes(parts.at(-1));
+}
+
+async function writeFile(directory, name, bytes) {
+  const handle = await directory.getFileHandle(name, { create: true });
+  const stream = await handle.createWritable();
+  try {
+    await stream.write(bytes);
+    await stream.close();
+  } catch (error) {
+    try { await stream.abort(); } catch { /* Keep the original failure. */ }
+    throw error;
+  }
+}
+
+async function directoryAt(root, path, create = false) {
+  let directory = root;
+  for (const name of path.split("/").filter(Boolean)) {
+    directory = await directory.getDirectoryHandle(name, { create });
+  }
+  return directory;
+}
+
+async function hashFile(handle) {
+  const file = await handle.getFile();
+  const bytes = await file.arrayBuffer();
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return { size: file.size, hash: Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("") };
+}
+
+async function manifest(root, include, prefix = "", result = []) {
+  for await (const [name, handle] of root.entries()) {
+    const path = prefix ? `${prefix}/${name}` : name;
+    if (!include(path)) continue;
+    result.push({ path, kind: handle.kind, ...(handle.kind === "file" ? await hashFile(handle) : {}) });
+    if (handle.kind === "directory") await manifest(handle, include, path, result);
+  }
+  return result.sort((a, b) => a.path.localeCompare(b.path, "en"));
+}
+
+async function assertManifest(root, expected, include) {
+  if (JSON.stringify(await manifest(root, include)) !== JSON.stringify(expected)) {
+    throw new Error(`Содержимое «${root.name}» изменилось или проверка целостности не пройдена.`);
+  }
+}
+
+async function assertUnused(parent, name) {
+  for await (const [existing] of parent.entries()) {
+    if (existing.normalize("NFC").toLowerCase() === name.normalize("NFC").toLowerCase()) {
+      throw new Error(`Имя «${name}» уже занято. Перезапись запрещена.`);
+    }
+  }
+}
+
+async function copyManifest(source, target, entries) {
+  for (const entry of entries) {
+    if (entry.kind === "directory") {
+      await directoryAt(target, entry.path, true);
+    } else {
+      const parts = entry.path.split("/");
+      const name = parts.pop();
+      const input = await directoryAt(source, parts.join("/"));
+      const output = await directoryAt(target, parts.join("/"), true);
+      await writeFile(output, name, await (await input.getFileHandle(name)).getFile());
+    }
+  }
+}
+
+export async function suggestTaskCopyName(parent, name) {
+  const names = new Set();
+  for await (const [entry] of parent.entries()) names.add(entry.normalize("NFC").toLowerCase());
+  const base = name.slice(0, 100) + " — копия";
+  let candidate = base;
+  for (let i = 2; names.has(candidate.normalize("NFC").toLowerCase()); i++) candidate = `${base} ${i}`;
+  return candidate;
+}
+
+// Only the list in the selected root is owned by the GUI. An external move
+// removes the old row; it cannot invent an absolute path or edit another root.
+async function prepareListUpdate(root, source, destinationParent, name, relocate) {
+  if (!root) return async () => {};
+  const before = await readTaskList(root);
+  if (!before.exists) return async () => {};
+  const oldSegments = source ? await root.resolve(source) : null;
+  const parentSegments = await root.resolve(destinationParent);
+  const oldPath = oldSegments?.join("/").toLowerCase();
+  const newPath = parentSegments?.length === 1 ? [...parentSegments, name].join("/") : null;
+  const entries = before.entries.flatMap(entry => {
+    if (!relocate || entry.path.toLowerCase() !== oldPath) return [entry];
+    return newPath ? [{ ...entry, path: newPath }] : [];
+  });
+  if (newPath && !entries.some(entry => entry.path.toLowerCase() === newPath.toLowerCase())) {
+    entries.push({ path: newPath, enabled: false });
+  }
+  // Reject obsolete destination rows instead of merging their enabled state.
+  if (newPath && before.entries.some(entry => entry.path.toLowerCase() === newPath.toLowerCase())) {
+    throw new Error("В списке запуска уже есть путь назначения. Обновите список и повторите операцию.");
+  }
+  return async () => {
+    if (JSON.stringify(await readTaskList(root)) !== JSON.stringify(before)) {
+      throw new Error("Список запуска изменился во время операции. Источник сохранён; проверьте список.");
+    }
+    await writeTaskList(root, entries);
+  };
+}
+
+export async function runTaskDirectoryOperation({ kind, root, sourceParent, source, destinationParent, name, initialize }) {
+  if (!["create", "copy", "rename", "move"].includes(kind)) throw new Error("Неизвестная операция с заданием.");
+  validateTaskName(name);
+  const relocate = kind === "rename" || kind === "move";
+  if (kind !== "create" && !source) throw new Error("Выберите исходное задание.");
+  if (relocate && (!sourceParent || !(await sourceParent.resolve(source))?.length
+      || (await sourceParent.resolve(source)).length !== 1)) throw new Error("Исходный каталог задания недоступен.");
+  if (source && await source.resolve(destinationParent) !== null) {
+    throw new Error("Нельзя разместить задание внутри самого себя.");
+  }
+  const destinationPath = root ? await root.resolve(destinationParent) : null;
+  if (destinationPath !== null && destinationPath.length !== 1) {
+    throw new Error("В базовом каталоге выберите каталог проекта, а не корень или вложенное задание.");
+  }
+  if (kind === "move") {
+    try {
+      await destinationParent.getDirectoryHandle(DIRECTORIES.INPUT);
+      throw new Error("Выбран каталог задания. Выберите каталог проекта назначения.");
+    } catch (error) { if (error.name !== "NotFoundError") throw error; }
+  }
+  await assertUnused(destinationParent, name);
+  const publishList = await prepareListUpdate(root, source, destinationParent, name, relocate);
+  const include = kind === "copy" ? includeTaskInput : () => true;
+  if (kind === "copy") await source.getDirectoryHandle(DIRECTORIES.INPUT);
+  const expected = source ? await manifest(source, include) : null;
+  // Recheck after the potentially long read and immediately before creation.
+  await assertUnused(destinationParent, name);
+  const target = await destinationParent.getDirectoryHandle(name, { create: true });
+  const result = { handle: target, name, verified: false, deletionStarted: false, sourceRemoved: false };
+  let ownsTarget = false;
+  let guardInput = null;
+  const markerPath = `${DIRECTORIES.INPUT}/${TASK_UNAPPROVED_FILE}`;
+  try {
+    // Detect a competing creator where possible; FS Access has no exclusive mkdir.
+    for await (const _ of target.entries()) throw new Error("Каталог назначения уже содержит файлы.");
+    ownsTarget = true;
+    // Block incomplete current-format destinations from being launched. For a
+    // legacy-only relocation, do not invent input3XX and change import semantics.
+    if (!relocate || expected.some(entry => entry.path === DIRECTORIES.INPUT && entry.kind === "directory")) {
+      guardInput = await target.getDirectoryHandle(DIRECTORIES.INPUT, { create: true });
+      await writeFile(guardInput, TASK_UNAPPROVED_FILE, "Операция с каталогом ещё не завершена.\n");
+    }
+    if (kind === "create") {
+      if (typeof initialize !== "function") throw new Error("Не задан начальный комплект.");
+      await initialize(target);
+    } else {
+      await copyManifest(source, target, expected);
+      const extraGuard = guardInput && !expected.some(entry => entry.path === markerPath);
+      await assertManifest(target, expected, path => include(path) && !(extraGuard && path === markerPath));
+      await assertManifest(source, expected, include);
+    }
+    if (!relocate) {
+      const input = await target.getDirectoryHandle(DIRECTORIES.INPUT, { create: true });
+      await writeFile(input, TASK_UNAPPROVED_FILE, "Требуется проверка и сохранение в редакторе.\n");
+    }
+    result.verified = true;
+    await publishList();
+    if (relocate) {
+      // A second check protects against edits while publishing the task list.
+      await assertManifest(source, expected, include);
+      const current = await sourceParent.getDirectoryHandle(source.name);
+      if (!await current.isSameEntry(source)) throw new Error("Исходный каталог был заменён.");
+      result.deletionStarted = true;
+      await sourceParent.removeEntry(source.name, { recursive: true });
+      result.sourceRemoved = true;
+      if (guardInput && !expected.some(entry => entry.path === markerPath)) await guardInput.removeEntry(TASK_UNAPPROVED_FILE);
+    }
+    return result;
+  } catch (cause) {
+    if (ownsTarget && guardInput && !result.verified) {
+      try { await writeFile(guardInput, TASK_UNAPPROVED_FILE, "Операция не завершена. Проверьте содержимое задания.\n"); }
+      catch { cause.message += " Не удалось записать защитный маркер; не запускайте назначение."; }
+    }
+    const state = result.deletionStarted
+      ? "Удаление источника началось и могло завершиться частично. Проверенная полная копия сохранена в назначении."
+      : "Источник не удалялся. Каталог назначения сохранён для проверки; повторная операция не перезапишет его.";
+    const error = new Error(`Операция не завершена. Назначение: «${destinationParent.name}/${name}». ${state}\n${cause.message}`, { cause });
+    error.operationResult = result;
+    throw error;
+  }
+}
