@@ -1,0 +1,106 @@
+name: Mathematical guide review
+on:
+  push:
+    branches: [docs/mathematical-model-20260924]
+    paths: [.github/workflows/math-guide-review.yml]
+permissions:
+  contents: write
+jobs:
+  guide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Insert hash-checked native HTML chapter navigation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('docs/user-guide/index.html');b=p.read_bytes()
+          def blob(b):return hashlib.sha1(f'blob {len(b)}\0'.encode()+b).hexdigest()
+          assert blob(b)=='09bcac2d67c349143fff1859182413cc08c1fcd0'
+          s=b.decode();a='<a href="#reference">Справочник: единицы, файлы и клавиши</a>'
+          assert s.count(a)==1
+          s=s.replace(a,'<a href="#mathematical-model">16. Математическая модель и симметрии</a>'+a)
+          old='Руководство для работы с моделью, а не описание внутреннего устройства программы.'
+          new='Руководство для работы с моделью; краткая расчётная схема и симметрии приведены в разделе 16.'
+          assert s.count(old)==1;s=s.replace(old,new)
+          start='<section aria-labelledby="title-reference" class="chapter" id="reference">'
+          chapter='''<section aria-labelledby="title-mathematical-model" class="chapter" id="mathematical-model"><h2 id="title-mathematical-model">16. Математическая модель и симметрии</h2><p>Токовая модель JWeak1 сочетает коллокационные интегральные уравнения с кусочно постоянными источниками и слабыми условиями непрерывности тока. Явные неизвестные поверхностного заряда заменены согласованной потенциальной реакцией множителей Лагранжа; само потенциальное поле не обнуляется.</p><p><strong>A<sub>J</sub>J+c<sub>e</sub>ℰ(J,H<sub>*</sub>,M<sub>*</sub>)+Gλ=b, &nbsp; CJ=0.</strong></p><p>Полный Newton обязателен для ВТСП. Для линейной проводимости <code>fullJNewton</code> выбирает полную совместную поправку либо локальные блоки 3×3 с разреженным согласованием λ. В обеих ветвях полный интегральный вклад остаётся в невязке.</p><div class="quick-links"><a href="model.html#integral">Интегральные уравнения →</a><a href="model.html#discretization">Пространство и время →</a><a href="model.html#weak">Weak-исключение зарядов →</a><a href="model.html#newton">Полный и упрощённый Newton →</a><a href="model.html#hts">Степенной закон и сдвиг Jc →</a><a href="model.html#symmetries">Виды симметрий →</a></div><p class="math-note">Формулы и пояснения относятся к текущему Julia-решателю. Наличие математического описания не заменяет проверку точности конкретного расчёта.</p></section>'''
+          assert s.count(start)==1;s=s.replace(start,chapter+start)
+          assert blob(s.encode())=='b63121db83148688f9424754a4dc3605c5d54104';p.write_text(s)
+          print('INDEX_BLOB',blob(p.read_bytes()))
+          PY
+      - run: npm ci
+      - name: Build and verify complete guide delivery
+        run: |
+          npm run build:pages
+          test -s dist/user-guide/model.html
+          cmp docs/user-guide/model.html dist/user-guide/model.html
+          cmp docs/user-guide/index.html dist/user-guide/index.html
+      - name: Install isolated browser validator
+        run: |
+          python -m pip install playwright==1.55.0 beautifulsoup4==4.13.5
+          python -m playwright install --with-deps chromium
+      - name: Check local links, offline text, MathML and mobile layout
+        run: |
+          mkdir -p evidence
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          from bs4 import BeautifulSoup
+          from urllib.parse import urlsplit,unquote
+          from playwright.sync_api import sync_playwright
+          root=Path('docs/user-guide').resolve();report={'checks':[]}
+          for filename in ('index.html','model.html'):
+            soup=BeautifulSoup((root/filename).read_text(),'html.parser');ids=[x['id'] for x in soup.select('[id]')]
+            assert len(ids)==len(set(ids)),filename
+            for a in soup.select('a[href]'):
+              u=urlsplit(a['href'])
+              if u.scheme or u.netloc:continue
+              target=root/unquote(u.path) if u.path else root/filename
+              assert target.exists(),(filename,a['href'])
+              if u.fragment and target.suffix=='.html':
+                dest=BeautifulSoup(target.read_text(),'html.parser');assert dest.find(id=unquote(u.fragment)),(filename,a['href'])
+            report['checks'].append({'html':filename,'ids':len(ids),'links':'valid'})
+          with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=['--no-sandbox'])
+            for width,theme,js in ((1440,'light',True),(1440,'dark',True),(390,'light',True),(390,'dark',False)):
+              context=browser.new_context(viewport={'width':width,'height':1000},color_scheme=theme,java_script_enabled=js)
+              page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+              page.goto((root/'model.html').as_uri());page.wait_for_timeout(150)
+              assert page.locator('#newton').count()==1 and page.locator('math').count()==3
+              assert page.locator('#symmetries').is_visible()
+              size=page.evaluate('({width:innerWidth,scroll:document.documentElement.scrollWidth})')
+              assert size['scroll']<=size['width']+1,size
+              for anchor in ('integral','weak','newton','symmetries'):
+                page.locator('#'+anchor).screenshot(path=f'evidence/model_{anchor}_{width}_{theme}_js{int(js)}.png')
+              assert not errors,errors
+              report['checks'].append({'width':width,'theme':theme,'javascript':js,'horizontal_overflow':False,'MathML_elements':3,'page_errors':errors})
+              context.close()
+            browser.close()
+          Path('evidence/html-verification.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print(json.dumps(report,ensure_ascii=False))
+          PY
+      - name: Commit reviewed navigation to documentation branch only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/user-guide/index.html
+          git commit -m 'docs: link mathematical model and symmetry chapter from user guide'
+          git push origin HEAD:docs/mathematical-model-20260924
+          git rev-parse HEAD | tee evidence/verified_commit.txt
+      - name: Preserve rendered documentation and evidence
+        if: always()
+        run: |
+          mkdir -p evidence
+          tar -czf evidence/user-guide.tar.gz -C docs user-guide
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mathematical-guide-review
+          path: evidence
+          retention-days: 3
