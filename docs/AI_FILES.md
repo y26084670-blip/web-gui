@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-24 19:38 UTC+3.
+Обновлено: 2026-09-24 21:49 UTC+3.
 
 ## Назначение
 
@@ -24,7 +24,7 @@
 | `src/TaskInfoBar.jsx`, `src/TaskInfoBar.css` | Верхняя строка сведений о выбранном задании и состоянии данных. |
 | `package.json` | Версия приложения, зависимости и канонические npm-команды. |
 | `vite.config.js` | Конфигурация Vite и подключение раздачи файлов примеров. |
-| `docs/user-guide/index.html`, `guide.css`, `guide.js`, `images/`, `evidence/` | Каноническое пользовательское HTML-руководство; не импортируется в SPA. |
+| `docs/user-guide/index.html`, `guide.css`, `guide.js`, `images/`, `evidence/` | Каноническое пользовательское HTML-руководство на единой странице, включая математическую модель (раздел 16); не импортируется в SPA. |
 | `scripts/user-guide-assets.mjs` | Подготовка `.generated/user-guide` и побайтовая SHA-256-проверка `dist/user-guide`. |
 | `scripts/check-online-guide-browser.py`, `test/browser/guideMaterials.fixture.jsx` | Автономный браузерный стенд справки и реальных библиотечных компонентов с управляемыми файловыми дескрипторами; не включается в production. |
 | `test/userGuideAssets.test.js`, `test/materialLibrarySource.test.js` | Проверки доставки, ссылок и контрактов выбора источника. |
