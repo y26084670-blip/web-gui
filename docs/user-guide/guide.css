@@ -7,3 +7,15 @@
 @media(max-width:760px){body{font-size:16px}.topbar{padding:12px 16px;gap:12px;flex-wrap:wrap}.guide-title{display:none}.layout{display:block;margin-top:22px;padding:0 16px}.toc{position:static;max-height:none;padding:0 0 18px;margin-bottom:12px;border-bottom:1px solid var(--edge)}.toc summary{padding-bottom:8px}.toc details[open]>div{max-height:240px;overflow:auto}.hero{padding:22px 20px}.hero h1{font-size:31px}.lead{font-size:17px}.quick-links{grid-template-columns:1fr;gap:8px}.chapter{padding:22px 0 0}.chapter h2{font-size:26px}.scenario{padding:6px 16px 14px}th,td{padding:10px}.fig-pair{grid-template-columns:1fr}.callout{padding:13px 14px}.sources{font-size:13px}footer{gap:16px}h3[id],article[id],section[id],#top{scroll-margin-top:86px}}
 @media(prefers-reduced-motion:no-preference){a,button{transition:background-color .12s,color .12s}}
 @media print{:root,:root[data-theme=dark]{color-scheme:light;--bg:white;--paper:white;--text:#111;--muted:#333;--edge:#bbb;--accent:#164d49;--soft:#eef4f2;--warning:#fff;--warn-text:#333;--plan:#f5f5f5;--plan-text:#333}body{font-size:10.5pt;line-height:1.48;background:white}.topbar,.toc,.skip-link,.quick-links,#theme-toggle{display:none!important}.layout{display:block;max-width:none;padding:0;margin:0}.hero{border:0;box-shadow:none;padding:0}.hero h1{font-size:25pt}.chapter h2{font-size:18pt}.chapter h3{font-size:13pt;break-after:avoid}h2,h3{break-after:avoid}.chapter{margin-top:22pt;padding-top:12pt}.scenario{padding:4pt 10pt;box-shadow:none}.table-scroll{overflow:visible}table{font-size:9pt}thead{display:table-header-group}tr{break-inside:avoid}figure{break-inside:avoid}figure img{max-height:180mm;object-fit:contain}a{color:inherit;text-decoration:underline}.sources a{overflow-wrap:anywhere}footer{font-size:9pt}.intro-note,.edition{font-size:9pt}}
+
+/* Математическая модель — подразделы единой страницы руководства. */
+.toc a.toc-subsection{padding-left:22px;font-size:13px}
+#mathematical-model .model-subsection{margin-top:28px;scroll-margin-top:90px}
+#mathematical-model h4{font-size:18px;line-height:1.4;margin:24px 0 12px}
+#mathematical-model .equation{overflow-x:auto;max-width:100%;padding:16px 18px;margin:18px 0;background:var(--paper);border:1px solid var(--edge);border-radius:8px;font-family:"Cambria Math","STIX Two Math",serif;font-size:1.12em;line-height:1.9}
+#mathematical-model .equation .line{display:block;white-space:nowrap}
+#mathematical-model .equation math{min-width:max-content;font-size:1.02em;margin:.35em 0}
+#mathematical-model .equation sub,#mathematical-model .equation sup{font-size:.72em}
+.math-note{font-size:14px;color:var(--muted)}
+@media(max-width:760px){#mathematical-model .equation{padding:12px;font-size:1em}}
+@media print{#mathematical-model .equation{break-inside:avoid;font-size:10pt;padding:8pt;overflow:visible}#mathematical-model .equation .line{white-space:normal}#mathematical-model h4{font-size:11pt;break-after:avoid}}

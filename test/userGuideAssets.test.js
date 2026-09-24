@@ -32,6 +32,20 @@ test('every internal guide link and runtime asset resolves inside the standalone
     assert.doesNotMatch(html, /\b(?:src|href)="(?:file:|javascript:|#")/u);
 });
 
+test('mathematical model is part of the main guide with reachable subsections', async () => {
+    assert.ok(!(await readdir(USER_GUIDE_SOURCE)).includes('model.html'));
+    assert.doesNotMatch(html, /model\.html|HTC_JC_OFFSET|AI_HTC_JC_OFFSET/u);
+    for (const id of ['integral', 'discretization', 'weak', 'newton', 'hts', 'symmetries', 'scope']) {
+        assert.ok(ids.includes(`model-${id}`), id);
+        assert.ok(attributes('href').includes(`#model-${id}`), id);
+    }
+    assert.equal((html.match(/class="model-subsection"/gu) ?? []).length, 7);
+    assert.match(html, /без добавки или нижнего ограничения/u);
+    assert.match(html, /j2_n=24/u);
+    assert.match(html, /j_gmin=25000/u);
+    assert.match(html, /это поведение кода|Это поведение кода/u);
+});
+
 test('guide version matches the GUI and identifies the four implemented task commands', async () => {
     const version = JSON.parse(await readFile(path.join(root, 'package.json'))).version;
     assert.match(html, new RegExp(`версия GUI <strong>${version.replaceAll('.', '\\.')}<`));
@@ -58,7 +72,7 @@ test('prepare copies all guide bytes deterministically and removes obsolete gene
         const sentinel = path.join(temporary, 'other-resource.txt');
         await writeFile(sentinel, 'keep');
         const first = await prepareUserGuideAssets({ outputRoot });
-        assert.equal(first.length, 9);
+        assert.equal(first.length, 8);
         await writeFile(path.join(outputRoot, 'obsolete.html'), 'obsolete');
         assert.deepEqual(await prepareUserGuideAssets({ outputRoot }), first);
         assert.deepEqual(await verifyUserGuideAssets({ assetRoot: outputRoot }), first);

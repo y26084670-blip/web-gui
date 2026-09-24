@@ -1,6 +1,6 @@
-# Clark UI Editor
+# Clark E3D Editor
 
-Обновлено: 2026-09-24 19:38 UTC+3.
+Обновлено: 2026-09-24 21:52 UTC+3.
 
 Текущая версия: **4.29.0**.
 
@@ -10,7 +10,7 @@
 
 ## Открыть приложение
 
-[Clark UI Editor](https://y26084670-blip.github.io/web-gui/) ·
+[Clark E3D Editor](https://y26084670-blip.github.io/web-gui/) ·
 [Руководство пользователя](https://y26084670-blip.github.io/web-gui/user-guide/index.html).
 
 ## Требования

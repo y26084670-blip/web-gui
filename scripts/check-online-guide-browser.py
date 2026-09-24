@@ -73,17 +73,29 @@ with sync_playwright() as pw:
             for chapter in chapters:
                 page.locator(f'.toc a[href="#{chapter}"]').click()
                 check(f'guide-{width}:anchor:{chapter}', urlsplit(page.url).fragment == chapter and page.locator('#'+chapter).evaluate('(e)=>e.getBoundingClientRect().top < innerHeight'))
+            for subsection in ['integral', 'discretization', 'weak', 'newton', 'hts', 'symmetries', 'scope']:
+                anchor = 'model-' + subsection
+                page.locator(f'.toc a[href="#{anchor}"]').click()
+                check(f'guide-{width}:model-anchor:{subsection}', urlsplit(page.url).fragment == anchor and page.locator('#'+anchor+' h3').is_visible())
+            page.locator('.toc a[href="#model-integral"]').click()
+            check(f'guide-{width}:native-math-visible', page.locator('#model-integral math').first.bounding_box()['height'] > 10)
+            check(f'guide-{width}:math-contained', page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
+            page.locator('.toc a[href="#model-hts"]').click()
+            page.screenshot(path=str(OUT/f'model-{width}-light.png'))
             for image in page.locator('img').all():
                 image.scroll_into_view_if_needed(); image.evaluate('(im)=>im.decode()')
                 check(f'guide-{width}:image:{image.get_attribute("data-source")}', image.evaluate('(im)=>im.complete && im.naturalWidth > 0'))
             page.evaluate("location.hash='top'")
             page.locator('#theme-toggle').click()
             check(f'guide-{width}:dark', page.locator('html').get_attribute('data-theme') == 'dark')
+            page.locator('.toc a[href="#model-hts"]').click()
+            page.screenshot(path=str(OUT/f'model-{width}-dark.png'))
             page.locator('#theme-toggle').click()
             check(f'guide-{width}:light', page.locator('html').get_attribute('data-theme') == 'light')
             page.screenshot(path=str(OUT/f'guide-{width}.png'))
             page.emulate_media(media='print')
             check(f'guide-{width}:print', not page.locator('.toc').is_visible() and page.locator('h1').is_visible())
+            check(f'guide-{width}:math-print-visible', page.locator('#model-integral math').first.is_visible())
             page.emulate_media(media='screen')
             if width == 1440:
                 page.locator('body').evaluate('(e)=>e.style.zoom="2"')
