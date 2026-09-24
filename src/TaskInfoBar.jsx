@@ -292,6 +292,11 @@ export function TaskInfoBar(props) {
           <span aria-hidden="true">?</span>
         </button>
 
+        <a class="documentation-button"
+          href={`${import.meta.env.BASE_URL}user-guide/index.html`}
+          target="_blank" rel="noopener noreferrer"
+          title="Открыть документацию в новой вкладке">Документация</a>
+
         <button
           ref={(el) => (aboutButton = el)}
           class="about-button"

@@ -71,6 +71,30 @@
     gap: 8px;
 }
 
+.model-validation-button,
+.documentation-button {
+    width: 145px;
+    flex: 0 0 145px;
+    white-space: nowrap;
+}
+
+.documentation-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    height: 26px;
+    border: 0;
+    border-radius: 6px;
+    background: #2563eb;
+    color: #fff;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+.documentation-button:hover { background: #1d4ed8; }
+.documentation-button:focus-visible { outline: 2px solid #466c91; outline-offset: 2px; }
+
 .save-button,
 .model-validation-button {
     position: relative;

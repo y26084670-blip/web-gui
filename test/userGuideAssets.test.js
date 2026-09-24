@@ -14,7 +14,7 @@ test('guide is standalone Russian HTML with complete sections and stable unique 
     assert.match(html, /<html[^>]*lang="ru"/u);
     assert.equal(new Set(ids).size, ids.length);
     assert.equal((html.match(/<h1\b/gu) ?? []).length, 1);
-    assert.equal((html.match(/class="chapter"/gu) ?? []).length, 16);
+    assert.equal((html.match(/class="chapter"/gu) ?? []).length, 17);
     for (const id of ['med', 'med-apply', 'task-create', 'task-copy', 'task-rename', 'task-move', 'material-source', 'test-team7', 'test-cube', 'test-bar', 'examples-external', 'examples-lessons']) assert.ok(ids.includes(id), id);
 });
 
@@ -32,10 +32,10 @@ test('every internal guide link and runtime asset resolves inside the standalone
     assert.doesNotMatch(html, /\b(?:src|href)="(?:file:|javascript:|#")/u);
 });
 
-test('guide version matches the GUI and does not present pending task commands as shipped', async () => {
+test('guide version matches the GUI and identifies the four implemented task commands', async () => {
     const version = JSON.parse(await readFile(path.join(root, 'package.json'))).version;
     assert.match(html, new RegExp(`версия GUI <strong>${version.replaceAll('.', '\\.')}<`));
-    assert.equal((html.match(/data-status="agreed-unpublished"/gu) ?? []).length, 4);
+    assert.equal((html.match(/data-status="implemented"/gu) ?? []).length, 4);
     assert.match(html, /начальным|Начальный источник/u);
     assert.match(html, /пустой локальный список/u);
     assert.match(html, /во время|Во время/u);
@@ -58,7 +58,7 @@ test('prepare copies all guide bytes deterministically and removes obsolete gene
         const sentinel = path.join(temporary, 'other-resource.txt');
         await writeFile(sentinel, 'keep');
         const first = await prepareUserGuideAssets({ outputRoot });
-        assert.equal(first.length, 8);
+        assert.equal(first.length, 9);
         await writeFile(path.join(outputRoot, 'obsolete.html'), 'obsolete');
         assert.deepEqual(await prepareUserGuideAssets({ outputRoot }), first);
         assert.deepEqual(await verifyUserGuideAssets({ assetRoot: outputRoot }), first);
@@ -119,10 +119,10 @@ test('all npm build entrypoints prepare and verify the same guide', async () => 
 });
 
 test('help link is base-aware, separate from the SPA and opens without replacing the task', async () => {
-    const source = await readFile(path.join(root, 'src/components/help/GeneralInformationDialog.jsx'), 'utf8');
+    const source = await readFile(path.join(root, 'src/TaskInfoBar.jsx'), 'utf8');
     assert.match(source, /href=\{`\$\{import\.meta\.env\.BASE_URL\}user-guide\/index\.html`\}/u);
     assert.match(source, /target="_blank" rel="noopener noreferrer"/u);
-    assert.match(source, /Руководство пользователя/u);
+    assert.match(source, /Документация/u);
     assert.doesNotMatch(source, /^import\s[^;]+user-guide\/(?:index|guide)/mu);
     for (const base of ['/', '/web-gui/', '/local/editor/']) {
         const resolved = new URL(`${base}user-guide/index.html`, 'https://host.invalid/editor');
