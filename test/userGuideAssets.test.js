@@ -14,8 +14,8 @@ test('guide is standalone Russian HTML with complete sections and stable unique 
     assert.match(html, /<html[^>]*lang="ru"/u);
     assert.equal(new Set(ids).size, ids.length);
     assert.equal((html.match(/<h1\b/gu) ?? []).length, 1);
-    assert.equal((html.match(/class="chapter"/gu) ?? []).length, 17);
-    for (const id of ['med', 'med-apply', 'task-create', 'task-copy', 'task-rename', 'task-move', 'material-source', 'test-team7', 'test-cube', 'test-bar', 'examples-external', 'examples-lessons']) assert.ok(ids.includes(id), id);
+    assert.equal((html.match(/class="chapter"/gu) ?? []).length, 18);
+    for (const id of ['med', 'med-apply', 'task-create', 'task-copy', 'task-rename', 'task-move', 'material-source', 'test-team7', 'test-cube', 'test-bar', 'examples-external', 'examples-lessons', 'team13']) assert.ok(ids.includes(id), id);
 });
 
 test('every internal guide link and runtime asset resolves inside the standalone directory', async () => {
@@ -72,7 +72,7 @@ test('prepare copies all guide bytes deterministically and removes obsolete gene
         const sentinel = path.join(temporary, 'other-resource.txt');
         await writeFile(sentinel, 'keep');
         const first = await prepareUserGuideAssets({ outputRoot });
-        assert.equal(first.length, 8);
+        assert.equal(first.length, 9);
         await writeFile(path.join(outputRoot, 'obsolete.html'), 'obsolete');
         assert.deepEqual(await prepareUserGuideAssets({ outputRoot }), first);
         assert.deepEqual(await verifyUserGuideAssets({ assetRoot: outputRoot }), first);
@@ -150,3 +150,4 @@ test('Caddy serves guide assets without the SPA fallback', async () => {
     assert.match(source, /handle @user_guide\s*\{\s*file_server\s*\}/u);
     assert.ok(source.indexOf('handle @user_guide') < source.indexOf('try_files'));
 });
+
