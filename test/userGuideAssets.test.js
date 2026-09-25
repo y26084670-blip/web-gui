@@ -43,7 +43,11 @@ test('mathematical model is part of the main guide with reachable subsections', 
     assert.match(html, /без добавки или нижнего ограничения/u);
     assert.match(html, /j2_n=24/u);
     assert.match(html, /j_gmin=25000/u);
-    assert.match(html, /это поведение кода|Это поведение кода/u);
+    for (const id of ['jweak1', 'model-hts-power', 'model-hts-tanh']) assert.ok(ids.includes(id), id);
+    assert.match(html, /16\.5\. Аппроксимация для токовой подсистемы ВТСП/u);
+    assert.match(html, /1−tanh\(ab\/\(2δ\)\)/u);
+    assert.match(html, /htcMu=false/u);
+    assert.match(html, /htcRo=false/u);
 });
 
 test('guide version matches the GUI and identifies the five implemented task commands', async () => {
