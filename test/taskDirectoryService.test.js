@@ -166,3 +166,88 @@ test('legacy rename preserves layout without inventing input3XX; missing list st
   assert.equal(await f.exists(result.handle, 'input3XX'), false);
   assert.equal(await f.exists(f.root, 'clark.tasks.txt'), false);
 });
+
+test('delete removes the selected tree only and cleans launch references before removal', async t => {
+  const f = await fixture(t);
+  await f.put(f.parent, 'Other/keep.txt', 'keep');
+  await f.put(f.root, 'clark.launch.json', 'old request');
+  f.setHook(async (op, p) => {
+    if (op === 'remove' && p.endsWith('/Original')) {
+      assert.equal(await f.read(f.root, 'clark.tasks.txt'), '*Project/Other\n');
+      assert.equal(await f.read(f.root, 'clark.launch.json'), '');
+    }
+    if (op === 'read' && p.includes('/Original/')) throw new Error('Deletion must not read/hash task data');
+  });
+  const result = await f.run({ kind: 'delete' });
+  assert.equal(result.sourceRemoved, true);
+  assert.equal(await f.exists(f.parent, 'Original'), false);
+  assert.equal(await f.read(f.parent, 'Other/keep.txt'), 'keep');
+});
+test('delete legacy task without a task list does not create one and invalidates launch request', async t => {
+  const f = await fixture(t);
+  await fs.rm(path.join(f.source.location, 'input3XX'), { recursive: true });
+  await fs.rm(path.join(f.root.location, 'clark.tasks.txt'));
+  await f.put(f.root, 'clark.launch.json', 'old request');
+  await f.run({ kind: 'delete' });
+  assert.equal(await f.exists(f.parent, 'Original'), false);
+  assert.equal(await f.exists(f.root, 'clark.tasks.txt'), false);
+  assert.equal(await f.read(f.root, 'clark.launch.json'), '');
+});
+test('delete refuses root, project, nested child and a task from another project', async t => {
+  const f = await fixture(t);
+  const nested = await f.source.getDirectoryHandle('input3XX');
+  const other = await f.root.getDirectoryHandle('Second', { create: true });
+  for (const options of [{ source: f.root }, { source: f.parent, sourceParent: f.root },
+    { source: nested, sourceParent: f.source }, { sourceParent: other }, { root: null }]) {
+    await assert.rejects(f.run({ kind: 'delete', ...options }), /текущего проекта/);
+  }
+  assert.ok(await f.exists(f.source, 'input3XX/general.txt'));
+  assert.equal(await f.read(f.root, 'clark.tasks.txt'), 'Project/Original\n*Project/Other\n');
+});
+test('delete refuses a replaced handle without modifying files or task list', async t => {
+  const f = await fixture(t);
+  const get = f.parent.getDirectoryHandle.bind(f.parent);
+  f.parent.getDirectoryHandle = async (...args) => {
+    const handle = await get(...args); handle.isSameEntry = async () => false; return handle;
+  };
+  await assert.rejects(f.run({ kind: 'delete' }), /заменён/);
+  assert.ok(await f.exists(f.source, 'input3XX/general.txt'));
+  assert.equal(await f.read(f.root, 'clark.tasks.txt'), 'Project/Original\n*Project/Other\n');
+});
+test('delete list write or launch invalidation failure preserves the task', async t => {
+  for (const target of ['clark.tasks.txt', 'clark.launch.json']) {
+    const f = await fixture(t); await f.put(f.root, 'clark.launch.json', 'old');
+    f.setHook((op, p) => { if (op === 'write' && p.endsWith(target)) throw new Error('locked'); });
+    await assert.rejects(f.run({ kind: 'delete' }), error => {
+      assert.equal(error.operationResult.deletionStarted, false);
+      assert.match(error.message, /не удалялся/); return true;
+    });
+    assert.ok(await f.exists(f.source, 'input3XX/general.txt'));
+  }
+});
+test('delete rejects invalid or concurrently changed launch list before removal', async t => {
+  for (const invalid of [true, false]) {
+    const f = await fixture(t); let reads = 0;
+    if (invalid) await f.put(f.root, 'clark.tasks.txt', '../outside\n');
+    else f.setHook(async (op, p) => {
+      if (op === 'read' && p.endsWith('clark.tasks.txt') && ++reads === 2) await f.put(f.root, 'clark.tasks.txt', '*Project/Original\n');
+    });
+    await assert.rejects(f.run({ kind: 'delete' }));
+    assert.ok(await f.exists(f.source, 'input3XX/general.txt'));
+  }
+});
+test('partial delete reports remaining files and does not keep a runnable list row', async t => {
+  const f = await fixture(t);
+  f.setHook(async (op, p) => {
+    if (op === 'remove' && p.endsWith('/Original')) {
+      await fs.rm(path.join(p, 'input3XX/general.txt')); throw new Error('access denied');
+    }
+  });
+  await assert.rejects(f.run({ kind: 'delete' }), error => {
+    assert.equal(error.operationResult.deletionStarted, true);
+    assert.equal(error.operationResult.sourceRemoved, false);
+    assert.match(error.message, /частично/); return true;
+  });
+  assert.equal(await f.read(f.source, 'protocol.log'), 'old log');
+  assert.equal(await f.read(f.root, 'clark.tasks.txt'), '*Project/Other\n');
+});

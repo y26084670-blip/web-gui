@@ -3,6 +3,7 @@ import "./TaskOperationDialog.css";
 
 export const TASK_OPERATION_LABELS = Object.freeze({
   create: "Создать задание", copy: "Создать копию", rename: "Переименовать", move: "Перенести в другой каталог",
+  delete: "Удалить задание",
 });
 
 export function TaskOperationDialog(props) {
@@ -10,6 +11,8 @@ export function TaskOperationDialog(props) {
   const [name, setName] = createSignal("");
   const [stopped, setStopped] = createSignal(false);
   const relocation = () => ["rename", "move"].includes(props.request?.kind);
+  const deletion = () => props.request?.kind === "delete";
+  const needsStopped = () => relocation() || deletion();
   createEffect(() => {
     const request = props.request;
     setName(request?.name ?? "");
@@ -21,10 +24,10 @@ export function TaskOperationDialog(props) {
   });
   return <dialog ref={dialog} class="task-operation-dialog" aria-labelledby="task-operation-title"
     onCancel={event => { event.preventDefault(); if (!props.busy) props.onClose(); }}>
-    <form onSubmit={event => { event.preventDefault(); if (!props.busy && (!relocation() || stopped())) props.onSubmit(name()); }}>
+    <form onSubmit={event => { event.preventDefault(); if (!props.busy && !props.failed && (!needsStopped() || stopped())) props.onSubmit(name()); }}>
       <h2 id="task-operation-title">{TASK_OPERATION_LABELS[props.request?.kind]}</h2>
       <p>Проект: {props.request?.projectName}</p>
-      <Show when={props.request?.kind !== "move"} fallback={<p>Задание: {props.request?.name}. Выберите проект назначения после нажатия кнопки ниже.</p>}>
+      <Show when={props.request?.kind !== "move" && !deletion()} fallback={<p>Задание: {props.request?.name}. {deletion() ? "" : "Выберите проект назначения после нажатия кнопки ниже."}</p>}>
         <label>Имя задания
           <input ref={nameInput} name="taskName" value={name()} maxLength={120} required disabled={props.busy}
             onInput={event => setName(event.currentTarget.value)} autocomplete="off" />
@@ -38,13 +41,19 @@ export function TaskOperationDialog(props) {
       </Show>
       <Show when={relocation()}>
         <p>Переносится всё содержимое, включая результаты. Несохранённые изменения выбранного задания необходимо предварительно сохранить. Существующее назначение не перезаписывается.</p>
+      </Show>
+      <Show when={deletion()}>
+        <p>Удалить каталог «{props.request?.projectName}/{props.request?.name}» и всё его содержимое, включая исходные данные, библиотеки и результаты расчёта? Удаление безвозвратное, без корзины и Undo.</p>
+        <p>Если это задание открыто в редакторе, оно будет закрыто. Его несохранённые изменения также будут потеряны. Другие задания не изменяются.</p>
+      </Show>
+      <Show when={needsStopped()}>
         <label class="task-operation-confirm"><input type="checkbox" checked={stopped()} disabled={props.busy}
           onChange={event => setStopped(event.currentTarget.checked)} />Расчёт и другие программы, изменяющие это задание, остановлены</label>
       </Show>
       <p class="task-operation-error" role="alert">{props.error}</p>
       <p role="status">{props.busy ? "Выполнение операции и проверка файлов…" : ""}</p>
       <div class="task-operation-actions">
-        <button type="submit" disabled={props.busy || props.failed || (relocation() && !stopped())}>
+        <button type="submit" disabled={props.busy || props.failed || (needsStopped() && !stopped())}>
           {props.request?.kind === "move" ? "Выбрать каталог назначения" : TASK_OPERATION_LABELS[props.request?.kind]}
         </button>
         <button type="button" disabled={props.busy} onClick={props.onClose}>{props.failed ? "Закрыть" : "Отмена"}</button>

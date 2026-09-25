@@ -1,7 +1,7 @@
 // Filesystem-only operations. A verified destination is retained on any partial
 // relocation; the caller receives its handle and whether deletion was attempted.
 import { DIRECTORIES, TASK_UNAPPROVED_FILE } from "./schemas/common/constants.js";
-import { readTaskList, writeTaskList } from "./taskLaunchService.js";
+import { readTaskList, writeTaskList, invalidateLaunchRequest } from "./taskLaunchService.js";
 
 export function validateTaskName(value) {
   if (typeof value !== "string" || !value || value !== value.trim()
@@ -122,7 +122,50 @@ async function prepareListUpdate(root, source, destinationParent, name, relocate
   };
 }
 
+async function deleteTaskDirectory({ root, sourceParent, source }) {
+  // Удалять разрешено только выбранное задание непосредственно в проекте.
+  const assertSource = async () => {
+    if (!root || !sourceParent || !source
+        || (await root.resolve(sourceParent))?.length !== 1
+        || (await sourceParent.resolve(source))?.length !== 1
+        || (await root.resolve(source))?.length !== 2) {
+      throw new Error("Выберите задание внутри текущего проекта. Корень и каталог проекта удалять нельзя.");
+    }
+    const current = await sourceParent.getDirectoryHandle(source.name);
+    if (!await current.isSameEntry(source)) throw new Error("Каталог задания был заменён. Обновите список и выберите его заново.");
+  };
+  await assertSource();
+  const before = await readTaskList(root);
+  const oldPath = (await root.resolve(source)).join("/").toLowerCase();
+  const result = { name: source.name, deletionStarted: false, sourceRemoved: false };
+  try {
+    if (JSON.stringify(await readTaskList(root)) !== JSON.stringify(before)) {
+      throw new Error("Список запуска изменился во время операции. Обновите список и повторите удаление.");
+    }
+    await assertSource();
+    // Сначала исключаем запуск удаляемого задания. Сбой записи оставляет каталог.
+    if (before.exists) {
+      await writeTaskList(root, before.entries.filter(entry => entry.path.toLowerCase() !== oldPath));
+    } else {
+      await invalidateLaunchRequest(root);
+    }
+    await assertSource();
+    result.deletionStarted = true;
+    await sourceParent.removeEntry(source.name, { recursive: true });
+    result.sourceRemoved = true;
+    return result;
+  } catch (cause) {
+    const state = result.deletionStarted
+      ? "Удаление началось и могло завершиться частично. Проверьте оставшиеся файлы; восстановление через Undo недоступно."
+      : "Каталог задания не удалялся.";
+    const error = new Error(`Не удалось удалить «${sourceParent.name}/${source.name}». ${state} Список запуска мог быть изменён.\n${cause.message}`, { cause });
+    error.operationResult = result;
+    throw error;
+  }
+}
+
 export async function runTaskDirectoryOperation({ kind, root, sourceParent, source, destinationParent, name, initialize }) {
+  if (kind === "delete") return deleteTaskDirectory({ root, sourceParent, source });
   if (!["create", "copy", "rename", "move"].includes(kind)) throw new Error("Неизвестная операция с заданием.");
   validateTaskName(name);
   const relocate = kind === "rename" || kind === "move";

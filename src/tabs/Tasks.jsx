@@ -110,15 +110,15 @@ export function Tasks(props) {
         destinationParent: destination, name: request.kind === "move" ? request.name : name,
         initialize: initializeTaskDirectory });
       completedResult = result;
-      await finishTaskOperation(request, destination, result, relocate && wasLoaded);
+      await finishTaskOperation(request, destination, result, (relocate || request.kind === "delete") && wasLoaded);
       setOperation(null);
     } catch (error) {
       if (isFilePickerCancellation(error)) return;
       const result = error.operationResult ?? completedResult;
-      if (completedResult) error.message = `Файловая операция завершена, но обновление интерфейса не удалось. Назначение: «${destination.name}/${result.name}». ${error.message}`;
+      if (completedResult) error.message = `Файловая операция завершена, но обновление интерфейса не удалось. Задание: «${destination.name}/${result.name}». ${error.message}`;
       if (result) {
         setOperationFailed(true);
-        try { await finishTaskOperation(request, destination, result, relocate && wasLoaded && result.deletionStarted); }
+        try { await finishTaskOperation(request, destination, result, (relocate || request.kind === "delete") && wasLoaded && result.deletionStarted); }
         catch (refreshError) { error.message += `\nНе удалось обновить список: ${refreshError.message}`; }
       }
       setOperationError(error.message);
@@ -128,6 +128,18 @@ export function Tasks(props) {
   }
 
   async function finishTaskOperation(request, destination, result, rebindLoaded) {
+    if (request.kind === "delete") {
+      invalidateBrowserSelection();
+      if (rebindLoaded) {
+        batch(() => { clearLoadedTaskState(); unsavedChangesService.clear(); });
+      }
+      setSelectedTask(null);
+      setTaskInfo(EMPTY_TASK_INFO);
+      setTaskResultsText("");
+      setTasks([]);
+      setTasks(await getSubdirs(request.parent));
+      return;
+    }
     if (rebindLoaded) {
       const relative = await request.root.resolve(result.handle);
       const fullPath = relative ? `${request.root.name}/${relative.join("/")}` : `${destination.name}/${result.name}`;
