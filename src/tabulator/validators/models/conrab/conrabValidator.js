@@ -23,5 +23,20 @@ export function conrabValidator(
                 "Файл conrab.txt должен содержать ровно две записи: "
                 + "Float32 и Float64.",
         }));
+        return;
+    }
+    for (const [row, record] of conrab.entries()) {
+        for (const property of ["CF_FMMEPS", "CF_HTSEPS"]) {
+            const value = record[property];
+            if (!Number.isFinite(value) || value <= 0) {
+                diagnostics.push(createError({
+                    tab: TABS.CONRAB,
+                    row: row + 1,
+                    property,
+                    message: `${property} (${row === 0 ? "Float32" : "Float64"}): `
+                        + "требуется конечный положительный допуск в кА/м.",
+                }));
+            }
+        }
     }
 }

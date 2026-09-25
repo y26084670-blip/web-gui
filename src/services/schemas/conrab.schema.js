@@ -1,7 +1,7 @@
 /*
 Источник: solver/src/core/types.jl, Conrab; startITER и fullJNewton — логические параметры.
 Файл содержит две RECORDS-записи: Float32, затем Float64.
-Каждая запись содержит 14 сериализуемых полей; отсутствующие поля получают default схемы.
+Каждая запись содержит 11 сериализуемых полей; отсутствующие поля получают default схемы.
 */
 import {
     TABS,
@@ -23,7 +23,8 @@ export default createSchema({
             + "Значения продублированы для Float32 и Float64; "
             + "при сохранении будут записаны обе строки.",
     },
-    obsoleteStoragePaths: ["KB2", "B20", "KEPS2", "KEPS3", "KEPS4"],
+    obsoleteStoragePaths: ["KB2", "B20", "KEPS2", "KEPS3", "KEPS4",
+        "EPS_0", "TAU_0", "KB1", "KEPS1", "CF_KEPS"],
     rowLabelDescription: "Параметры математической модели",
 
     views: {
@@ -59,31 +60,15 @@ export default createSchema({
         EPS: {
             type: FIELD_TYPES.FLOAT,
             label: "EPS — общий критерий",
-            description: "Общий критерий выхода из итерационного процесса",
+            description: "Общий критерий выхода из итерационного процесса, включая t = 0",
             default: 0.005,
-            digits: 6,
-        },
-
-        EPS_0: {
-            type: FIELD_TYPES.FLOAT,
-            label: "EPS_0 — критерий при t = 0",
-            description: "Критерий на нулевом временном шаге; 0 — использовать EPS; рекомендуется при учете вихревых токов",
-            default: 0.0005,
             digits: 6,
         },
 
         TAU: {
             type: FIELD_TYPES.FLOAT,
             label: "TAU — общий параметр",
-            description: "Общий параметр итерационного процесса",
-            default: 0.3,
-            digits: 6,
-        },
-
-        TAU_0: {
-            type: FIELD_TYPES.FLOAT,
-            label: "TAU_0 — параметр при t = 0",
-            description: "Параметр на нулевом временном шаге; 0 — использовать TAU",
+            description: "Общий параметр итерационного процесса, включая t = 0",
             default: 0.3,
             digits: 6,
         },
@@ -134,27 +119,27 @@ export default createSchema({
 
         // материальные уравнения
 
-        KB1: {
+        CF_FMMEPS: {
             type: FIELD_TYPES.FLOAT,
-            label: "KB1",
-            description: "Коэффициент для начальной нижней границы поиска J: b1=zero1*KB1",
-            default: 1,
+            label: "CF_FMMEPS — допуск M, кА/м",
+            description: "Абсолютный допуск невязки намагниченности ФММ: "
+                + "abs(M из уравнений − M по характеристике) < CF_FMMEPS. "
+                + "Конечное положительное число. На насыщенной ветви поиск продолжается "
+                + "до неделимого машинного интервала. Не зависит от EPS.",
+            default: 0.01,
+            exclusiveMinimum: 0,
             digits: 6,
         },
 
-        KEPS1: {
+        CF_HTSEPS: {
             type: FIELD_TYPES.FLOAT,
-            label: "KEPS1",
-            description: "Коэффициент критерия выхода из поиска J по интервалу: abs(b2-b1) < KEPS1",
-            default: 1,
-            digits: 6,
-        },
-
-        CF_KEPS: {
-            type: FIELD_TYPES.FLOAT,
-            label: "CF_KEPS",
-            description: "ВТСП-модель: Mагнитная подсистема: Параметр критерия выхода по невязке, кА/м: DH <= DHmin && (DH == ZERO || abs(CF) <= CF_KEPS)",
-            default: 1,
+            label: "CF_HTSEPS — допуск M, кА/м",
+            description: "Абсолютный допуск невязки намагниченности магнитной подсистемы ВТСП: "
+                + "abs(M из уравнений − M по характеристике) < CF_HTSEPS. "
+                + "Конечное положительное число. На насыщенной ветви поиск продолжается "
+                + "до неделимого машинного интервала. Не зависит от EPS.",
+            default: 0.01,
+            exclusiveMinimum: 0,
             digits: 6,
         },
 
