@@ -82,7 +82,7 @@ export function SidePanel(props) {
             {Object.entries(TASK_OPERATION_LABELS).map(([kind, label]) => <button
               class="side-panel-option"
               disabled={!props.open || !(kind === "create" ? props.taskActions.createEnabled : props.taskActions.selectedEnabled)}
-              title={{ create: "Создать пустое задание в выбранном проекте", copy: "Создать копию сохранённых исходных данных в том же проекте, без результатов расчёта", rename: "Изменить имя выбранного задания, сохранив все его файлы", move: "Перенести всё задание в выбранный каталог проекта после проверки целостности" }[kind]}
+              title={{ create: "Создать пустое задание в выбранном проекте", copy: "Создать копию сохранённых исходных данных в том же проекте, без результатов расчёта", rename: "Изменить имя выбранного задания, сохранив все его файлы", move: "Перенести всё задание в выбранный каталог проекта после проверки целостности", delete: "После подтверждения удалить каталог выделенного задания со всеми файлами и обновить список текущего проекта. Без корзины и Undo" }[kind]}
               onClick={() => props.onTaskAction?.(kind)}>{label}</button>)}
           </div>
         </section>}

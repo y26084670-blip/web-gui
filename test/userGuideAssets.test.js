@@ -15,7 +15,7 @@ test('guide is standalone Russian HTML with complete sections and stable unique 
     assert.equal(new Set(ids).size, ids.length);
     assert.equal((html.match(/<h1\b/gu) ?? []).length, 1);
     assert.equal((html.match(/class="chapter"/gu) ?? []).length, 18);
-    for (const id of ['med', 'med-apply', 'task-create', 'task-copy', 'task-rename', 'task-move', 'material-source', 'test-team7', 'test-cube', 'test-bar', 'examples-external', 'examples-lessons', 'team13']) assert.ok(ids.includes(id), id);
+    for (const id of ['med', 'med-apply', 'task-create', 'task-copy', 'task-rename', 'task-move', 'task-delete', 'material-source', 'test-team7', 'test-cube', 'test-bar', 'examples-external', 'examples-lessons', 'team13']) assert.ok(ids.includes(id), id);
 });
 
 test('every internal guide link and runtime asset resolves inside the standalone directory', async () => {
@@ -46,10 +46,10 @@ test('mathematical model is part of the main guide with reachable subsections', 
     assert.match(html, /это поведение кода|Это поведение кода/u);
 });
 
-test('guide version matches the GUI and identifies the four implemented task commands', async () => {
+test('guide version matches the GUI and identifies the five implemented task commands', async () => {
     const version = JSON.parse(await readFile(path.join(root, 'package.json'))).version;
     assert.match(html, new RegExp(`версия GUI <strong>${version.replaceAll('.', '\\.')}<`));
-    assert.equal((html.match(/data-status="implemented"/gu) ?? []).length, 4);
+    assert.equal((html.match(/data-status="implemented"/gu) ?? []).length, 5);
     assert.match(html, /начальным|Начальный источник/u);
     assert.match(html, /пустой локальный список/u);
     assert.match(html, /во время|Во время/u);

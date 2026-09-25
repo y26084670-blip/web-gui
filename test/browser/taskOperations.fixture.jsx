@@ -16,6 +16,18 @@ const project = await root.getDirectoryHandle('Project', { create: true });
 const destination = await root.getDirectoryHandle('Second', { create: true });
 const original = await project.getDirectoryHandle('Original', { create: true });
 await initializeTaskDirectory(original);
+const failure = await project.getDirectoryHandle('Failure', { create: true });
+await initializeTaskDirectory(failure);
+let failDeletion = false;
+const nativeRemove = FileSystemDirectoryHandle.prototype.removeEntry;
+FileSystemDirectoryHandle.prototype.removeEntry = async function(name, options) {
+  if (failDeletion && name === 'Failure') {
+    const input = await failure.getDirectoryHandle('input3XX');
+    await nativeRemove.call(input, 'general.txt');
+    throw new DOMException('Test partial deletion', 'NoModificationAllowedError');
+  }
+  return nativeRemove.call(this, name, options);
+};
 async function directory(base, parts, create = false) {
   for (const part of parts) base = await base.getDirectoryHandle(part, { create });
   return base;
@@ -40,6 +52,7 @@ window.showDirectoryPicker = async () => {
 };
 localStorage.setItem('e3d.generalInformation.openAtStartup', 'false');
 window.taskFixture = {
+  failDeletion: value => { failDeletion = value; },
   read, setPicker: value => { picker = value; },
   exists: async path => { try { await read(path); return true; } catch (e) { if (e.name === 'NotFoundError') return false; throw e; } },
   snapshot: () => ({ path: selectionService.loadedTaskPath(), model: structuredClone(modelService.getModel()), dirty: unsavedChangesService.hasDirty() }),

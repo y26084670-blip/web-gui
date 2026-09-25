@@ -41,6 +41,7 @@ try {
   await page.waitForFunction(() => window.taskFixture?.ready);
   await button('Открыть дополнительные функции').click();
   check('commands disabled without project', await page.locator('.side-panel').getByRole('button', { name: 'Создать задание', exact: true }).isDisabled());
+  check('delete disabled without a selected task', await page.locator('.side-panel').getByRole('button', { name: 'Удалить задание', exact: true }).isDisabled());
   await button('Закрыть дополнительные функции').click();
   const documentation = page.locator('.documentation-button');
   const size = await documentation.boundingBox(), validation = await button('Проверить модель').boundingBox();
@@ -97,6 +98,40 @@ try {
   check('move updates loaded path and enabled launch entry', (await read('clark.tasks.txt')).includes('Second/Renamed\n') && !await page.evaluate(() => taskFixture.exists('Project/Renamed/input3XX/general.txt')));
   await page.locator('#listProject').selectOption('Second');
   check('destination list refreshed after project selection', await page.locator('#listTask .listTask-item').filter({ hasText: /^Renamed$/ }).count() === 1);
+  await choose('Renamed');
+  await page.evaluate(() => taskFixture.dirty());
+  await open('Удалить задание');
+  check('delete confirmation names selected task, warns about results and dirty changes',
+    (await dialog.textContent()).includes('Second/Renamed') && (await dialog.textContent()).includes('несохранённые изменения')
+    && (await dialog.textContent()).includes('результаты расчёта') && await dialog.locator('input[name="taskName"]').count() === 0);
+  check('delete requires stopped-writers confirmation', await dialog.getByRole('button', { name: 'Удалить задание', exact: true }).isDisabled());
+  await dialog.getByRole('button', { name: 'Отмена', exact: true }).click(); await done();
+  check('cancel delete preserves directory, loaded dirty model and launch row',
+    await page.evaluate(() => taskFixture.exists('Second/Renamed/input3XX/general.txt'))
+    && (await state()).dirty && (await state()).model.general.timeStep === 42 && (await read('clark.tasks.txt')).includes('Second/Renamed'));
+  // Удаление другого выделенного задания не должно закрывать открытое.
+  await page.locator('#listProject').selectOption('Project'); await choose('Copy');
+  const beforeOtherDelete = await state();
+  await open('Удалить задание'); await dialog.locator('input[type="checkbox"]').check(); await submit('Удалить задание'); await done();
+  check('delete selected unloaded task keeps loaded task and unsaved model', JSON.stringify(await state()) === JSON.stringify(beforeOtherDelete));
+  check('delete refreshes project list and preserves sibling', await page.locator('#listTask .listTask-item').filter({ hasText: /^Copy$/ }).count() === 0
+    && await page.evaluate(() => taskFixture.exists('Project/Created/input3XX/general.txt')) && !(await read('clark.tasks.txt')).includes('Project/Copy'));
+  await page.locator('#listProject').selectOption('Second'); await choose('Renamed');
+  await open('Удалить задание'); await dialog.locator('input[type="checkbox"]').check(); await submit('Удалить задание'); await done();
+  await page.waitForFunction(() => !taskFixture.snapshot().path && !taskFixture.snapshot().model.general && !taskFixture.snapshot().dirty);
+  check('delete loaded task clears editor and list including last row', await page.locator('#listTask .listTask-item').count() === 0
+    && !(await read('clark.tasks.txt')).includes('Second/Renamed') && !await page.evaluate(() => taskFixture.exists('Second/Renamed/output3XX/result.bin')));
+  await page.locator('#listProject').selectOption('Project'); await choose('Failure');
+  await button('Загрузить для редактирования').click(); await page.waitForFunction(() => taskFixture.snapshot().model.general);
+  await page.evaluate(() => taskFixture.failDeletion(true));
+  await open('Удалить задание'); await dialog.locator('input[type="checkbox"]').check(); await submit('Удалить задание');
+  await page.waitForFunction(() => document.querySelector('.task-operation-error').textContent.includes('частично'));
+  check('partial deletion closes affected editor, refreshes remaining directory and prevents retry',
+    !(await state()).path && await page.locator('#listTask .listTask-item').filter({ hasText: /^Failure$/ }).count() === 1
+    && await dialog.getByRole('button', { name: 'Удалить задание', exact: true }).isDisabled());
+  await page.screenshot({ path: path.join(out, 'task-delete-error.png') });
+  await dialog.getByRole('button', { name: 'Закрыть', exact: true }).click(); await done();
+  await page.evaluate(() => taskFixture.failDeletion(false));
   await page.screenshot({ path: path.join(out, 'task-commands.png') });
   check('no uncaught browser errors', errors.length === 0);
 } finally {
