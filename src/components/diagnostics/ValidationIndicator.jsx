@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import { DiagnosticPopup } from "./DiagnosticPopup";
 import { diagnosticService } from "../../services/diagnosticService";
 import { modelService } from "../../services/modelService";
@@ -34,7 +34,21 @@ const TITLES = {
 };
 
 export function ValidationIndicator() {
+  let indicatorElement;
   const level = () => diagnosticService.validationLevel();
+
+  createEffect(() => {
+    if (!popupOpen() || !indicatorElement) return;
+    const ownerDocument = indicatorElement.ownerDocument;
+    const dismissOutside = (event) => {
+      if (!event.composedPath().includes(indicatorElement)) {
+        setPopupOpen(false);
+      }
+    };
+    // Кнопка и панель внутри индикатора; их щелчки обрабатываются как прежде.
+    ownerDocument.addEventListener("pointerdown", dismissOutside, true);
+    onCleanup(() => ownerDocument.removeEventListener("pointerdown", dismissOutside, true));
+  });
 
   function handleClick() {
     diagnosticService.setConstraintResults(
@@ -48,6 +62,7 @@ export function ValidationIndicator() {
 
   return (
     <div
+      ref={indicatorElement}
       class="validation-indicator"
       style={{ "--diagnostic-color": COLORS[level()] }}
     >
