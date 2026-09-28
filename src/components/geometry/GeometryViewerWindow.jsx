@@ -1,3 +1,4 @@
+import { createGeometryViewSetting } from "../../services/visualization/geometryViewSettings.js";
 import {
   For,
   Show,
@@ -103,7 +104,8 @@ export function GeometryViewerWindow(props) {
   let optionsPanelElement;
   let activePanelButton;
   let viewerResizeObserver;
-  let renderModeBeforeSources = null;
+  const [renderModeBeforeSources, setRenderModeBeforeSources] =
+    createGeometryViewSetting("renderModeBeforeSources", null);
   let sourceSettingsButton;
   let sourceSettingsBackButton;
   let viewportFrameController;
@@ -117,23 +119,23 @@ export function GeometryViewerWindow(props) {
   const [sceneError, setSceneError] = createSignal("");
   const [viewportError, setViewportError] = createSignal("");
   const [viewRequest, setViewRequest] = createSignal(null);
-  const [renderMode, setRenderMode] = createSignal("solid");
-  const [orthographicView, setOrthographicView] = createSignal(true);
-  const [showEdges, setShowEdges] = createSignal(true);
-  const [showVertices, setShowVertices] = createSignal(false);
+  const [renderMode, setRenderMode] = createGeometryViewSetting("renderMode", "solid");
+  const [orthographicView, setOrthographicView] = createGeometryViewSetting("orthographicView", true);
+  const [showEdges, setShowEdges] = createGeometryViewSetting("showEdges", true);
+  const [showVertices, setShowVertices] = createGeometryViewSetting("showVertices", false);
   const [showDiscretizationLines, setShowDiscretizationLines] =
-    createSignal(false);
-  const [showCentersAndNodes, setShowCentersAndNodes] = createSignal(false);
-  const [showPrescribedSources, setShowPrescribedSources] = createSignal(false);
-  const [prescribedSourceStyle, setPrescribedSourceStyle] = createSignal("thin");
-  const [currentSourceScale, setCurrentSourceScale] = createSignal(1);
-  const [magnetizationSourceScale, setMagnetizationSourceScale] = createSignal(1);
-  const [elementsMode, setElementsMode] = createSignal("all");
-  const [regionsMode, setRegionsMode] = createSignal("all");
-  const [showLocalSymmetry, setShowLocalSymmetry] = createSignal(true);
-  const [showAxialSymmetry, setShowAxialSymmetry] = createSignal(true);
-  const [showPeriodicSymmetry, setShowPeriodicSymmetry] = createSignal(true);
-  const [showMirrorSymmetry, setShowMirrorSymmetry] = createSignal(true);
+    createGeometryViewSetting("showDiscretizationLines", false);
+  const [showCentersAndNodes, setShowCentersAndNodes] = createGeometryViewSetting("showCentersAndNodes", false);
+  const [showPrescribedSources, setShowPrescribedSources] = createGeometryViewSetting("showPrescribedSources", false);
+  const [prescribedSourceStyle, setPrescribedSourceStyle] = createGeometryViewSetting("prescribedSourceStyle", "thin");
+  const [currentSourceScale, setCurrentSourceScale] = createGeometryViewSetting("currentSourceScale", 1);
+  const [magnetizationSourceScale, setMagnetizationSourceScale] = createGeometryViewSetting("magnetizationSourceScale", 1);
+  const [elementsMode, setElementsMode] = createGeometryViewSetting("elementsMode", "all");
+  const [regionsMode, setRegionsMode] = createGeometryViewSetting("regionsMode", "all");
+  const [showLocalSymmetry, setShowLocalSymmetry] = createGeometryViewSetting("showLocalSymmetry", true);
+  const [showAxialSymmetry, setShowAxialSymmetry] = createGeometryViewSetting("showAxialSymmetry", true);
+  const [showPeriodicSymmetry, setShowPeriodicSymmetry] = createGeometryViewSetting("showPeriodicSymmetry", true);
+  const [showMirrorSymmetry, setShowMirrorSymmetry] = createGeometryViewSetting("showMirrorSymmetry", true);
   const [openPanel, setOpenPanel] = createSignal(null);
   const [panelPosition, setPanelPosition] = createSignal({ left: 8, top: 40 });
   const [renderStats, setRenderStats] = createSignal(EMPTY_RENDER_STATS);
@@ -270,13 +272,13 @@ export function GeometryViewerWindow(props) {
   const changePrescribedSources = (checked) => {
     if (checked === showPrescribedSources()) return;
     if (checked) {
-      renderModeBeforeSources = renderMode();
+      setRenderModeBeforeSources(renderMode());
       setRenderMode("translucent");
     } else {
-      if (renderModeBeforeSources !== null) {
-        setRenderMode(renderModeBeforeSources);
+      if (renderModeBeforeSources() !== null) {
+        setRenderMode(renderModeBeforeSources());
       }
-      renderModeBeforeSources = null;
+      setRenderModeBeforeSources(null);
     }
     setShowPrescribedSources(checked);
   };
@@ -539,7 +541,7 @@ export function GeometryViewerWindow(props) {
               aria-label="Режим представления"
               title="Режим представления геометрии"
               onChange={(event) => {
-                renderModeBeforeSources = null;
+                setRenderModeBeforeSources(null);
                 setRenderMode(event.currentTarget.value);
               }}
             >
@@ -1026,3 +1028,4 @@ export function GeometryViewerWindow(props) {
     </FloatingWindow>
   );
 }
+

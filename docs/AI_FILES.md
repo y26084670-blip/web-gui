@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-25 14:00 UTC+3.
+Обновлено: 2026-09-28 22:59 UTC+3.
 
 ## Назначение
 
@@ -316,3 +316,10 @@ solver ab322751dc1756471b657902f675f12cac514693. Другие даты в кар
   `scripts/check-task-operations-browser.mjs` — файловые отказы и браузерная приёмка.
 
 Механизм: [файловый контракт](AI_CLARK_INTEGRATION.md#task-directory-operations).
+
+## Сеансовые опции 3D
+
+`src/services/visualization/geometryViewSettings.js` — скалярные настройки показа,
+независимые от загруженного задания и времени жизни окна.
+[Контракт](AI_UI_CONTRACTS.md#geometry-session-settings).
+`test/geometryViewSettings.test.js` проверяет сохранение при смене владельца.
