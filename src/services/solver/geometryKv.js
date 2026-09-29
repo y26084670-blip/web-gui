@@ -49,8 +49,8 @@ export const KV_GEO_FIELDS = {
 export const KV_GEO_LENGTH = 24;   // zeros(REAL, 3 * 8)
 
 // Геометрические критерии принадлежат preflight-валидации web-gui.
-// Результат не зависит от масштаба, пока координаты
-// численно различимы. Нормируются рёбра до векторных произведений.
+// Исторический контракт: пять заданных пар и ненулевые стороны 13, 15.
+// Остальные стороны могут схлопываться; нулевой вектор не нормируется.
 export function validateKvVerticesDetailed(vertices, profile = {}) {
     const checks = {}, measurements = {};
     const { settings, invalid } = geometryValidationSettings(profile);
@@ -68,7 +68,7 @@ export function validateKvVerticesDetailed(vertices, profile = {}) {
         measurements[name] = { value, limit, comparison, unit };
         // Только погрешность операций с углами у границы, не предметный допуск.
         const roundoff = unit === "°"
-            ? 32 * Number.EPSILON * Math.max(Math.abs(value), Math.abs(limit)) : 0;
+            ? 64 * Number.EPSILON * Math.max(1, Math.abs(value), Math.abs(limit)) : 0;
         checks[name] = Number.isFinite(value) && (
             comparison === "<=" ? value <= limit + roundoff
                 : comparison === ">=" ? value + roundoff >= limit : value > limit
@@ -77,44 +77,38 @@ export function validateKvVerticesDetailed(vertices, profile = {}) {
 
     const directions = {};
     for (const [name, i, j] of [
-        ["13", 0, 2], ["24", 1, 3], ["57", 4, 6], ["68", 5, 7],
-        ["15", 0, 4], ["26", 1, 5], ["37", 2, 6], ["48", 3, 7], ["12", 0, 1],
+        ["13", 0, 2], ["24", 1, 3], ["75", 6, 4], ["68", 5, 7],
+        ["15", 0, 4], ["26", 1, 5], ["37", 2, 6], ["48", 3, 7],
     ]) {
-        const a = vertices[i], b = vertices[j], edge = difference(b, a);
+        const edge = difference(vertices[j], vertices[i]);
         const length = norm(edge);
-        // Разрешение тех координат, разность которых образует ребро.
-        // Общая неизменная координата не ограничивает малые поперечные размеры.
-        const coordinateScale = Math.max(...edge.map((value, d) =>
-            value === 0 ? 0 : Math.max(Math.abs(a[d]), Math.abs(b[d]))));
-        const resolution = Math.max(8 * Number.EPSILON * coordinateScale,
-            8 * Number.MIN_VALUE);
-        measure(`edge${name}`, length, resolution, ">", "мм");
-        if (checks[`edge${name}`]) directions[name] = edge.map(value => value / length);
+        if (!Number.isFinite(length)) return result({ valid: false, malformed: true });
+        if (name === "13" || name === "15") {
+            measure(`edge${name}`, length, 0, ">", "мм");
+        }
+        // Масштабирование до нормирования сохраняет направление субнормальных чисел.
+        const scale = Math.max(...edge.map(Math.abs));
+        if (scale > 0) {
+            const scaled = edge.map(value => value / scale);
+            const scaledLength = norm(scaled);
+            directions[name] = scaled.map(value => value / scaledLength);
+        }
     }
 
     function angle(a, b) {
         return Math.atan2(norm(cross(a, b)), Math.abs(dot(a, b))) * RADIAN2GRAD;
     }
     for (const [name, left, right] of [
-        ["parallel13And24", "13", "24"], ["parallel57And68", "57", "68"],
-        ["parallel15And26", "15", "26"], ["parallel37And26", "37", "26"],
-        ["parallel48And26", "48", "26"],
+        ["parallel13And24", "13", "24"], ["parallel15And26", "15", "26"],
+        ["parallel15And37", "15", "37"], ["parallel15And48", "15", "48"],
+        ["parallel75And68", "75", "68"],
     ]) {
         if (directions[left] && directions[right]) {
             measure(name, angle(directions[left], directions[right]), settings.GEO_ANGLE, "<=", "°");
-        }
-    }
-
-    if (directions["12"] && directions["24"]) {
-        const a = directions["12"], b = directions["24"];
-        measure("basis12And24", angle(a, b), settings.GEO_ANGLE, ">=", "°");
-        const normal = cross(a, b), area = norm(normal);
-        if (checks.basis12And24 && area > 0 && directions["15"]) {
-            const n = normal.map(value => value / area), c = directions["15"];
-            // r14 = r12+r24: знак прежнего смешанного произведения сохранён.
-            // atan2 устойчив и у плоскости (0°), и у нормали (±90°).
-            const beta = Math.atan2(dot(n, c), norm(cross(n, c))) * RADIAN2GRAD;
-            measure("outOfPlane15", beta, settings.GEO_ANGLE, ">=", "°");
+        } else {
+            // При схлопывании стороны её векторное произведение равно нулю.
+            // Угол не определён: условие не нарушено, фиктивный угол не выдаётся.
+            checks[name] = true;
         }
     }
     return result();

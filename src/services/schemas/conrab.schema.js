@@ -50,8 +50,8 @@ export default createSchema({
         GEO_ANGLE: {
             type: FIELD_TYPES.FLOAT,
             label: "Геометрия: угловой допуск, град",
-            description: "Максимальное отклонение от параллельности рёбер и минимальный "
-                + "угол независимости направлений/выхода из плоскости. "
+            description: "Максимальное отклонение от параллельности пар 13–24, 15–26, "
+                + "15–37, 15–48, 75–68. "
                 + "Используется активный профиль Float32 или Float64. Больше 0 и меньше 90°.",
             default: GEOMETRY_VALIDATION_DEFAULTS.GEO_ANGLE,
             exclusiveMinimum: 0,

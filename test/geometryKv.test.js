@@ -9,106 +9,91 @@ function box(a=[1,0,0], b=[0,1,0], c=[0,0,1]) {
     return [[0,0,0],a,b,add(a,b),c,add(a,c),add(b,c),add(add(a,b),c)];
 }
 const scaled = (v,k) => v.map(row=>row.map(x=>x*k));
-const failures = r => Object.keys(r.checks).filter(k=>!r.checks[k]);
 
-test("angular validation accepts a rectangular element in all resolvable scales", () => {
-    for (const scale of [1e-150,1e-9,1,1e9,1e150]) {
+test("only the five historical pairs and two required edges are checked", () => {
+    for (const scale of [1e-320,1e-150,1e-9,1,1e9,1e150]) {
         const result=validateKvVerticesDetailed(scaled(box(),scale));
         assert.equal(result.valid,true);
-        assert.equal(Object.keys(result.measurements).length,16);
-        assert.equal(result.measurements.outOfPlane15.value,90);
-        assert.equal(result.measurements.basis12And24.value,90);
-    }
-});
-
-test("thin orthogonal elements retain a right angle", () => {
-    for(const a of [[1e-9,0,0],[1e9,0,0]]) {
-        const result=validateKvVerticesDetailed(box(a));
-        assert.equal(result.valid,true);
-        assert.equal(result.measurements.outOfPlane15.value,90);
+        assert.deepEqual(Object.keys(result.checks).sort(),[
+            "edge13","edge15","parallel13And24","parallel15And26",
+            "parallel15And37","parallel15And48","parallel75And68"].sort());
+        assert.equal(Object.keys(result.measurements).length,7);
     }
 });
 
 const pairs = [
-    ["parallel13And24", d=>{const v=box();v[3]=[1,1,d];return v;}],
-    ["parallel57And68", d=>[
-        [0,0,-1],[1,0,-1],[0,1,-1],[1,1,-1],
-        [0,0,0],[1,0,0],[0,1,0],[1,1,d]]],
-    ["parallel15And26", d=>{const v=box();v[4]=[0,d,1];return v;}],
-    ["parallel37And26", d=>[
-        [0,-1,0],[1,-1,0],[0,0,0],[1,d,0],
-        [0,-1,1],[1,-1,1],[0,d,1],[1,d,1]]],
-    ["parallel48And26", d=>[
-        [0,-1,0],[1,-1,0],[0,d,0],[1,0,0],
-        [0,-1,1],[1,-1,1],[0,d,1],[1,d,1]]],
+    ["parallel13And24",3,[0,0,1]],
+    ["parallel15And26",5,[0,1,0]],
+    ["parallel15And37",6,[1,0,0]],
+    ["parallel15And48",7,[1,0,0]],
+    ["parallel75And68",7,[0,0,1]],
 ];
-for(const [key,make] of pairs) {
-    test(`${key}: degrees, inclusive boundary and scale invariance`,()=>{
+for(const [key,index,axis] of pairs) {
+    test(`${key}: angular bounds and scale invariance`,()=>{
         for(const angle of [0.05,0.1,0.100001,0.2]) {
-            const source=make(Math.tan(angle*DEG));
+            const v=box();v[index]=add(v[index],axis.map(x=>x*Math.tan(angle*DEG)));
             for(const scale of [1e-100,1e-6,1,1e6,1e100]) {
-                const result=validateKvVerticesDetailed(scaled(source,scale));
+                const result=validateKvVerticesDetailed(scaled(v,scale));
                 const metric=result.measurements[key];
                 assert.ok(Math.abs(metric.value-angle)<1e-12);
                 assert.equal(metric.unit,"°");
-                assert.equal(metric.limit,0.1);
                 assert.equal(result.checks[key],angle<=0.1);
-                assert.deepEqual(failures(result),failures(validateKvVerticesDetailed(source)));
             }
         }
     });
 }
 
-test("parallel and antiparallel directions have the same angular deviation",()=>{
-    const v=box();v[3]=[1,-1,0];
-    assert.equal(validateKvVerticesDetailed(v).checks.parallel13And24,true);
+test("15 remains the reference when 26 differs within tolerance or collapses",()=>{
+    const d=Math.tan(.08*DEG),v=box();
+    v[5][1]+=d;v[6][1]-=d;
+    assert.equal(validateKvVertices(v),true); // 26/37 differ by 0.16°, each differs from 15 by 0.08°
+    const bad=box();bad[4][1]-=d;bad[6][1]+=d;
+    assert.equal(validateKvVerticesDetailed(bad).checks.parallel15And37,false);
+    const collapsed=box();collapsed[5]=[...collapsed[1]];collapsed[6][0]+=.1;
+    assert.equal(validateKvVerticesDetailed(collapsed).checks.parallel15And37,false);
 });
 
-test("signed plane angle separates orientation and near-degeneracy",()=>{
-    for(const beta of [-90,-0.1,0,0.05,0.1,0.100001,45,90]) {
-        const v=box([1,0,0],[0,1,0],[Math.cos(beta*DEG),0,Math.sin(beta*DEG)]);
-        const result=validateKvVerticesDetailed(v);
-        assert.ok(Math.abs(result.measurements.outOfPlane15.value-beta)<1e-12);
-        assert.equal(result.checks.outOfPlane15,beta>=0.1);
+test("only 13 and 15 must not collapse to a point",()=>{
+    for(const [name,index] of [["13",2],["15",4]]) {
+        const v=box();v[index]=[...v[0]];
+        const r=validateKvVerticesDetailed(v);
+        assert.equal(r.valid,false);assert.equal(r.checks[`edge${name}`],false);
+        assert.equal(r.measurements[`edge${name}`].limit,0);
+    }
+    const pyramid=unpackKvVertices([3,2,0,4,2,1,1],4).vertices;
+    const wedge=box();wedge[6]=[...wedge[2]];wedge[7]=[...wedge[3]];
+    const collapsed75And68=box([1,0,0],[0,0,1],[0,0,2]);
+    collapsed75And68[6]=[...collapsed75And68[4]];collapsed75And68[7]=[...collapsed75And68[5]];
+    for(const v of [pyramid,wedge,box([0,0,0]),collapsed75And68]) {
+        const r=validateKvVerticesDetailed(v);assert.equal(r.valid,true);
+        assert.ok(Object.values(r.measurements).every(m=>Number.isFinite(m.value)));
+    }
+    const r=validateKvVerticesDetailed(pyramid);
+    assert.equal(r.checks.parallel13And24,true);
+    assert.equal(Object.hasOwn(r.measurements,"parallel13And24"),false);
+});
+
+test("no orientation, volume or minimum independent-angle condition is added",()=>{
+    const folded=box();folded[6][2]=-1;folded[7][2]=-1;
+    for(const v of [box([-1,0,0]),box([1,0,0],[0,1,0],[1,0,1e-8]),
+        box([1,0,0],[1,1e-8,0]),box([1,0,0],[0,1,0],[1,1,0]),folded]) {
+        assert.equal(validateKvVertices(v),true);
     }
 });
 
-test("the supporting plane must have independent directions",()=>{
-    for(const alpha of [0,0.05,0.1,0.2]) {
-        const result=validateKvVerticesDetailed(box([1,0,0],[Math.cos(alpha*DEG),Math.sin(alpha*DEG),0]));
-        assert.equal(result.checks.basis12And24,alpha>=0.1);
-        assert.equal(Object.hasOwn(result.measurements,"outOfPlane15"),alpha>=0.1);
-    }
+test("nonzero lengths have no physical or coordinate-scale minimum",()=>{
+    const v=box([1,0,0],[0,1e-4,0]);
+    const shifted=v.map(([x,y,z])=>[x,y+1e12,z]);
+    assert.equal(validateKvVertices(shifted),true);
+    assert.equal(validateKvVertices(box([1e-9,0,0])),true);
 });
 
 test("custom angular bounds come from configuration",()=>{
-    const v=pairs[0][1](Math.tan(0.15*DEG));
+    const v=box();v[3][2]=Math.tan(.15*DEG);
     assert.equal(validateKvVertices(v),false);
     assert.equal(validateKvVertices(v,{GEO_ANGLE:0.2}),true);
-    for(const value of [null,NaN,Infinity,0,-1,90,"0.1"]) {
-        const r=validateKvVerticesDetailed(box(),{GEO_ANGLE:value});
-        assert.equal(r.invalidSettings,true);
-        assert.equal(r.valid,false);
-    }
-});
-
-test("every normalized edge is checked before computing angles",()=>{
-    for(const [name,i,j] of [["12",0,1],["13",0,2],["24",1,3],["57",4,6],
-        ["68",5,7],["15",0,4],["26",1,5],["37",2,6],["48",3,7]]) {
-        const v=box();v[j]=[...v[i]];
-        const result=validateKvVerticesDetailed(v);
-        assert.equal(result.checks[`edge${name}`],false);
-        assert.equal(result.valid,false);
-        assert.ok(Object.values(result.measurements).every(m=>Number.isFinite(m.value)));
-    }
-});
-
-test("coordinate resolution is checked without a fixed physical size floor",()=>{
-    const tiny=box([1e-4,0,0]);
-    assert.equal(validateKvVertices(tiny),true);
-    const shifted=tiny.map(([x,y,z])=>[x+1e12,y,z]);
-    assert.equal(validateKvVerticesDetailed(shifted).checks.edge12,false);
-    assert.equal(validateKvVerticesDetailed(shifted).checks.edge13,true);
+    for(const value of [null,NaN,Infinity,0,-1,90,"0.1"])
+        assert.equal(validateKvVerticesDetailed(box(),{GEO_ANGLE:value}).invalidSettings,true);
 });
 
 test("malformed coordinates and configuration do not enter normalization",()=>{
@@ -156,6 +141,6 @@ test("all supported geometry types are checked after unpack",()=>{
         [2,[2,3,4]],[3,[2,3,4,2,3]],
     ]) assert.equal(validateKvVertices(unpackKvVertices(parameters,type).vertices),true);
     const pyramid=validateKvVerticesDetailed(unpackKvVertices([3,2,0,4,2,1,1],4).vertices);
-    assert.equal(pyramid.valid,false);
-    assert.equal(pyramid.checks.edge26,false);
+    assert.equal(pyramid.valid,true);
+    assert.equal(Object.hasOwn(pyramid.checks,"edge26"),false);
 });

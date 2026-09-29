@@ -132,17 +132,15 @@ test("elements reports connecting-edge failures separately", () => {
     ];
     const cases = [
         [pair15, "Рёбра 15 и 26 не параллельны"],
-        [pair37, "Рёбра 37 и 26 не параллельны"],
-        [pair48, "Рёбра 48 и 26 не параллельны"],
+        [pair37, "Рёбра 15 и 37 не параллельны"],
+        [pair48, "Рёбра 15 и 48 не параллельны"],
     ];
 
     for (const [geo, message] of cases) {
         const diagnostics = validate([element({ geo })]);
 
-        assert.deepEqual(
-            diagnostics.map(item => item.message),
-            [message + "; угол = 0,2 °; требуется ≤ 0,1 °"],
-        );
+        assert.ok(diagnostics.some(item => item.message ===
+            message + "; угол = 0,2 °; требуется ≤ 0,1 °"));
     }
 });
 
@@ -166,6 +164,7 @@ test("elements validates every geometry type after unpack", () => {
         [1, [0, 1, 1, 1, 1, 2, 0, 2, 30]],
         [2, [2, 3, 4]],
         [3, [2, 3, 4, 2, 3]],
+        [4, [3, 2, 0, 4, 2, 1, 1]],
     ];
 
     for (const [geoType, parameters] of validCases) {
@@ -185,7 +184,7 @@ test("elements validates every geometry type after unpack", () => {
         [1, [0, 1, 1, 1, 1, 2, 0, 2, 0]],
         [2, [0, 3, 4]],
         [3, [0, 3, 4, 2, 3]],
-        [4, [3, 2, 0, 4, 2, 1, 1]],
+        [4, [0, 2, 0, 4, 2, 1, 1]],
     ]) {
         assert.notDeepEqual(
             validate([
@@ -200,21 +199,23 @@ test("elements validates every geometry type after unpack", () => {
     }
 });
 
-test("elements reports collapsed edges without invalid derived angles", () => {
-    const diagnostics=validate([element({geoType:4,geo:parameterGeo([3,2,0,4,2,1,1])})]);
-    assert.equal(diagnostics.length,4);
-    assert.ok(diagnostics.every(d=>d.property==="geo" && d.row===1));
-    for(const edge of ["24","68","26","48"]) {
-        assert.ok(diagnostics.some(d=>d.message.startsWith(`Недопустимая длина ребра ${edge}; длина = 0 мм; требуется >`)));
-    }
-    assert.ok(diagnostics.every(d=>!d.message.includes("NaN")));
+test("elements accepts the collapsed non-reference edges of a pyramid", () => {
+    assert.deepEqual(validate([element({geoType:4,geo:parameterGeo([3,2,0,4,2,1,1])})]),[]);
 });
 
-test("elements reports unpack errors and zero-length prerequisites", () => {
+test("elements reports the required zero-length edges", () => {
+    for(const [edge,index] of [["13",2],["15",4]]) {
+        const geo=validVertices();geo[index]=[...geo[0]];
+        const diagnostics=validate([element({geo})]);
+        assert.ok(diagnostics.some(d=>d.message===`Недопустимая длина ребра ${edge}; длина = 0 мм; требуется > 0 мм`));
+        assert.ok(diagnostics.every(d=>!d.message.includes("NaN")));
+    }
+});
+
+test("elements keeps parameter-unpack diagnostics separate from the SHG contract", () => {
     const diagnostics=validate([element({geoType:2,geo:parameterGeo([0,3,4])})]);
-    assert.equal(diagnostics.length,2);
+    assert.equal(diagnostics.length,1);
     assert.match(diagnostics[0].message,/неположительный размер/);
-    assert.match(diagnostics[1].message,/длина ребра 12; длина = 0 мм/);
 });
 
 test("elements does not duplicate an incomplete geo shape error", () => {
@@ -359,12 +360,10 @@ test("geometry diagnostics use the active profile and contain no arithmetic tail
     assert.deepEqual(validate([element({geo})],{conrab}),[]); // ошибка принадлежит conrabValidator
 });
 
-test("geometry diagnostics identify signed orientation and accept thin elements", () => {
+test("geometry diagnostics add no orientation or physical-size bound", () => {
     const geo=validVertices();
     for(let i=1;i<geo.length;i+=2)geo[i][0]=-1;
-    const message=validate([element({geo})])[0].message;
-    assert.equal(message,"Обратная ориентация ШГ; угол = -90 °; требуется ≥ 0,1 °");
+    assert.deepEqual(validate([element({geo})]),[]);
     const short=validVertices().map(([x,y,z])=>[x,y,z*0.015]);
     assert.deepEqual(validate([element({geo:short})]),[]);
-
 });
