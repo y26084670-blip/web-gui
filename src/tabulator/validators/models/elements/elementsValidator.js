@@ -36,15 +36,13 @@ const VALID_MODEL = new Set([0, 1, 2]);
 const VALID_GEO_TYPE = new Set([0, 1, 2, 3, 4]);
 
 const GEOMETRY_CHECK_DIAGNOSTICS = Object.freeze([
-    ...["13", "24", "57", "68", "15", "26", "37", "48", "12"]
+    ...["13", "15"]
         .map(edge => [`edge${edge}`, `Недопустимая длина ребра ${edge}`]),
     ["parallel13And24", "Рёбра 13 и 24 не параллельны"],
-    ["parallel57And68", "Рёбра 57 и 68 не параллельны"],
     ["parallel15And26", "Рёбра 15 и 26 не параллельны"],
-    ["parallel37And26", "Рёбра 37 и 26 не параллельны"],
-    ["parallel48And26", "Рёбра 48 и 26 не параллельны"],
-    ["basis12And24", "Направления 12 и 24 не задают устойчивую плоскость"],
-    ["outOfPlane15", "Недостаточный угол выхода ребра 15 из плоскости 12–24"],
+    ["parallel15And37", "Рёбра 15 и 37 не параллельны"],
+    ["parallel15And48", "Рёбра 15 и 48 не параллельны"],
+    ["parallel75And68", "Рёбра 75 и 68 не параллельны"],
 ]);
 
 const UNPACK_DIAGNOSTICS = Object.freeze({
@@ -251,8 +249,7 @@ function validateGeometry(elements, diagnostics, settings) {
                 pushGeometryError(
                     diagnostics,
                     index,
-                    (check === "outOfPlane15" && validation.measurements[check].value < 0
-                        ? "Обратная ориентация ШГ" : message) + geometryMeasurementText(
+                    message + geometryMeasurementText(
                         check,
                         validation.measurements[check],
                     ),
