@@ -2,7 +2,8 @@
 // Источник: julia, src/core/03_kv.jl, функция unpack(me::Kv). Снимок 2026-08.
 
 const GRAD2RADIAN = Math.PI / 180;
-const KV_VALIDATION_EPS = 0.03;
+import { geometryValidationSettings } from "./geometryValidationSettings.js";
+const RADIAN2GRAD = 180 / Math.PI;
 
 function difference(left, right) {
     return [
@@ -36,10 +37,6 @@ function isVertex(vertex) {
         && Array.from(vertex).every(Number.isFinite);
 }
 
-function areParallel(left, right, tolerance) {
-    return norm(cross(left, right)) < tolerance;
-}
-
 export const KV_GEO_FIELDS = {
     0: ["v1x","v1y","v1z","v2x","v2y","v2z","v3x","v3y","v3z","v4x","v4y","v4z",
         "v5x","v5y","v5z","v6x","v6y","v6z","v7x","v7y","v7z","v8x","v8y","v8z"],
@@ -51,107 +48,80 @@ export const KV_GEO_FIELDS = {
 
 export const KV_GEO_LENGTH = 24;   // zeros(REAL, 3 * 8)
 
-// Эти геометрические критерии принадлежат preflight-валидации
-// web-gui. solver получает уже подготовленные данные и не дублирует
-// эту проверку.
-// Нумерация вершин повторяет solver: нечётные вершины относятся к нижней
-// грани, чётные — к верхней; рёбра 12, 34, 56 и 78 соединяют грани.
-// Проверка применяется к вершинам после unpack для каждого geoType = 0…4.
-// Отдельные признаки нужны для точной диагностики вместо общего сообщения.
-export function validateKvVerticesDetailed(
-    vertices,
-    eps = KV_VALIDATION_EPS,
-) {
-    const checks = {
-        edge13: false,
-        edge57: false,
-        edge15: false,
-        edge37: false,
-        edge26: false,
-        parallel13And24: false,
-        parallel57And68: false,
-        parallel15And26: false,
-        parallel37And26: false,
-        parallel48And26: false,
-        positiveVolume: false,
-    };
-
-    if (
-        !Array.isArray(vertices)
-        || vertices.length !== 8
-        || !Array.from(vertices).every(isVertex)
-        || !Number.isFinite(eps)
-        || eps <= 0
-    ) {
-        return {
-            valid: false,
-            malformed: true,
-            checks,
-        };
+// Геометрические критерии принадлежат preflight-валидации web-gui.
+// Результат не зависит от масштаба, пока координаты
+// численно различимы. Нормируются рёбра до векторных произведений.
+export function validateKvVerticesDetailed(vertices, profile = {}) {
+    const checks = {}, measurements = {};
+    const { settings, invalid } = geometryValidationSettings(profile);
+    const result = (extra = {}) => ({
+        valid: Object.values(checks).every(Boolean),
+        malformed: false, invalidSettings: false, checks, measurements, ...extra,
+    });
+    if (invalid.length) return result({ valid: false, invalidSettings: true });
+    if (!Array.isArray(vertices) || vertices.length !== 8
+        || !Array.from(vertices).every(isVertex)) {
+        return result({ valid: false, malformed: true });
     }
 
-    const edge13 = difference(vertices[2], vertices[0]);
-    const edge24 = difference(vertices[3], vertices[1]);
-    const edge57 = difference(vertices[6], vertices[4]);
-    const edge68 = difference(vertices[7], vertices[5]);
-    const edge15 = difference(vertices[4], vertices[0]);
-    const edge26 = difference(vertices[5], vertices[1]);
-    const edge37 = difference(vertices[6], vertices[2]);
-    const edge48 = difference(vertices[7], vertices[3]);
-    const parallelTolerance = eps ** 2;
+    function measure(name, value, limit, comparison, unit) {
+        measurements[name] = { value, limit, comparison, unit };
+        // Только погрешность операций с углами у границы, не предметный допуск.
+        const roundoff = unit === "°"
+            ? 32 * Number.EPSILON * Math.max(Math.abs(value), Math.abs(limit)) : 0;
+        checks[name] = Number.isFinite(value) && (
+            comparison === "<=" ? value <= limit + roundoff
+                : comparison === ">=" ? value + roundoff >= limit : value > limit
+        );
+    }
 
-    checks.parallel13And24 = areParallel(
-        edge13,
-        edge24,
-        parallelTolerance,
-    );
-    checks.parallel57And68 = areParallel(
-        edge57,
-        edge68,
-        parallelTolerance,
-    );
-    checks.parallel15And26 = areParallel(
-        edge15,
-        edge26,
-        parallelTolerance,
-    );
-    checks.parallel37And26 = areParallel(
-        edge37,
-        edge26,
-        parallelTolerance,
-    );
-    checks.parallel48And26 = areParallel(
-        edge48,
-        edge26,
-        parallelTolerance,
-    );
+    const directions = {};
+    for (const [name, i, j] of [
+        ["13", 0, 2], ["24", 1, 3], ["57", 4, 6], ["68", 5, 7],
+        ["15", 0, 4], ["26", 1, 5], ["37", 2, 6], ["48", 3, 7], ["12", 0, 1],
+    ]) {
+        const a = vertices[i], b = vertices[j], edge = difference(b, a);
+        const length = norm(edge);
+        // Разрешение тех координат, разность которых образует ребро.
+        // Общая неизменная координата не ограничивает малые поперечные размеры.
+        const coordinateScale = Math.max(...edge.map((value, d) =>
+            value === 0 ? 0 : Math.max(Math.abs(a[d]), Math.abs(b[d]))));
+        const resolution = Math.max(8 * Number.EPSILON * coordinateScale,
+            8 * Number.MIN_VALUE);
+        measure(`edge${name}`, length, resolution, ">", "мм");
+        if (checks[`edge${name}`]) directions[name] = edge.map(value => value / length);
+    }
 
-    checks.edge13 = norm(edge13) > eps;
-    checks.edge57 = norm(edge57) > eps;
-    checks.edge15 = norm(edge15) > eps;
-    checks.edge37 = norm(edge37) > eps;
-    checks.edge26 = norm(edge26) > eps;
+    function angle(a, b) {
+        return Math.atan2(norm(cross(a, b)), Math.abs(dot(a, b))) * RADIAN2GRAD;
+    }
+    for (const [name, left, right] of [
+        ["parallel13And24", "13", "24"], ["parallel57And68", "57", "68"],
+        ["parallel15And26", "15", "26"], ["parallel37And26", "37", "26"],
+        ["parallel48And26", "48", "26"],
+    ]) {
+        if (directions[left] && directions[right]) {
+            measure(name, angle(directions[left], directions[right]), settings.GEO_ANGLE, "<=", "°");
+        }
+    }
 
-    checks.positiveVolume = dot(
-        difference(vertices[1], vertices[0]),
-        cross(
-            difference(vertices[3], vertices[0]),
-            edge15,
-        ),
-    ) > eps ** 3;
-
-    return {
-        valid: Object.values(checks).every(Boolean),
-        malformed: false,
-        checks,
-    };
+    if (directions["12"] && directions["24"]) {
+        const a = directions["12"], b = directions["24"];
+        measure("basis12And24", angle(a, b), settings.GEO_ANGLE, ">=", "°");
+        const normal = cross(a, b), area = norm(normal);
+        if (checks.basis12And24 && area > 0 && directions["15"]) {
+            const n = normal.map(value => value / area), c = directions["15"];
+            // r14 = r12+r24: знак прежнего смешанного произведения сохранён.
+            // atan2 устойчив и у плоскости (0°), и у нормали (±90°).
+            const beta = Math.atan2(dot(n, c), norm(cross(n, c))) * RADIAN2GRAD;
+            measure("outOfPlane15", beta, settings.GEO_ANGLE, ">=", "°");
+        }
+    }
+    return result();
 }
 
-export function validateKvVertices(
-    vertices,
-    eps = KV_VALIDATION_EPS,
-) {
-    return validateKvVerticesDetailed(vertices, eps).valid;
+export function validateKvVertices(vertices, profile = {}) {
+    return validateKvVerticesDetailed(vertices, profile).valid;
 }
 
 // geo -> вершины [8][3] (kv38, локальная СК). Возврат { vertices, err }.

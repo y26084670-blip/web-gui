@@ -14,7 +14,7 @@ test("MED diagnostics use the full model and do not modify stored pointers",()=>
     assert.deepEqual(model,before);
 });
 
-const EPS = 0.03;
+const EPS = 0.1 * Math.PI / 180;
 
 function validVertices() {
     return [
@@ -73,10 +73,10 @@ function element({
     };
 }
 
-function validate(elements) {
+function validate(elements, model = {}) {
     const diagnostics = [];
     const service = {
-        getModel: () => ({ elements }),
+        getModel: () => ({ ...model, elements }),
     };
 
     elementsValidator(service, diagnostics);
@@ -106,12 +106,12 @@ test("elements reports invalid direct vertices at their record row", () => {
     assert.equal(diagnostics[0].property, "geo");
     assert.equal(
         diagnostics[0].message,
-        "Рёбра 13 и 24 не параллельны с заданной точностью",
+        "Рёбра 13 и 24 не параллельны; угол = 14,03624347 °; требуется ≤ 0,1 °",
     );
 });
 
 test("elements reports connecting-edge failures separately", () => {
-    const delta = 2 * EPS ** 2;
+    const delta = Math.tan(2 * EPS);
     const pair15 = [
         [0, 0, 0], [1, 0, 0],
         [0, 1, 0], [1, 1, 0],
@@ -131,9 +131,9 @@ test("elements reports connecting-edge failures separately", () => {
         [0, delta, 1], [1, delta, 1],
     ];
     const cases = [
-        [pair15, "Рёбра 15 и 26 не параллельны с заданной точностью"],
-        [pair37, "Рёбра 37 и 26 не параллельны с заданной точностью"],
-        [pair48, "Рёбра 48 и 26 не параллельны с заданной точностью"],
+        [pair15, "Рёбра 15 и 26 не параллельны"],
+        [pair37, "Рёбра 37 и 26 не параллельны"],
+        [pair48, "Рёбра 48 и 26 не параллельны"],
     ];
 
     for (const [geo, message] of cases) {
@@ -141,7 +141,7 @@ test("elements reports connecting-edge failures separately", () => {
 
         assert.deepEqual(
             diagnostics.map(item => item.message),
-            [message],
+            [message + "; угол = 0,2 °; требуется ≤ 0,1 °"],
         );
     }
 });
@@ -200,43 +200,21 @@ test("elements validates every geometry type after unpack", () => {
     }
 });
 
-test("elements reports every failed solver geometry flag separately", () => {
-    const diagnostics = validate([
-        element({
-            geoType: 4,
-            geo: parameterGeo([3, 2, 0, 4, 2, 1, 1]),
-        }),
-    ]);
-
-    assert.deepEqual(
-        diagnostics.map(({ message }) => message),
-        [
-            "Длина ребра 26 не превышает 0,03",
-            "Ориентированный объём не превышает 0,000027",
-        ],
-    );
-    assert.equal(diagnostics.every(item => item.row === 1), true);
-    assert.equal(
-        diagnostics.every(item => item.property === "geo"),
-        true,
-    );
+test("elements reports collapsed edges without invalid derived angles", () => {
+    const diagnostics=validate([element({geoType:4,geo:parameterGeo([3,2,0,4,2,1,1])})]);
+    assert.equal(diagnostics.length,4);
+    assert.ok(diagnostics.every(d=>d.property==="geo" && d.row===1));
+    for(const edge of ["24","68","26","48"]) {
+        assert.ok(diagnostics.some(d=>d.message.startsWith(`Недопустимая длина ребра ${edge}; длина = 0 мм; требуется >`)));
+    }
+    assert.ok(diagnostics.every(d=>!d.message.includes("NaN")));
 });
 
-test("elements reports unpack errors without suppressing flag details", () => {
-    const diagnostics = validate([
-        element({
-            geoType: 2,
-            geo: parameterGeo([0, 3, 4]),
-        }),
-    ]);
-
-    assert.deepEqual(
-        diagnostics.map(({ message }) => message),
-        [
-            "Прямоугольная призма содержит неположительный размер Lx, Ly или Lz",
-            "Ориентированный объём не превышает 0,000027 мм³",
-        ],
-    );
+test("elements reports unpack errors and zero-length prerequisites", () => {
+    const diagnostics=validate([element({geoType:2,geo:parameterGeo([0,3,4])})]);
+    assert.equal(diagnostics.length,2);
+    assert.match(diagnostics[0].message,/неположительный размер/);
+    assert.match(diagnostics[1].message,/длина ребра 12; длина = 0 мм/);
 });
 
 test("elements does not duplicate an incomplete geo shape error", () => {
@@ -366,4 +344,27 @@ test("elements validates every discretization direction", () => {
         "разбиение D2 должно быть задано положительным целым числом",
         "разбиение D3 должно быть задано положительным целым числом",
     ]);
+});
+
+
+test("geometry diagnostics use the active profile and contain no arithmetic tail", () => {
+    const geo=validVertices();geo[3][1]+=Math.tan(0.15*Math.PI/180);
+    const conrab=[{GEO_ANGLE:0.1},{GEO_ANGLE:0.2}];
+    const errors=validate([element({geo})],{conrab,general:{doubleFloat:false}});
+    assert.equal(errors.length,1);
+    assert.equal(errors[0].message,"Рёбра 13 и 24 не параллельны; угол = 0,15 °; требуется ≤ 0,1 °");
+    assert.doesNotMatch(errors[0].message,/превышение|недостаток|раза/);
+    assert.deepEqual(validate([element({geo})],{conrab,general:{doubleFloat:true}}),[]);
+    conrab[0].GEO_ANGLE=null;
+    assert.deepEqual(validate([element({geo})],{conrab}),[]); // ошибка принадлежит conrabValidator
+});
+
+test("geometry diagnostics identify signed orientation and accept thin elements", () => {
+    const geo=validVertices();
+    for(let i=1;i<geo.length;i+=2)geo[i][0]=-1;
+    const message=validate([element({geo})])[0].message;
+    assert.equal(message,"Обратная ориентация ШГ; угол = -90 °; требуется ≥ 0,1 °");
+    const short=validVertices().map(([x,y,z])=>[x,y,z*0.015]);
+    assert.deepEqual(validate([element({geo:short})]),[]);
+
 });

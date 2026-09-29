@@ -1,7 +1,9 @@
+import { GEOMETRY_VALIDATION_DEFAULTS } from "../solver/geometryValidationSettings.js";
 /*
 Источник: solver/src/core/types.jl, Conrab; startITER и fullJNewton — логические параметры.
 Файл содержит две RECORDS-записи: Float32, затем Float64.
-Каждая запись содержит 11 сериализуемых полей; отсутствующие поля получают default схемы.
+Каждая запись GUI содержит 12 полей: 11 расчётных и собственный GEO_ANGLE.
+Отсутствующие поля получают default схемы.
 */
 import {
     TABS,
@@ -44,6 +46,18 @@ export default createSchema({
 
     properties: {
 
+        // геометрическая проверка модели
+        GEO_ANGLE: {
+            type: FIELD_TYPES.FLOAT,
+            label: "Геометрия: угловой допуск, град",
+            description: "Максимальное отклонение от параллельности рёбер и минимальный "
+                + "угол независимости направлений/выхода из плоскости. "
+                + "Используется активный профиль Float32 или Float64. Больше 0 и меньше 90°.",
+            default: GEOMETRY_VALIDATION_DEFAULTS.GEO_ANGLE,
+            exclusiveMinimum: 0,
+            exclusiveMaximum: 90,
+            digits: 6,
+        },
         // итерационный процесс
 
         startITER: {
