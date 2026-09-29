@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-29 20:45 UTC+3.
+Обновлено: 2026-09-29 21:43 UTC+3.
 
 ## Назначение
 
@@ -324,3 +324,12 @@ solver ab322751dc1756471b657902f675f12cac514693. Другие даты в кар
 независимые от загруженного задания и времени жизни окна.
 [Контракт](AI_UI_CONTRACTS.md#geometry-session-settings).
 `test/geometryViewSettings.test.js` проверяет сохранение при смене владельца.
+
+## Автоперенос ФММ при импорте списка
+
+`src/services/taskImportMaterialsService.js` — сбор уникальных имён по свежему
+kvs.txt, выбор записей локальной XAP.lib и пакетная запись штатным сервисом.
+`Tasks.handleLaunchComplete` вызывает его до обновления представления;
+`TaskLaunchWindow.finishRun` передаёт контекст запуска и отображает отчёт.
+[Контракт](AI_CLARK_INTEGRATION.md#task-import-used-fmm).
+`test/taskImportMaterialsService.test.js` — файловые и предметные проверки.
