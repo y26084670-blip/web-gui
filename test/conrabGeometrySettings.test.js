@@ -25,6 +25,8 @@ test("angular setting is displayed in both configuration profiles with units and
     assert.equal(property.exclusiveMinimum,0);
     assert.equal(property.exclusiveMaximum,90);
     assert.match(property.label,/град/);
+    assert.match(property.description,/15–37, 15–48, 75–68/);
+    assert.doesNotMatch(property.description,/минимальный|плоскости/);
     const model=deserialize([{},{}],schema);
     const rows=recordsToPropertyRows(schema,model);
     const angle=rows.find(r=>r._property==="GEO_ANGLE");
