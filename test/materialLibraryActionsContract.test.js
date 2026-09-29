@@ -19,26 +19,25 @@ test("material tabs expose copy and FMM-only legacy import actions", async () =>
     assert.match(source, />\s*Импортировать\s*</u);
     assert.match(
         source,
-        /Импортировать локальную библиотеку старого формата/u,
+        /Импортировать из XAP.lib только ФММ текущих элементов/u,
     );
     assert.match(source, /<Show when=\{isFmm\}>[\s\S]*?>\s*Импортировать\s*<[\s\S]*?<\/Show>/u);
     assert.doesNotMatch(source, /Импортировать legacy-библиотеку ВТСП/u);
     assert.doesNotMatch(source, /pickHtcDirectory|importHtc/u);
-    assert.match(source, /createMaterialImportService/u);
+    assert.match(source, /importUsedFmmMaterials/u);
     assert.match(source, /taskMaterialLibraryService\.copyMaterials/u);
-    assert.match(source, /taskMaterialLibraryService\.writeImportedBatch/u);
     assert.match(source, /Источник характеристик/u);
     assert.match(source, /Базовая библиотека/u);
     assert.match(source, /Локальная библиотека задания/u);
     assert.doesNotMatch(source, />\s*Редактировать\s*</u);
     assert.match(source, />\s*Сохранить\s*</u);
     assert.match(source, />\s*Удалить\s*</u);
-    assert.match(source, /destination\.getFileHandle\("XAP\.lib"\)/u);
+    assert.match(source, /findLocalXap\(destination\)/u);
     assert.match(source, /legacyFmmStatus/u);
-    assert.match(source, /identifyLegacyFmmLibrary/u);
-    assert.match(source, /identity\.isBaseLibrary \? "base" : "importable"/u);
+    assert.doesNotMatch(source, /identifyLegacyFmmLibrary/u);
+    assert.match(source, /modelService\.getModel\(\)\.elements/u);
     assert.match(source, /legacyFmmStatus\(\) !== "importable"/u);
-    assert.match(source, /совпадает со стандартной legacy-библиотекой/u);
+    assert.match(source, /Одноимённые характеристики заменяются/u);
     assert.match(source, /MaterialDeleteConfirmationDialog/u);
     assert.match(source, /sourceRecord: source/u);
     assert.match(source, /material-library-splitter-horizontal/u);
@@ -117,5 +116,5 @@ test("material actions keep task save notifications outside their contract", asy
         source,
         /обработано —.*не удалось записать.*осталось —/su,
     );
-    assert.match(source, /Импорт отменён пользователем; файлы не изменены/u);
+    assert.match(source, /!disposed && librarySession\(\) === session/u);
 });

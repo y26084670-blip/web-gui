@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { collectUsedFmmNames, importUsedTaskMaterials } from "../src/services/taskImportMaterialsService.js";
+import { collectUsedFmmNames, importUsedTaskMaterials, importUsedFmmMaterials } from "../src/services/taskImportMaterialsService.js";
 import { buildXapRecord, concatenateBuffers } from "./fixtures/materialImportFixtures.js";
 function notFound(name) {
     const error = new Error(`Не найдено: ${name}`);
@@ -170,4 +170,48 @@ test("обычная стандартная XAP.lib также допускае�
  const {parseXapLibrary}=await import("../src/services/materialImport/xapLibImporter.js");
  const records=parseXapLibrary(standard);const f=await fixture({library:standard,kvs:[{model:0,xapName:records[0].name}]});
  assert.equal((await run(f)).imported,1);
+});
+
+
+test("ручной импорт использует текущие элементы вместо kvs и заменяет только нужные", async () => {
+ const f = await fixture({kvs:[{model:0,xapName:"SavedOnly"}],
+  library:concatenateBuffers(buildXapRecord({name:"Steel"}),buildXapRecord({name:"SavedOnly"}))});
+ const lib=await f.input.getDirectoryHandle("xapLibFMM",{create:true});
+ lib.files.set("Steel.txt",new MemoryFileHandle(bytes("old")));
+ lib.files.set("Other.txt",new MemoryFileHandle(bytes("keep")));
+ const elements=[{model:0,xapName:"Steel"},{model:1,xapName:"steel"},
+  {model:0,xapName:"Missing"},{model:0,xapName:"Missing"},{model:2,xapName:"HTS"}];
+ const before=JSON.stringify(elements);
+ let revisions=0;
+ const options={notifyChanged:()=>revisions++};
+ const r=await importUsedFmmMaterials(f.task,elements,options);
+ assert.equal(r.imported,1);assert.equal(r.messages.filter(m=>m.text.includes("не найдена")).length,1);
+ assert.ok(r.messages.every(m=>m.level==="info"));assert.equal(revisions,1);
+ assert.deepEqual([...lib.files.keys()],["Steel.txt","Other.txt"]);
+ assert.equal(JSON.stringify(elements),before);
+ assert.equal(r.writeResult.results[0].status,"replaced");
+ const again=await importUsedFmmMaterials(f.task,elements,options);
+ assert.equal(again.writeResult.results[0].status,"unchanged");
+ assert.equal(lib.files.get("Steel.txt").writeCount,1);
+});
+
+test("снимок ссылок до ожидания; смена задания запрещает запись",async()=>{
+ const f=await fixture();const elements=[{model:0,xapName:"Steel"}];
+ const pending=importUsedFmmMaterials(f.task,elements,{notifyChanged:()=>{}});
+ elements[0].xapName="ChangedLater";
+ assert.equal((await pending).imported,1);
+ const g=await fixture();let current=true;
+ const file=g.task.files.get("xap.lib"), original=file.getFile.bind(file);
+ file.getFile=async()=>{current=false;return original();};
+ assert.equal((await importUsedFmmMaterials(g.task,[{model:0,xapName:"Steel"}],
+  {isCurrent:()=>current,notifyChanged:()=>{}})).imported,0);
+ assert.equal(g.input.directories.size,0);
+});
+
+test("ручной импорт сообщает об отсутствии XAP и не пишет при пустом списке",async()=>{
+ const f=await fixture({library:null});
+ await assert.rejects(()=>importUsedFmmMaterials(f.task,[]),/отсутствует XAP/);
+ const g=await fixture();const r=await importUsedFmmMaterials(g.task,[],{notifyChanged:()=>{}});
+ assert.equal(r.imported,0);assert.match(r.messages[0].text,/характеристик ФММ нет/);
+ assert.equal(g.input.directories.size,0);
 });
