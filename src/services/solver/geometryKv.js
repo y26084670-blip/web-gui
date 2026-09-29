@@ -36,10 +36,6 @@ function isVertex(vertex) {
         && Array.from(vertex).every(Number.isFinite);
 }
 
-function areParallel(left, right, tolerance) {
-    return norm(cross(left, right)) < tolerance;
-}
-
 export const KV_GEO_FIELDS = {
     0: ["v1x","v1y","v1z","v2x","v2y","v2z","v3x","v3y","v3z","v4x","v4y","v4z",
         "v5x","v5y","v5z","v6x","v6y","v6z","v7x","v7y","v7z","v8x","v8y","v8z"],
@@ -75,6 +71,13 @@ export function validateKvVerticesDetailed(
         parallel48And26: false,
         positiveVolume: false,
     };
+    const measurements = {};
+
+    // Значение для сообщения берётся из того же вычисления, что и признак.
+    function measure(name, value, limit, comparison, unit) {
+        measurements[name] = { value, limit, comparison, unit };
+        checks[name] = comparison === "<" ? value < limit : value > limit;
+    }
 
     if (
         !Array.isArray(vertices)
@@ -87,6 +90,7 @@ export function validateKvVerticesDetailed(
             valid: false,
             malformed: true,
             checks,
+            measurements,
         };
     }
 
@@ -100,50 +104,37 @@ export function validateKvVerticesDetailed(
     const edge48 = difference(vertices[7], vertices[3]);
     const parallelTolerance = eps ** 2;
 
-    checks.parallel13And24 = areParallel(
-        edge13,
-        edge24,
-        parallelTolerance,
-    );
-    checks.parallel57And68 = areParallel(
-        edge57,
-        edge68,
-        parallelTolerance,
-    );
-    checks.parallel15And26 = areParallel(
-        edge15,
-        edge26,
-        parallelTolerance,
-    );
-    checks.parallel37And26 = areParallel(
-        edge37,
-        edge26,
-        parallelTolerance,
-    );
-    checks.parallel48And26 = areParallel(
-        edge48,
-        edge26,
-        parallelTolerance,
-    );
+    for (const [name, left, right] of [
+        ["parallel13And24", edge13, edge24],
+        ["parallel57And68", edge57, edge68],
+        ["parallel15And26", edge15, edge26],
+        ["parallel37And26", edge37, edge26],
+        ["parallel48And26", edge48, edge26],
+    ]) {
+        measure(name, norm(cross(left, right)), parallelTolerance, "<", "мм²");
+    }
 
-    checks.edge13 = norm(edge13) > eps;
-    checks.edge57 = norm(edge57) > eps;
-    checks.edge15 = norm(edge15) > eps;
-    checks.edge37 = norm(edge37) > eps;
-    checks.edge26 = norm(edge26) > eps;
+    for (const [name, edge] of [
+        ["edge13", edge13], ["edge57", edge57], ["edge15", edge15],
+        ["edge37", edge37], ["edge26", edge26],
+    ]) {
+        measure(name, norm(edge), eps, ">", "мм");
+    }
 
-    checks.positiveVolume = dot(
+    const orientedVolume = dot(
         difference(vertices[1], vertices[0]),
         cross(
             difference(vertices[3], vertices[0]),
             edge15,
         ),
-    ) > eps ** 3;
+    );
+    measure("positiveVolume", orientedVolume, eps ** 3, ">", "мм³");
 
     return {
         valid: Object.values(checks).every(Boolean),
         malformed: false,
         checks,
+        measurements,
     };
 }
 

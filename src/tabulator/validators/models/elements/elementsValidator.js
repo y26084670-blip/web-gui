@@ -264,10 +264,41 @@ function validateGeometry(elements, diagnostics) {
 
         for (const [check, message] of GEOMETRY_CHECK_DIAGNOSTICS) {
             if (!validation.checks[check]) {
-                pushGeometryError(diagnostics, index, message);
+                pushGeometryError(
+                    diagnostics,
+                    index,
+                    message + geometryMeasurementText(
+                        check,
+                        validation.measurements[check],
+                    ),
+                );
             }
         }
     });
+}
+
+function geometryMeasurementText(check, { value, limit, comparison, unit }) {
+    const quantity = check.startsWith("parallel")
+        ? "норма векторного произведения"
+        : check === "positiveVolume" ? "объём" : "длина";
+    let text = `; ${quantity} = ${geometryNumber(value)} ${unit}`
+        + `; требуется ${comparison} ${geometryNumber(limit)} ${unit}`;
+    const violation = comparison === "<" ? value - limit : limit - value;
+    if (violation > 0) {
+        const label = comparison === "<" ? "превышение" : "недостаток до границы";
+        text += `; ${label} = ${geometryNumber(violation)} ${unit}`;
+    } else if (value === limit) {
+        text += "; значение на границе, неравенство строгое";
+    }
+    return text;
+}
+
+function geometryNumber(value) {
+    // Округление только представления. Малые ненулевые превышения сохраняются
+    // в экспоненциальной записи, а не превращаются в ноль фиксированным форматом.
+    return Number.isFinite(value)
+        ? String(Number(value.toPrecision(10))).replace(".", ",")
+        : String(value);
 }
 
 function pushGeometryError(diagnostics, index, message) {

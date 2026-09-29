@@ -106,7 +106,9 @@ test("elements reports invalid direct vertices at their record row", () => {
     assert.equal(diagnostics[0].property, "geo");
     assert.equal(
         diagnostics[0].message,
-        "Рёбра 13 и 24 не параллельны с заданной точностью",
+        "Рёбра 13 и 24 не параллельны с заданной точностью"
+        + "; норма векторного произведения = 0,25 мм²; требуется < 0,0009 мм²"
+        + "; превышение = 0,2491 мм²",
     );
 });
 
@@ -141,7 +143,8 @@ test("elements reports connecting-edge failures separately", () => {
 
         assert.deepEqual(
             diagnostics.map(item => item.message),
-            [message],
+            [message + "; норма векторного произведения = 0,0018 мм²"
+                + "; требуется < 0,0009 мм²; превышение = 0,0009 мм²"],
         );
     }
 });
@@ -211,8 +214,10 @@ test("elements reports every failed solver geometry flag separately", () => {
     assert.deepEqual(
         diagnostics.map(({ message }) => message),
         [
-            "Длина ребра 26 не превышает 0,03",
-            "Ориентированный объём не превышает 0,000027",
+            "Длина ребра 26 не превышает 0,03; длина = 0 мм"
+                + "; требуется > 0,03 мм; недостаток до границы = 0,03 мм",
+            "Ориентированный объём не превышает 0,000027 мм³; объём = 0 мм³"
+                + "; требуется > 0,000027 мм³; недостаток до границы = 0,000027 мм³",
         ],
     );
     assert.equal(diagnostics.every(item => item.row === 1), true);
@@ -234,7 +239,8 @@ test("elements reports unpack errors without suppressing flag details", () => {
         diagnostics.map(({ message }) => message),
         [
             "Прямоугольная призма содержит неположительный размер Lx, Ly или Lz",
-            "Ориентированный объём не превышает 0,000027 мм³",
+            "Ориентированный объём не превышает 0,000027 мм³; объём = 0 мм³"
+                + "; требуется > 0,000027 мм³; недостаток до границы = 0,000027 мм³",
         ],
     );
 });
@@ -366,4 +372,40 @@ test("elements validates every discretization direction", () => {
         "разбиение D2 должно быть задано положительным целым числом",
         "разбиение D3 должно быть задано положительным целым числом",
     ]);
+});
+
+
+test("geometry messages distinguish a strict boundary from a tiny excess", () => {
+    for (const delta of [EPS ** 2, EPS ** 2 + Number.EPSILON * EPS ** 2]) {
+        const geo = validVertices();
+        geo[1][1] = 0;
+        geo[3][1] = delta;
+        const message = validate([element({ geo })])
+            .find(item => item.message.startsWith("Рёбра 13 и 24"))?.message;
+        assert.ok(message);
+        assert.match(message, /требуется < 0,0009 мм²/);
+        if (delta === EPS ** 2) {
+            assert.match(message, /значение на границе, неравенство строгое/);
+            assert.doesNotMatch(message, /превышение/);
+        } else {
+            const excess = message.match(/превышение = ([^ ]+) мм²/);
+            assert.ok(excess);
+            assert.ok(Number(excess[1].replace(",", ".")) > 0);
+        }
+    }
+});
+
+test("geometry messages report signed negative volume and nonzero short edges", () => {
+    const geo = validVertices();
+    for (let index = 1; index < geo.length; index += 2) geo[index][0] = -1;
+    const volumeMessage = validate([element({ geo })])
+        .find(item => item.message.startsWith("Ориентированный объём"))?.message;
+    assert.match(volumeMessage, /объём = -1 мм³; требуется > 0,000027 мм³/);
+    assert.match(volumeMessage, /недостаток до границы = 1,000027 мм³/);
+
+    const short = validVertices().map(([x, y, z]) => [x, y, z * 0.015]);
+    const lengthMessage = validate([element({ geo: short })])
+        .find(item => item.message.startsWith("Длина ребра 13"))?.message;
+    assert.match(lengthMessage, /длина = 0,015 мм; требуется > 0,03 мм/);
+    assert.match(lengthMessage, /недостаток до границы = 0,015 мм/);
 });

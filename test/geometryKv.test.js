@@ -27,8 +27,10 @@ function validVertices() {
 test("KV validator accepts a valid hexahedron", () => {
     assert.equal(validateKvVertices(validVertices()), true);
 
+    const { measurements, ...validation } = validateKvVerticesDetailed(validVertices());
+    assert.equal(Object.keys(measurements).length, 11);
     assert.deepEqual(
-        validateKvVerticesDetailed(validVertices()),
+        validation,
         {
             valid: true,
             malformed: false,
@@ -396,4 +398,26 @@ test("KV validator can inspect every supported unpacked geometry type", () => {
     assert.equal(pyramidValidation.valid, false);
     assert.equal(pyramidValidation.checks.edge26, false);
     assert.equal(pyramidValidation.checks.positiveVolume, false);
+});
+
+
+test("KV measurements retain physical values, units and custom strict limits", () => {
+    const vertices = validVertices();
+    vertices[3][2] = 0.25;
+    const result = validateKvVerticesDetailed(vertices, 0.1);
+    assert.deepEqual(result.measurements.parallel13And24, {
+        value: 0.25, limit: 0.1 ** 2, comparison: "<", unit: "мм²",
+    });
+    assert.deepEqual(result.measurements.edge13, {
+        value: 1, limit: 0.1, comparison: ">", unit: "мм",
+    });
+    assert.deepEqual(result.measurements.positiveVolume, {
+        value: 1, limit: 0.1 ** 3, comparison: ">", unit: "мм³",
+    });
+    for (const [key, measurement] of Object.entries(result.measurements)) {
+        assert.equal(result.checks[key], measurement.comparison === "<"
+            ? measurement.value < measurement.limit
+            : measurement.value > measurement.limit);
+    }
+    assert.deepEqual(validateKvVerticesDetailed([]).measurements, {});
 });
