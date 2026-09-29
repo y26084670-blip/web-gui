@@ -13,6 +13,7 @@ import { DEMO_TASK_NAME, loadDemoTask } from "../services/demoTaskService.js";
 import { DIRECTORIES } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
 import { TaskLaunchWindow } from "../components/tasks/TaskLaunchWindow.jsx";
+import { importUsedTaskMaterials } from "../services/taskImportMaterialsService.js";
 import {
   prepareWorkspaceBinding,
   readWorkspaceBinding,
@@ -448,16 +449,27 @@ export function Tasks(props) {
     commitTaskLoad(request);
   };
 
-  const handleLaunchComplete = async (entries, action) => {
-    const root = rootHandle();
+  const handleLaunchComplete = async (entries, action, context) => {
+    const root = context.root;
+    const isCurrent = () => context.isCurrent() && root === rootHandle();
+    if (!isCurrent()) return;
+    let report;
+    if (action === "import") {
+      report = context.result.state === "completed"
+        ? await importUsedTaskMaterials(root, entries, { isCurrent })
+        : { imported: 0, messages: [{ level: "info", path: "Список заданий",
+          text: "Clark сообщил об ошибке импорта данных. Автоперенос XAP.lib не выполнялся: свежесть kvs.txt не подтверждена." }] };
+    }
+    if (!isCurrent()) return report;
     const task = selectedTask();
-    if (!root || !task || task.isDemo) return;
+    if (!root || !task || task.isDemo) return report;
     const segments = await root.resolve(task.handle);
-    if (root !== rootHandle() || task !== selectedTask() || !segments) return;
+    if (!isCurrent() || task !== selectedTask() || !segments) return report;
     const relativePath = segments.join("/").toLowerCase();
-    if (!entries.some(entry => entry.enabled && entry.path.toLowerCase() === relativePath)) return;
+    if (!entries.some(entry => entry.enabled && entry.path.toLowerCase() === relativePath)) return report;
     if (action === "import") setPreviewRevision(value => value + 1);
     await selectTaskCandidate(task);
+    return report;
   };
 
   const requestDemoLoad = async () => {
