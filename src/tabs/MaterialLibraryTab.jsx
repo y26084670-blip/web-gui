@@ -26,10 +26,11 @@ import {
   MaterialBatchWriteError,
   taskMaterialLibraryService,
 } from "../services/taskMaterialLibraryService";
-import { createMaterialImportService } from "../services/materialImportService";
+import { findLocalXap, importUsedFmmMaterials } from "../services/taskImportMaterialsService.js";
+import { modelService } from "../services/modelService.js";
+import { diagnosticService } from "../services/diagnosticService.js";
 import { createFmmMaterialFile } from "../services/materialImport/xapLibImporter.js";
 import { createHtcMaterialFile } from "../services/materialImport/htcConfigImporter.js";
-import { identifyLegacyFmmLibrary } from "../services/materialImport/legacyFmmLibraryFingerprint.js";
 import { materialLibraryHistoryService } from "../services/materialLibraryHistoryService.js";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import {
@@ -39,7 +40,6 @@ import {
 import { createMaterialLibraryLoadQueue } from "../services/materials/materialLibraryLoadQueue.js";
 import {
   getFilePickerErrorMessage,
-  getFileSystemAccessSupport,
 } from "../services/fileSystemAccessSupport";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
@@ -66,14 +66,6 @@ function editableMaterialSchema(schema) {
       ]),
     ),
   };
-}
-
-class ImportConflictCancelled extends Error {
-  constructor(count) {
-    super("Замена отличающихся локальных характеристик отменена.");
-    this.name = "ImportConflictCancelled";
-    this.count = count;
-  }
 }
 
 function replacementQuestion(title, conflicts) {
@@ -627,95 +619,40 @@ export function MaterialLibraryTab(props) {
     }
   }
 
-  async function writeImportedBatch(destination, batch) {
-    const outcome = await runConfirmedBatch({
-      title: "Импортируемые характеристики отличаются от локальных.",
-      execute: options => taskMaterialLibraryService.writeImportedBatch({
-        taskHandle: destination,
-        ...batch,
-        ...options,
-      }),
-    });
-
-    if (outcome.status === "cancelled") {
-      throw new ImportConflictCancelled(outcome.count);
-    }
-
-    return outcome.result;
-  }
-
   async function importLegacyFmmMaterials() {
-    if (!recordsReady() || actionBusy()) return;
+    if (!isTaskSource() || !recordsReady() || actionBusy() || dirtyRecords().length) return;
     const destination = taskHandle();
-    if (!destination) {
-      setActionError(
-        "Сначала выберите задание на вкладке «Задачи и результаты».",
-      );
+    if (!destination) return;
+    const session = librarySession();
+    const isCurrent = () => !disposed && librarySession() === session && isTaskSource();
+    const elements = modelService.getModel().elements;
+    if (!Array.isArray(elements)) {
+      setActionError("Сначала загрузите элементы задания.");
       return;
     }
-
-    const support = getFileSystemAccessSupport(window);
-    if (!support.supported) {
-      setActionError(support.message);
-      return;
-    }
-
     beginAction();
-
-    const importer = createMaterialImportService({
-      pickFmmFile: async () => {
-        try {
-          return [await destination.getFileHandle("XAP.lib")];
-        } catch (error) {
-          if (error?.name === "NotFoundError") {
-            throw new Error(
-              "В каталоге выбранного задания отсутствует XAP.lib.",
-              { cause: error },
-            );
-          }
-          throw error;
-        }
-      },
-      writeBatch: batch => writeImportedBatch(destination, batch),
-    });
-
     try {
-      const result = await importer.importFmm();
-
-      if (result.status === "cancelled") {
-        setActionMessage("Импорт отменён пользователем; файлы не изменены.");
-        return;
-      }
-
-      setActionMessage(
-        writeSummary("Импорт завершён", result.writeResult?.results),
-      );
-      clearLibraryHistory();
-      materialLibraryRevisionService.notifyChanged(definition.kind);
-    } catch (importError) {
-      if (importError instanceof ImportConflictCancelled) {
-        setActionMessage(
-          `Импорт отменён; отличающиеся локальные файлы сохранены: ${importError.count}.`,
-        );
-        return;
-      }
-
-      if (importError instanceof MaterialBatchWriteError) {
-        console.error(`${definition.id} import partial write:`, importError);
-        if (importError.written.length > 0) {
-          clearLibraryHistory();
+      const result = await importUsedFmmMaterials(destination, elements, {
+        isCurrent,
+        notifyChanged: () => {
+          if (isCurrent()) {
+            clearLibraryHistory();
+            diagnosticService.invalidateDiagnostics();
+          }
           materialLibraryRevisionService.notifyChanged(definition.kind);
-        }
-        setActionError(
-          partialWriteMessage("Импорт выполнен частично", importError),
-        );
-        return;
-      }
-
+        },
+      });
+      if (!isCurrent()) return;
+      setActionMessage([
+        ...result.messages.map(message => message.text),
+        ...(result.writeResult ? [writeSummary("Импорт завершён", result.writeResult.results)] : []),
+      ].join(" "));
+    } catch (importError) {
+      if (!isCurrent()) return;
       console.error(`${definition.id} import error:`, importError);
-      setActionError(
-        `Импорт не завершён: ${actionErrorMessage(importError, "импортировать характеристики")}`,
-      );
+      setActionError(importError instanceof MaterialBatchWriteError
+        ? partialWriteMessage("Импорт выполнен частично", importError)
+        : `Импорт не завершён: ${actionErrorMessage(importError, "импортировать характеристики")}`);
     } finally {
       endAction();
     }
@@ -833,15 +770,13 @@ export function MaterialLibraryTab(props) {
     }
     switch (legacyFmmStatus()) {
       case "checking":
-        return "Проверяется отпечаток XAP.lib";
-      case "base":
-        return "XAP.lib совпадает со стандартной legacy-библиотекой; импорт не требуется";
+        return "Проверяется наличие XAP.lib";
       case "error":
-        return "Не удалось проверить отпечаток XAP.lib; импорт недоступен";
+        return "Не удалось проверить наличие XAP.lib; импорт недоступен";
       case "missing":
         return "В каталоге выбранного задания отсутствует XAP.lib";
       default:
-        return "Импортировать локальную библиотеку старого формата";
+        return "Импортировать из XAP.lib только ФММ текущих элементов, включая несохранённые изменения. Одноимённые характеристики заменяются; отсутствующие имена выводятся в сообщении";
     }
   }
 
@@ -992,13 +927,8 @@ export function MaterialLibraryTab(props) {
 
     let current = true;
     setLegacyFmmStatus("checking");
-    void destination.getFileHandle("XAP.lib").then(handle => handle.getFile())
-      .then(file => identifyLegacyFmmLibrary(file))
-      .then((identity) => {
-        if (current) {
-          setLegacyFmmStatus(identity.isBaseLibrary ? "base" : "importable");
-        }
-      }).catch((lookupError) => {
+    void findLocalXap(destination).then(handle => {
+        if (current) setLegacyFmmStatus(handle ? "importable" : "missing");      }).catch((lookupError) => {
       if (lookupError?.name === "NotFoundError") {
         if (current) setLegacyFmmStatus("missing");
       } else {

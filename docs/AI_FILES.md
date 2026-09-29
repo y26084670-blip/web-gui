@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-29 21:43 UTC+3.
+Обновлено: 2026-09-29 22:14 UTC+3.
 
 ## Назначение
 
@@ -333,3 +333,8 @@ kvs.txt, выбор записей локальной XAP.lib и пакетна�
 `TaskLaunchWindow.finishRun` передаёт контекст запуска и отображает отчёт.
 [Контракт](AI_CLARK_INTEGRATION.md#task-import-used-fmm).
 `test/taskImportMaterialsService.test.js` — файловые и предметные проверки.
+
+Выборочный импорт ФММ: `taskImportMaterialsService.js::importUsedFmmMaterials`
+— общая операция над переданными элементами; `MaterialLibraryTab.jsx` передаёт
+текущую BaseModel, `importUsedTaskMaterials` — свежие записи kvs.txt после
+импорта списка. Контракт: [AI_CLARK_INTEGRATION](AI_CLARK_INTEGRATION.md#task-import-used-fmm).
