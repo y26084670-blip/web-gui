@@ -1,6 +1,6 @@
 # Проверка web-gui
 
-Обновлено: 2026-09-29 20:45 UTC+3.
+Обновлено: 2026-09-29 20:50 UTC+3.
 
 <a id="verification-build-time"></a>
 ## Время сборки (2026-09-21 17:35 UTC+3)
@@ -648,6 +648,10 @@ Windows Clark в этом цикле не запускались. Пользов
 Роль опорных сторон подтверждена запуском настоящей Julia MatrV в обеих
 разрядностях: [110 проверок](https://github.com/y26084670-blip/solver/blob/main/docs/AI_VERIFICATION.md#verification-shg-reference-edges).
 Подробный вывод принадлежит [model](https://github.com/y26084670-blip/model/blob/097f91e56880414649319d52578dfab786c7ceb8/docs/AI_симметрии-и-интегрирование-matrv.md#shg-historical-contract).
-Полный npm test, production-сборка, браузер, MPI и Windows Clark в этом цикле
-не запускались. Целевые проверки подтверждают изменённый контракт и его
-интеграцию с модельными валидаторами; прежние полные проверки не переобъявляются.
+Для commit `29052117b03ce35a0639c19b24270e9a470ff95a` выполнена
+[CI-сборка 36607639140](https://github.com/y26084670-blip/web-gui/actions/runs/36607639140):
+`npm ci` и `npm run build:release` — **PASS на Ubuntu и Windows**, Node.js 24.
+Полный npm test в CI отключён штатным условием workflow. Браузер, MPI и
+Windows Clark в этом цикле не запускались. Целевые проверки подтверждают
+изменённый контракт и его интеграцию с модельными валидаторами; прежние полные
+проверки не переобъявляются.
