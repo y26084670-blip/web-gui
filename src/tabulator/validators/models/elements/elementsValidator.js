@@ -1,3 +1,4 @@
+import { modelGeometrySettings } from "../../../../services/solver/geometryValidationSettings.js";
 import { validateElementReferences } from "../../../../services/modelReferenceValidation.js";
 import {
     createError,
@@ -35,35 +36,15 @@ const VALID_MODEL = new Set([0, 1, 2]);
 const VALID_GEO_TYPE = new Set([0, 1, 2, 3, 4]);
 
 const GEOMETRY_CHECK_DIAGNOSTICS = Object.freeze([
-    ["edge13", "Длина ребра 13 не превышает 0,03"],
-    ["edge57", "Длина ребра 57 не превышает 0,03"],
-    ["edge15", "Длина ребра 15 не превышает 0,03"],
-    ["edge37", "Длина ребра 37 не превышает 0,03"],
-    ["edge26", "Длина ребра 26 не превышает 0,03"],
-    [
-        "parallel13And24",
-        "Рёбра 13 и 24 не параллельны с заданной точностью",
-    ],
-    [
-        "parallel57And68",
-        "Рёбра 57 и 68 не параллельны с заданной точностью",
-    ],
-    [
-        "parallel15And26",
-        "Рёбра 15 и 26 не параллельны с заданной точностью",
-    ],
-    [
-        "parallel37And26",
-        "Рёбра 37 и 26 не параллельны с заданной точностью",
-    ],
-    [
-        "parallel48And26",
-        "Рёбра 48 и 26 не параллельны с заданной точностью",
-    ],
-    [
-        "positiveVolume",
-        "Ориентированный объём не превышает 0,000027 мм³",
-    ],
+    ...["13", "24", "57", "68", "15", "26", "37", "48", "12"]
+        .map(edge => [`edge${edge}`, `Недопустимая длина ребра ${edge}`]),
+    ["parallel13And24", "Рёбра 13 и 24 не параллельны"],
+    ["parallel57And68", "Рёбра 57 и 68 не параллельны"],
+    ["parallel15And26", "Рёбра 15 и 26 не параллельны"],
+    ["parallel37And26", "Рёбра 37 и 26 не параллельны"],
+    ["parallel48And26", "Рёбра 48 и 26 не параллельны"],
+    ["basis12And24", "Направления 12 и 24 не задают устойчивую плоскость"],
+    ["outOfPlane15", "Недостаточный угол выхода ребра 15 из плоскости 12–24"],
 ]);
 
 const UNPACK_DIAGNOSTICS = Object.freeze({
@@ -96,7 +77,10 @@ export function elementsValidator(
 
     validateArrayShapes(elements, diagnostics);
     validateRecordRules(elements, diagnostics);
-    validateGeometry(elements, diagnostics);
+    const geometryConfig = modelGeometrySettings(service.getModel());
+    if (geometryConfig && geometryConfig.invalid.length === 0) {
+        validateGeometry(elements, diagnostics, geometryConfig.settings);
+    }
     validateRecordOrder(elements, diagnostics);
     validateElementMaterialReferences(
         elements,
@@ -232,7 +216,7 @@ function validateArrayShapes(elements, diagnostics) {
     });
 }
 
-function validateGeometry(elements, diagnostics) {
+function validateGeometry(elements, diagnostics, settings) {
     elements.forEach((record, index) => {
         if (
             !VALID_GEO_TYPE.has(record?.geoType)
@@ -252,7 +236,7 @@ function validateGeometry(elements, diagnostics) {
             pushGeometryError(diagnostics, index, unpackMessage);
         }
 
-        const validation = validateKvVerticesDetailed(unpacked.vertices);
+        const validation = validateKvVerticesDetailed(unpacked.vertices, settings);
         if (validation.malformed) {
             pushGeometryError(
                 diagnostics,
@@ -263,11 +247,12 @@ function validateGeometry(elements, diagnostics) {
         }
 
         for (const [check, message] of GEOMETRY_CHECK_DIAGNOSTICS) {
-            if (!validation.checks[check]) {
+            if (validation.checks[check] === false) {
                 pushGeometryError(
                     diagnostics,
                     index,
-                    message + geometryMeasurementText(
+                    (check === "outOfPlane15" && validation.measurements[check].value < 0
+                        ? "Обратная ориентация ШГ" : message) + geometryMeasurementText(
                         check,
                         validation.measurements[check],
                     ),
@@ -278,24 +263,14 @@ function validateGeometry(elements, diagnostics) {
 }
 
 function geometryMeasurementText(check, { value, limit, comparison, unit }) {
-    const quantity = check.startsWith("parallel")
-        ? "норма векторного произведения"
-        : check === "positiveVolume" ? "объём" : "длина";
-    let text = `; ${quantity} = ${geometryNumber(value)} ${unit}`
-        + `; требуется ${comparison} ${geometryNumber(limit)} ${unit}`;
-    const violation = comparison === "<" ? value - limit : limit - value;
-    if (violation > 0) {
-        const label = comparison === "<" ? "превышение" : "недостаток до границы";
-        text += `; ${label} = ${geometryNumber(violation)} ${unit}`;
-    } else if (value === limit) {
-        text += "; значение на границе, неравенство строгое";
-    }
-    return text;
+    const quantity = check.startsWith("edge") ? "длина" : "угол";
+    const relation = { "<=": "≤", ">=": "≥", ">": ">" }[comparison];
+    return `; ${quantity} = ${geometryNumber(value)} ${unit}`
+        + `; требуется ${relation} ${geometryNumber(limit)} ${unit}`;
 }
 
 function geometryNumber(value) {
-    // Округление только представления. Малые ненулевые превышения сохраняются
-    // в экспоненциальной записи, а не превращаются в ноль фиксированным форматом.
+    // Округление только представления; малые длины сохраняют значащие цифры.
     return Number.isFinite(value)
         ? String(Number(value.toPrecision(10))).replace(".", ",")
         : String(value);

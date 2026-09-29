@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-09-28 22:59 UTC+3.
+Обновлено: 2026-09-29 18:50 UTC+3.
 
 ## Назначение
 
@@ -145,6 +145,7 @@
 | Камера | `geometryCameraView.js`, `geometryCameraFit.js` | Осевые виды и вписывание по текущей проекции. |
 | Фильтры/стиль/picking | `geometryRenderFilters.js`, `geometryMaterialStyle.js`, `geometryPicking.js` | Видимость, палитра и адресные подписи объектов. |
 | Solver-совместимая математика | `src/services/solver/rotation3d.js`, `symmetryExpansion.js`, `geometryKv.js`, `geometryTk.js`, `kvDerived.js`, `tkDerived.js`, `mhjLayout.js` | Прослеживаемые преобразования, перенесённые из Julia-решателя. |
+| Допуск проверки формы ШГ | `src/services/solver/geometryValidationSettings.js`, `geometryKv.js`, `schemas/conrab.schema.js` | GEO_ANGLE: default, активный профиль и угловые критерии; [контракт](AI_DATA_CONTRACTS.md#geometry-measurement-diagnostics). |
 
 ## 10. Сборка, ресурсы и поставка
 

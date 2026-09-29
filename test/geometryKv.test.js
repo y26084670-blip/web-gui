@@ -1,344 +1,134 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-
-import {
-    unpackKvVertices,
-    validateKvVertices,
-    validateKvVerticesDetailed,
-}
+import { unpackKvVertices, validateKvVertices, validateKvVerticesDetailed }
     from "../src/services/solver/geometryKv.js";
 
-const EPS = 0.03;
-const PREVIOUS_EPS = 0.001;
+const DEG = Math.PI / 180;
+const add = (a,b) => a.map((x,i)=>x+b[i]);
+function box(a=[1,0,0], b=[0,1,0], c=[0,0,1]) {
+    return [[0,0,0],a,b,add(a,b),c,add(a,c),add(b,c),add(add(a,b),c)];
+}
+const scaled = (v,k) => v.map(row=>row.map(x=>x*k));
+const failures = r => Object.keys(r.checks).filter(k=>!r.checks[k]);
 
-function validVertices() {
-    return [
-        [0, 0, 0],
-        [1, 0, 0],
-        [0, 1, 0],
-        [1, 1, 0],
-        [0, 0, 1],
-        [1, 0, 1],
-        [0, 1, 1],
-        [1, 1, 1],
-    ];
+test("angular validation accepts a rectangular element in all resolvable scales", () => {
+    for (const scale of [1e-150,1e-9,1,1e9,1e150]) {
+        const result=validateKvVerticesDetailed(scaled(box(),scale));
+        assert.equal(result.valid,true);
+        assert.equal(Object.keys(result.measurements).length,16);
+        assert.equal(result.measurements.outOfPlane15.value,90);
+        assert.equal(result.measurements.basis12And24.value,90);
+    }
+});
+
+test("thin orthogonal elements retain a right angle", () => {
+    for(const a of [[1e-9,0,0],[1e9,0,0]]) {
+        const result=validateKvVerticesDetailed(box(a));
+        assert.equal(result.valid,true);
+        assert.equal(result.measurements.outOfPlane15.value,90);
+    }
+});
+
+const pairs = [
+    ["parallel13And24", d=>{const v=box();v[3]=[1,1,d];return v;}],
+    ["parallel57And68", d=>[
+        [0,0,-1],[1,0,-1],[0,1,-1],[1,1,-1],
+        [0,0,0],[1,0,0],[0,1,0],[1,1,d]]],
+    ["parallel15And26", d=>{const v=box();v[4]=[0,d,1];return v;}],
+    ["parallel37And26", d=>[
+        [0,-1,0],[1,-1,0],[0,0,0],[1,d,0],
+        [0,-1,1],[1,-1,1],[0,d,1],[1,d,1]]],
+    ["parallel48And26", d=>[
+        [0,-1,0],[1,-1,0],[0,d,0],[1,0,0],
+        [0,-1,1],[1,-1,1],[0,d,1],[1,d,1]]],
+];
+for(const [key,make] of pairs) {
+    test(`${key}: degrees, inclusive boundary and scale invariance`,()=>{
+        for(const angle of [0.05,0.1,0.100001,0.2]) {
+            const source=make(Math.tan(angle*DEG));
+            for(const scale of [1e-100,1e-6,1,1e6,1e100]) {
+                const result=validateKvVerticesDetailed(scaled(source,scale));
+                const metric=result.measurements[key];
+                assert.ok(Math.abs(metric.value-angle)<1e-12);
+                assert.equal(metric.unit,"°");
+                assert.equal(metric.limit,0.1);
+                assert.equal(result.checks[key],angle<=0.1);
+                assert.deepEqual(failures(result),failures(validateKvVerticesDetailed(source)));
+            }
+        }
+    });
 }
 
-test("KV validator accepts a valid hexahedron", () => {
-    assert.equal(validateKvVertices(validVertices()), true);
-
-    const { measurements, ...validation } = validateKvVerticesDetailed(validVertices());
-    assert.equal(Object.keys(measurements).length, 11);
-    assert.deepEqual(
-        validation,
-        {
-            valid: true,
-            malformed: false,
-            checks: {
-                edge13: true,
-                edge57: true,
-                edge15: true,
-                edge37: true,
-                edge26: true,
-                parallel13And24: true,
-                parallel57And68: true,
-                parallel15And26: true,
-                parallel37And26: true,
-                parallel48And26: true,
-                positiveVolume: true,
-            },
-        },
-    );
+test("parallel and antiparallel directions have the same angular deviation",()=>{
+    const v=box();v[3]=[1,-1,0];
+    assert.equal(validateKvVerticesDetailed(v).checks.parallel13And24,true);
 });
 
-test("KV validator keeps strict thresholds for all required edges", () => {
-    const cases = [
-        {
-            edge: "13",
-            make: length => [
-                [0, 0, 0], [1, 0, 0],
-                [0, length, 0], [1, length, 0],
-                [0, 0, 1], [1, 0, 1],
-                [0, length, 2], [1, length, 2],
-            ],
-        },
-        {
-            edge: "57",
-            make: length => [
-                [0, 0, 0], [1, 0, 0],
-                [0, 1, 0], [1, 1, 0],
-                [0, 2, 2 * length], [1, 1, length],
-                [0, 2, length], [1, 1, 0],
-            ],
-        },
-        {
-            edge: "15",
-            make: length => [
-                [0, 0, 0], [1, 0, 0],
-                [0, 1, 0], [1, 1, 0],
-                [0, 0, length], [1, 0, 1],
-                [0, 1, 1], [1, 1, 2 - length],
-            ],
-        },
-        {
-            edge: "37",
-            make: length => [
-                [0, 0, 0], [1, 0, 0],
-                [0, 1, 0], [1, 1, 0],
-                [0, 0, 1], [1, 0, 1],
-                [0, 1, length], [1, 1, length],
-            ],
-        },
-        {
-            edge: "26",
-            make: length => [
-                [0, 0, 0], [1, 0, 0],
-                [0, 1, 0], [1, 1, 0],
-                [0, 0, 1], [1, 0, length],
-                [0, 1, 1], [1, 1, length],
-            ],
-        },
-    ];
-
-    for (const { edge, make } of cases) {
-        assert.equal(
-            validateKvVerticesDetailed(make(0.5 * EPS))
-                .checks[`edge${edge}`],
-            false,
-            edge,
-        );
-        assert.equal(validateKvVertices(make(0.5 * EPS)), false, edge);
-        assert.equal(validateKvVertices(make(EPS)), false, edge);
-        assert.equal(validateKvVertices(make(2 * EPS)), true, edge);
+test("signed plane angle separates orientation and near-degeneracy",()=>{
+    for(const beta of [-90,-0.1,0,0.05,0.1,0.100001,45,90]) {
+        const v=box([1,0,0],[0,1,0],[Math.cos(beta*DEG),0,Math.sin(beta*DEG)]);
+        const result=validateKvVerticesDetailed(v);
+        assert.ok(Math.abs(result.measurements.outOfPlane15.value-beta)<1e-12);
+        assert.equal(result.checks.outOfPlane15,beta>=0.1);
     }
 });
 
-test("KV validator keeps strict thresholds for every parallel check", () => {
-    const cases = [
-        {
-            group: "13 ∥ 24",
-            check: "parallel13And24",
-            make: delta => {
-                const vertices = validVertices();
-                vertices[3] = [1, 1, delta];
-                return vertices;
-            },
-        },
-        {
-            group: "57 ∥ 68",
-            check: "parallel57And68",
-            make: delta => [
-                [0, 0, -1], [1, 0, -1],
-                [0, 1, -1], [1, 1, -1],
-                [0, 0, 0], [1, 0, 0],
-                [0, 1, 0], [1, 1, delta],
-            ],
-        },
-        {
-            group: "15 ∥ 26",
-            check: "parallel15And26",
-            make: delta => {
-                const vertices = validVertices();
-                vertices[4] = [0, delta, 1];
-                return vertices;
-            },
-        },
-        {
-            group: "37 ∥ 26",
-            check: "parallel37And26",
-            make: delta => [
-                [0, -1, 0], [1, -1, 0],
-                [0, 0, 0], [1, delta, 0],
-                [0, -1, 1], [1, -1, 1],
-                [0, delta, 1], [1, delta, 1],
-            ],
-        },
-        {
-            group: "48 ∥ 26",
-            check: "parallel48And26",
-            make: delta => [
-                [0, -1, 0], [1, -1, 0],
-                [0, delta, 0], [1, 0, 0],
-                [0, -1, 1], [1, -1, 1],
-                [0, delta, 1], [1, delta, 1],
-            ],
-        },
-    ];
-
-    for (const { group, check, make } of cases) {
-        assert.equal(
-            validateKvVertices(make(0.5 * EPS ** 2)),
-            true,
-            group,
-        );
-        assert.equal(
-            validateKvVerticesDetailed(make(2 * EPS ** 2))
-                .checks[check],
-            false,
-            group,
-        );
-        assert.equal(validateKvVertices(make(EPS ** 2)), false, group);
-        assert.equal(validateKvVertices(make(2 * EPS ** 2)), false, group);
+test("the supporting plane must have independent directions",()=>{
+    for(const alpha of [0,0.05,0.1,0.2]) {
+        const result=validateKvVerticesDetailed(box([1,0,0],[Math.cos(alpha*DEG),Math.sin(alpha*DEG),0]));
+        assert.equal(result.checks.basis12And24,alpha>=0.1);
+        assert.equal(Object.hasOwn(result.measurements,"outOfPlane15"),alpha>=0.1);
     }
 });
 
-test("KV validator identifies each connecting-edge pair independently", () => {
-    const connectingChecks = [
-        "parallel15And26",
-        "parallel37And26",
-        "parallel48And26",
-    ];
-    const cases = [
-        {
-            failed: "parallel15And26",
-            make: delta => {
-                const vertices = validVertices();
-                vertices[4] = [0, delta, 1];
-                return vertices;
-            },
-        },
-        {
-            failed: "parallel37And26",
-            make: delta => [
-                [0, -1, 0], [1, -1, 0],
-                [0, 0, 0], [1, delta, 0],
-                [0, -1, 1], [1, -1, 1],
-                [0, delta, 1], [1, delta, 1],
-            ],
-        },
-        {
-            failed: "parallel48And26",
-            make: delta => [
-                [0, -1, 0], [1, -1, 0],
-                [0, delta, 0], [1, 0, 0],
-                [0, -1, 1], [1, -1, 1],
-                [0, delta, 1], [1, delta, 1],
-            ],
-        },
-    ];
-
-    for (const { failed, make } of cases) {
-        const validation = validateKvVerticesDetailed(
-            make(2 * EPS ** 2),
-        );
-
-        for (const check of connectingChecks) {
-            assert.equal(
-                validation.checks[check],
-                check !== failed,
-                `${failed}: ${check}`,
-            );
-        }
-        assert.equal(validation.valid, false, failed);
+test("custom angular bounds come from configuration",()=>{
+    const v=pairs[0][1](Math.tan(0.15*DEG));
+    assert.equal(validateKvVertices(v),false);
+    assert.equal(validateKvVertices(v,{GEO_ANGLE:0.2}),true);
+    for(const value of [null,NaN,Infinity,0,-1,90,"0.1"]) {
+        const r=validateKvVerticesDetailed(box(),{GEO_ANGLE:value});
+        assert.equal(r.invalidSettings,true);
+        assert.equal(r.valid,false);
     }
 });
 
-test("KV validator reports simultaneous connecting-edge failures", () => {
-    const delta = 2 * EPS ** 2;
-    const vertices = validVertices();
-    vertices[4] = [0, delta, 1];
-    vertices[6] = [0, 1 + delta, 1];
-    vertices[7] = [1, 1 + delta, 1];
-
-    const validation = validateKvVerticesDetailed(vertices);
-
-    assert.equal(validation.checks.parallel15And26, false);
-    assert.equal(validation.checks.parallel37And26, false);
-    assert.equal(validation.checks.parallel48And26, false);
-    assert.equal(validation.valid, false);
-});
-
-test("KV validator accepts the reported Float32 element at the new tolerance", () => {
-    const vertices = [
-        [13, 0, 24.500778198242188],
-        [13, -2.5132100582122803, 24.37150001525879],
-        [13, 0, 27.500699996948242],
-        [13, -2.5132100582122803, 27.386499404907227],
-        [10, 0, 24.500699996948242],
-        [10, -2.5132100582122803, 24.37150001525879],
-        [10, 0, 27.500699996948242],
-        [10, -2.5132100582122803, 27.386499404907227],
-    ];
-
-    const previousValidation = validateKvVerticesDetailed(
-        vertices,
-        PREVIOUS_EPS,
-    );
-    const validation = validateKvVerticesDetailed(vertices);
-
-    assert.deepEqual(
-        Object.entries(previousValidation.checks)
-            .filter(([, passed]) => !passed)
-            .map(([check]) => check),
-        ["parallel15And26"],
-    );
-    assert.equal(previousValidation.valid, false);
-    assert.equal(validation.valid, true);
-    assert.equal(Object.values(validation.checks).every(Boolean), true);
-});
-
-test("KV validator requires a positive vertex orientation", () => {
-    const vertices = validVertices();
-
-    for (let index = 1; index < vertices.length; index += 2) {
-        vertices[index][0] = -1;
+test("every normalized edge is checked before computing angles",()=>{
+    for(const [name,i,j] of [["12",0,1],["13",0,2],["24",1,3],["57",4,6],
+        ["68",5,7],["15",0,4],["26",1,5],["37",2,6],["48",3,7]]) {
+        const v=box();v[j]=[...v[i]];
+        const result=validateKvVerticesDetailed(v);
+        assert.equal(result.checks[`edge${name}`],false);
+        assert.equal(result.valid,false);
+        assert.ok(Object.values(result.measurements).every(m=>Number.isFinite(m.value)));
     }
-
-    const validation = validateKvVerticesDetailed(vertices);
-
-    assert.equal(validation.valid, false);
-    assert.equal(validation.checks.positiveVolume, false);
-    assert.equal(validateKvVertices(vertices), false);
 });
 
-test("KV validator keeps the strict positive-volume threshold", () => {
-    const volumeVertices = height => [
-        [0, 0, 0], [height, 0, 0],
-        [0, 1, 0], [height, 1, 0],
-        [0, 0, 1], [height, 0, 1],
-        [0, 1, 1], [height, 1, 1],
+test("coordinate resolution is checked without a fixed physical size floor",()=>{
+    const tiny=box([1e-4,0,0]);
+    assert.equal(validateKvVertices(tiny),true);
+    const shifted=tiny.map(([x,y,z])=>[x+1e12,y,z]);
+    assert.equal(validateKvVerticesDetailed(shifted).checks.edge12,false);
+    assert.equal(validateKvVerticesDetailed(shifted).checks.edge13,true);
+});
+
+test("malformed coordinates and configuration do not enter normalization",()=>{
+    const bad=box();bad[0][0]=Infinity;
+    for(const v of [[],new Array(8),bad,box().map(r=>[...r,0])]) {
+        const result=validateKvVerticesDetailed(v);
+        assert.equal(result.malformed,true);
+        assert.equal(result.valid,false);
+    }
+    assert.equal(validateKvVerticesDetailed(box(),null).invalidSettings,true);
+});
+
+test("reported legacy Float32 geometry is accepted by the default angle",()=>{
+    const v=[
+        [13,0,24.500778198242188],[13,-2.5132100582122803,24.37150001525879],
+        [13,0,27.500699996948242],[13,-2.5132100582122803,27.386499404907227],
+        [10,0,24.500699996948242],[10,-2.5132100582122803,24.37150001525879],
+        [10,0,27.500699996948242],[10,-2.5132100582122803,27.386499404907227],
     ];
-
-    assert.equal(
-        validateKvVertices(volumeVertices(0.5 * EPS ** 3)),
-        false,
-    );
-    assert.equal(
-        validateKvVertices(volumeVertices(EPS ** 3)),
-        false,
-    );
-    assert.equal(
-        validateKvVertices(volumeVertices(2 * EPS ** 3)),
-        true,
-    );
-});
-
-test("KV validator rejects malformed and non-finite vertices", () => {
-    assert.equal(
-        validateKvVertices(validVertices().slice(0, 7)),
-        false,
-    );
-
-    const nonFinite = validVertices();
-    nonFinite[0][0] = Number.POSITIVE_INFINITY;
-    assert.equal(validateKvVertices(nonFinite), false);
-
-    const nonNumeric = validVertices();
-    nonNumeric[0][0] = "0";
-    assert.equal(validateKvVertices(nonNumeric), false);
-
-    const sparseVertices = new Array(8);
-    sparseVertices[0] = [0, 0, 0];
-    assert.equal(validateKvVertices(sparseVertices), false);
-
-    const sparseVertex = validVertices();
-    sparseVertex[0] = new Array(3);
-    assert.equal(validateKvVertices(sparseVertex), false);
-
-    assert.equal(
-        validateKvVerticesDetailed(sparseVertex).malformed,
-        true,
-    );
+    assert.equal(validateKvVertices(v),true);
 });
 
 test("KV unpack keeps solver error flags while constructing vertices", () => {
@@ -359,65 +149,13 @@ test("KV unpack keeps solver error flags while constructing vertices", () => {
     }
 });
 
-test("KV validator can inspect every supported unpacked geometry type", () => {
-    const cases = [
-        {
-            geoType: 0,
-            geo: validVertices().flat(),
-            expected: true,
-        },
-        {
-            geoType: 1,
-            geo: [0, 1, 1, 1, 1, 2, 0, 2, 30],
-            expected: true,
-        },
-        { geoType: 2, geo: [2, 3, 4], expected: true },
-        { geoType: 3, geo: [2, 3, 4, 2, 3], expected: true },
-    ];
 
-    for (const { geoType, geo, expected } of cases) {
-        const unpacked = unpackKvVertices(geo, geoType);
-
-        assert.equal(unpacked.err, 0, `geoType ${geoType}`);
-        assert.equal(
-            validateKvVerticesDetailed(unpacked.vertices).valid,
-            expected,
-            `geoType ${geoType}`,
-        );
-    }
-
-    const pyramid = unpackKvVertices(
-        [3, 2, 0, 4, 2, 1, 1],
-        4,
-    );
-    const pyramidValidation = validateKvVerticesDetailed(
-        pyramid.vertices,
-    );
-
-    assert.equal(pyramid.err, 0);
-    assert.equal(pyramidValidation.valid, false);
-    assert.equal(pyramidValidation.checks.edge26, false);
-    assert.equal(pyramidValidation.checks.positiveVolume, false);
-});
-
-
-test("KV measurements retain physical values, units and custom strict limits", () => {
-    const vertices = validVertices();
-    vertices[3][2] = 0.25;
-    const result = validateKvVerticesDetailed(vertices, 0.1);
-    assert.deepEqual(result.measurements.parallel13And24, {
-        value: 0.25, limit: 0.1 ** 2, comparison: "<", unit: "мм²",
-    });
-    assert.deepEqual(result.measurements.edge13, {
-        value: 1, limit: 0.1, comparison: ">", unit: "мм",
-    });
-    assert.deepEqual(result.measurements.positiveVolume, {
-        value: 1, limit: 0.1 ** 3, comparison: ">", unit: "мм³",
-    });
-    for (const [key, measurement] of Object.entries(result.measurements)) {
-        assert.equal(result.checks[key], measurement.comparison === "<"
-            ? measurement.value < measurement.limit
-            : measurement.value > measurement.limit);
-    }
-    assert.deepEqual(validateKvVerticesDetailed([]).measurements, {});
+test("all supported geometry types are checked after unpack",()=>{
+    for(const [type,parameters] of [
+        [0,box().flat()],[1,[0,1,1,1,1,2,0,2,30]],
+        [2,[2,3,4]],[3,[2,3,4,2,3]],
+    ]) assert.equal(validateKvVertices(unpackKvVertices(parameters,type).vertices),true);
+    const pyramid=validateKvVerticesDetailed(unpackKvVertices([3,2,0,4,2,1,1],4).vertices);
+    assert.equal(pyramid.valid,false);
+    assert.equal(pyramid.checks.edge26,false);
 });
