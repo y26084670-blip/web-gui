@@ -27,6 +27,7 @@ export function TaskLaunchWindow(props) {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [notice, setNotice] = createSignal("");
+  const [importMessages, setImportMessages] = createSignal([]);
   const [mpiValue, setMpiValue] = createSignal("default");
   const [mpiEdited, setMpiEdited] = createSignal(false);
   const [settingsPending, setSettingsPending] = createSignal(null);
@@ -104,6 +105,7 @@ export function TaskLaunchWindow(props) {
         setBusy(false);
         setError("");
         setNotice("");
+        setImportMessages([]);
         setProof(null);
         setPending(null);
         setConfirmImport(false);
@@ -255,6 +257,7 @@ export function TaskLaunchWindow(props) {
       setProof(null);
       setConfirmImport(false);
       setError("");
+      setImportMessages([]);
       setNotice("Ожидание ответа Clark… Подтвердите открытие Clark, если браузер запросит разрешение.");
       // Files are already closed and the URI is opened directly from this click.
       window.location.href = uri;
@@ -293,7 +296,19 @@ export function TaskLaunchWindow(props) {
     try {
       if (result.state === "completed" || (run.action === "import"
         && (run.state === "accepted" || Number.isInteger(result.exitCode)))) {
-        await props.onLaunchComplete?.(run.entries, run.action);
+        if (run.action === "import" && result.state === "completed") {
+          setNotice("Импорт данных завершён. Перенос используемых характеристик из XAP.lib…");
+        }
+        const report = await props.onLaunchComplete?.(run.entries, run.action, {
+          root, result, isCurrent: () => current(root, revision),
+        });
+        if (!current(root, revision)) return;
+        if (run.action === "import") {
+          setImportMessages(report?.messages ?? []);
+          if (result.state === "completed") {
+            setNotice(`Импорт завершён. Обработано характеристик ФММ: ${report?.imported ?? 0}.`);
+          }
+        }
       }
       if (!current(root, revision)) return;
       await armLaunch(root, revision);
@@ -479,6 +494,17 @@ export function TaskLaunchWindow(props) {
         </div>
         <Show when={error()}><div class="task-launch-error" role="alert">{error()}</div></Show>
         <Show when={notice()}><div class="task-launch-notice" role="status">{notice()}</div></Show>
+        <Show when={importMessages().length}>
+          <details open>
+            <summary>Импорт характеристик: сообщения ({importMessages().length})</summary>
+            <For each={importMessages()}>{message => (
+              <div class={message.level === "error" ? "task-launch-error" : "task-launch-notice"}
+                role={message.level === "error" ? "alert" : "status"}>
+                {message.path}: {message.text}
+              </div>
+            )}</For>
+          </details>
+        </Show>
         <Show when={includedDirty()}>
           <div class="task-launch-save-prompt">
             <span>Включённое задание содержит несохранённые изменения.</span>
@@ -516,7 +542,7 @@ export function TaskLaunchWindow(props) {
         </div>
         <Show when={confirmImport()}>
           <div class="task-launch-import-confirm">
-            <span>Импорт заменит исходные данные включённых заданий. Продолжить?</span>
+            <span>Импорт заменит исходные данные и используемые характеристики ФММ из локальных XAP.lib. Не закрывайте страницу и не меняйте базовый каталог до завершения. Продолжить?</span>
             <button type="button" disabled={!canLaunch()}
               title="Подтвердить импорт для всех подключённых заданий с заменой их исходных данных."
               onClick={() => launch("import")}>Выполнить импорт</button>
