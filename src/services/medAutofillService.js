@@ -1,9 +1,18 @@
 // The controller accepts the existing model API; it owns no editable model.
-export function createMedRequest(model, taskKey) {
-    return { snapshot:model, taskKey };
+export function createMedRequest(model, taskKey, rows = null) {
+    return { snapshot:model, taskKey, rows:rows ? [...rows] : null };
 }
 export function medRequestIsCurrent(request, model, taskKey) {
     return Boolean(request && request.snapshot===model && request.taskKey===taskKey);
+}
+// Row components retain their identity during cell edits. A structural change
+// or table replacement invalidates the old block numbers without invalidating
+// navigation after each ordinary correction. These tokens are never serialized.
+export function medRequestCanNavigate(request, model, taskKey, rows = null) {
+    if (!request || request.taskKey!==taskKey) return false;
+    if (!request.rows) return request.snapshot===model;
+    return Boolean(rows && request.rows.length===rows.length
+        && request.rows.every((row,i)=>row===rows[i]));
 }
 export function applyMedResult({request,result,modelService,schema,taskKey}) {
     const model=modelService.getModel();

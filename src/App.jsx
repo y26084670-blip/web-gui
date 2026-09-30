@@ -10,7 +10,7 @@ import { SidePanel } from "./components/SidePanel";
 import { MaterialSelectionDialog } from "./components/materials/MaterialSelectionDialog.jsx";
 import { GeometryViewerWindow } from "./components/geometry/GeometryViewerWindow.jsx";
 import { MedAutofillDialog } from "./components/elements/MedAutofillDialog.jsx";
-import { createMedRequest, medRequestIsCurrent, applyMedResult } from "./services/medAutofillService.js";
+import { createMedRequest, medRequestIsCurrent, medRequestCanNavigate, applyMedResult } from "./services/medAutofillService.js";
 import {
   TABS,
   VALIDATION_LEVELS,
@@ -120,42 +120,54 @@ export default function App() {
   const [medRequest, setMedRequest] = createSignal(null);
   const [medResult, setMedResult] = createSignal(null);
   const [medBusy, setMedBusy] = createSignal(false);
+  const [medApplying, setMedApplying] = createSignal(false);
   const [medError, setMedError] = createSignal("");
   const [medNotice, setMedNotice] = createSignal("");
   const [medNavigation, setMedNavigation] = createSignal(null);
   let medWorker = null;
   let medEditor = null;
   let medRevision = 0;
+  let medAnalysisResolve = null;
   const medStale = () => Boolean(medRequest()) && !medRequestIsCurrent(
     medRequest(), modelService.getModel(), selectionService.loadedTaskHandle(),
   );
+  const medCanNavigate = createMemo(() => Boolean(medResult()) && medRequestCanNavigate(
+    medRequest(), modelService.getModel(), selectionService.loadedTaskHandle(), medEditor?.rows(),
+  ));
   function stopMedWorker() {
     medWorker?.terminate(); medWorker = null; setMedBusy(false);
+    medAnalysisResolve?.(null); medAnalysisResolve = null;
   }
   function closeMed() {
     medRevision += 1; stopMedWorker(); setMedOpen(false);
   }
-  async function analyzeCurrentMed() {
+  async function analyzeCurrentMed({preserveResult=false}={}) {
     const revision = ++medRevision;
     stopMedWorker(); setMedOpen(true); setMedBusy(true);
-    setMedResult(null); setMedError(""); setMedNotice(""); setMedRequest(null);
+    if (!preserveResult) { setMedResult(null); setMedRequest(null); }
+    setMedError(""); setMedNotice("");
     try {
       await medEditor?.flush();
-      if (revision !== medRevision || !medOpen()) return;
-      const request = createMedRequest(modelService.getModel(), selectionService.loadedTaskHandle());
+      if (revision !== medRevision || !medOpen()) return null;
+      const request = createMedRequest(modelService.getModel(), selectionService.loadedTaskHandle(),medEditor?.rows());
       await assertJweakLocalUnchanged(request.taskKey, request.snapshot.jweakLocal);
-      if (revision !== medRevision || !medOpen()) return;
+      if (revision !== medRevision || !medOpen()) return null;
       if (!medRequestIsCurrent(request, modelService.getModel(), selectionService.loadedTaskHandle())) {
-        stopMedWorker(); setMedError("Исходные данные изменены. Повторите анализ MED."); return;
+        stopMedWorker(); setMedError("Исходные данные изменились во время анализа. Повторите анализ MED."); return null;
       }
-      setMedRequest(request);
+      if (!preserveResult) setMedRequest(request);
       const worker = new Worker(new URL("./workers/medAnalysis.worker.js", import.meta.url), {type:"module"});
       medWorker = worker;
+      const completed = new Promise(resolve=>{ medAnalysisResolve=resolve; });
       worker.onmessage = ({data}) => {
         if (revision !== medRevision || medWorker !== worker) return;
+        const resolve = medAnalysisResolve; medAnalysisResolve = null;
         stopMedWorker();
-        if (!medRequestIsCurrent(request,modelService.getModel(),selectionService.loadedTaskHandle())) return;
-        if (data.error) setMedError(data.error); else setMedResult(data.result);
+        if (!medRequestIsCurrent(request,modelService.getModel(),selectionService.loadedTaskHandle())) {
+          resolve?.(null); return;
+        }
+        if (data.error) { setMedError(data.error); resolve?.(null); }
+        else { setMedRequest(request); setMedResult(data.result); resolve?.({request,result:data.result}); }
       };
       worker.onerror = event => {
         if (revision !== medRevision || medWorker !== worker) return;
@@ -163,27 +175,54 @@ export default function App() {
       };
       worker.postMessage(request.snapshot);
       setSidePanelOpen(false);
+      return await completed;
     } catch(error) {
-      if (revision !== medRevision) return;
+      if (revision !== medRevision) return null;
       stopMedWorker(); setMedError(error.message || String(error));
+      return null;
     }
   }
   async function applyCurrentMed() {
+    if (medApplying() || medBusy()) return;
+    const applyingRequest = medRequest();
+    setMedApplying(true);
     try {
       await medEditor?.flush();
-      const request = medRequest();
+      if (!medOpen() || applyingRequest !== medRequest()) return;
+      let request = medRequest(), result = medResult();
       if (!request) throw new Error("Сначала выполните анализ MED.");
+      if (request.taskKey !== selectionService.loadedTaskHandle()) return;
+      if (!medRequestIsCurrent(request,modelService.getModel(),selectionService.loadedTaskHandle())) {
+        const analyzed = await analyzeCurrentMed({preserveResult:true});
+        if (!analyzed) return;
+        ({request,result}=analyzed);
+      }
       await assertJweakLocalUnchanged(request.taskKey, request.snapshot.jweakLocal);
-      const changed = applyMedResult({request,result:medResult(),modelService,
+      if (!medOpen() || request !== medRequest() || request.taskKey !== selectionService.loadedTaskHandle()) return;
+      const changed = applyMedResult({request,result,modelService,
         schema:tabRegistry.find(s=>s.id===TABS.ELEMENTS.id),taskKey:selectionService.loadedTaskHandle()});
-      if (!changed) return;
+      if (!changed) { setMedNotice("Изменений MED не требуется."); return; }
       setMedRequest(null); setMedResult(null); setMedNavigation(null);
       setMedNotice("MED применён. Изменение можно отменить через Undo на вкладке элементов.");
       await performModelValidation({restart:true});
     } catch(error) { setMedError(error.message || String(error)); }
+    finally { setMedApplying(false); }
+  }
+  async function navigateCurrentMed(block,face) {
+    const request = medRequest();
+    await medEditor?.flush();
+    if (request !== medRequest() || medBusy() || !medCanNavigate()) return;
+    setActiveTab(TABS.ELEMENTS.id);
+    setMedNavigation({block,face,request,row:medEditor?.rows()?.[block-1]});
   }
   createEffect(() => {
-    if (medStale()) { medRevision += 1; stopMedWorker(); setMedNavigation(null); }
+    const request = medRequest();
+    if (request && request.taskKey !== selectionService.loadedTaskHandle()) {
+      closeMed(); setMedRequest(null); setMedResult(null); setMedNavigation(null);
+    } else if (medStale()) {
+      medRevision += 1; stopMedWorker();
+      if (!medCanNavigate()) setMedNavigation(null);
+    }
   });
   onCleanup(() => { medRevision += 1; stopMedWorker(); });
   const [selectedGeometryElementIndices, setSelectedGeometryElementIndices] =
@@ -797,13 +836,11 @@ export default function App() {
           geometryViewerButton?.focus();
         }}
       />
-      <MedAutofillDialog open={medOpen()} busy={medBusy()} stale={medStale()}
+      <MedAutofillDialog open={medOpen()} busy={medBusy()} applying={medApplying()} stale={medStale()}
+        navigationEnabled={!medBusy()&&medCanNavigate()}
         result={medResult()} error={medError()} notice={medNotice()}
         onAnalyze={analyzeCurrentMed} onApply={applyCurrentMed} onClose={closeMed}
-        onNavigate={(block,face)=>{
-          setActiveTab(TABS.ELEMENTS.id);
-          setMedNavigation({block,face,request:medRequest()});
-        }}
+        onNavigate={navigateCurrentMed}
       />
     </div>
   );
