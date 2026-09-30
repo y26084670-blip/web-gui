@@ -30,6 +30,16 @@
   padding: 5px 10px;
 }
 
+.material-library-actions > button {
+  box-sizing: border-box;
+  flex: 0 0 150px;
+  width: 150px;
+}
+
+.material-library-actions {
+  flex-wrap: wrap;
+}
+
 .material-library-actions button:disabled {
   cursor: not-allowed;
   opacity: .55;
@@ -241,4 +251,38 @@
   .material-library-lower.with-graph .fmm-graph-region {
     min-width: 220px;
   }
+}
+
+.fmm-clipboard-dialog {
+  overflow: auto;
+}
+
+.fmm-clipboard-start {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.fmm-clipboard-start input {
+  width: 80px;
+  padding: 4px 6px;
+}
+
+.fmm-clipboard-preview {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+}
+
+.fmm-clipboard-preview th,
+.fmm-clipboard-preview td {
+  padding: 3px 8px;
+  border: 1px solid #596674;
+  text-align: right;
+}
+
+.fmm-clipboard-actions button {
+  flex: 0 0 120px;
+  width: 120px;
 }

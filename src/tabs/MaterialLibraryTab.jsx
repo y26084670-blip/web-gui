@@ -11,6 +11,7 @@ import { TabulatorFull as Tabulator } from "tabulator-tables";
 
 import { FmmGraphRegion } from "../components/materials/FmmGraphRegion.jsx";
 import { MaterialDeleteConfirmationDialog } from "../components/materials/MaterialDeleteConfirmationDialog.jsx";
+import { FmmClipboardDialog } from "../components/materials/FmmClipboardDialog.jsx";
 import { modelToRows } from "../tabulator/converters/modelConverter";
 import { TableBuilder } from "../tabulator/builders/TableBuilder";
 import { DetailRegion } from "../tabulator/views/DetailRegion";
@@ -38,6 +39,11 @@ import {
   resizedLowerHeight,
 } from "../services/materials/materialLibraryLayout.js";
 import { createMaterialLibraryLoadQueue } from "../services/materials/materialLibraryLoadQueue.js";
+import {
+  createEmptyFmmMaterial,
+  parseFmmClipboardText,
+  saveFmmClipboardBlock,
+} from "../services/materials/fmmTableInput.js";
 import {
   getFilePickerErrorMessage,
 } from "../services/fileSystemAccessSupport";
@@ -138,6 +144,8 @@ export function MaterialLibraryTab(props) {
   const [nameFilter, setNameFilter] = createSignal("");
   const [dirtyRecords, setDirtyRecords] = createSignal([]);
   const [deleteRequest, setDeleteRequest] = createSignal(null);
+  const [currentFmmRecord, setCurrentFmmRecord] = createSignal(null);
+  const [clipboardRequest, setClipboardRequest] = createSignal(null);
   const [legacyFmmStatus, setLegacyFmmStatus] = createSignal("missing");
   const [tableReady, setTableReady] = createSignal(false);
   const [lowerHeight, setLowerHeight] = createSignal(
@@ -157,6 +165,7 @@ export function MaterialLibraryTab(props) {
   let redrawFrame = 0;
   let detachHistory = null;
   let applyingHistory = false;
+  let appliedLocalRevision = null;
 
   const detailRegion = new DetailRegion();
   const recordDetailViews = new Map();
@@ -166,7 +175,18 @@ export function MaterialLibraryTab(props) {
   const recordsReady = () => !loading() && !error()
     && loadedLibrary()?.session === librarySession()
     && loadedLibrary()?.source === librarySource();
-  const canEditLibrary = () => isTaskSource() && recordsReady() && !actionBusy();
+  const canEditLibrary = () => isTaskSource() && recordsReady() && !actionBusy() && !clipboardRequest();
+
+  // Own writes are already applied to the live table. Consuming this revision
+  // avoids a reload that would discard edits to other local characteristics.
+  function notifyAppliedLibraryChange() {
+    appliedLocalRevision = {
+      session: librarySession(),
+      revision: untrack(() => materialLibraryRevisionService.revision(definition.kind)) + 1,
+    };
+    diagnosticService.invalidateDiagnostics();
+    materialLibraryRevisionService.notifyChanged(definition.kind);
+  }
 
   function beginAction() {
     setActionBusy(true);
@@ -267,6 +287,7 @@ export function MaterialLibraryTab(props) {
   }
 
   function clearRenderedRecords() {
+    setCurrentFmmRecord(null);
     detailRegion.showHint("Выберите характеристику в таблице");
     for (const entry of recordDetailViews.values()) {
       entry.view.destroy();
@@ -358,6 +379,7 @@ export function MaterialLibraryTab(props) {
 
   function showPropertyDetail(row) {
     const rowData = row.getData();
+    setCurrentFmmRecord(rowData);
     const entry = recordDetailViews.get(rowData)
       ?? createPropertyDetail(row);
     const name = entry.record.name || rowData.rowLabel;
@@ -375,6 +397,7 @@ export function MaterialLibraryTab(props) {
 
   function showDetail(row) {
     if (!row) {
+      setCurrentFmmRecord(null);
       detailRegion.showHint("Выберите характеристику в таблице");
       return;
     }
@@ -483,6 +506,7 @@ export function MaterialLibraryTab(props) {
     setLoading(true);
     setError("");
     setDirtyRecords([]);
+    setClipboardRequest(null);
     clearRenderedRecords();
 
     try {
@@ -520,6 +544,101 @@ export function MaterialLibraryTab(props) {
       });
     } finally {
       if (isCurrent()) setLoading(false);
+    }
+  }
+
+  async function createFmmMaterial() {
+    if (!isFmm || !canEditLibrary()) return;
+    const destination = taskHandle();
+    const session = librarySession();
+    const isCurrent = () => !disposed && librarySession() === session && isTaskSource();
+    beginAction();
+    try {
+      const record = await createEmptyFmmMaterial({
+        taskHandle: destination, service: taskMaterialLibraryService, isCurrent,
+      });
+      if (!record || !isCurrent()) return;
+      const [row] = await table.addData(modelToRows(tableSchema, [record]));
+      if (!isCurrent()) return;
+      clearNameFilter();
+      table.deselectRow();
+      row.select();
+      showPropertyDetail(row);
+      setEmptyLibrary(false);
+      clearLibraryHistory();
+      notifyAppliedLibraryChange();
+      setActionMessage("Создана и сохранена характеристика «Новая».");
+    } catch (createError) {
+      if (isCurrent()) {
+        setActionError(`Создание не завершено: ${actionErrorMessage(createError, "создать характеристику")}`);
+      }
+    } finally {
+      endAction();
+    }
+  }
+
+  async function readFmmClipboard() {
+    if (!isFmm || !canEditLibrary() || !currentFmmRecord()?._taskLibraryRecord) return;
+    const record = currentFmmRecord();
+    const session = librarySession();
+    beginAction();
+    try {
+      if (typeof navigator.clipboard?.readText !== "function") {
+        throw new Error("Чтение буфера недоступно. Откройте редактор через HTTPS или localhost.");
+      }
+      const text = await navigator.clipboard.readText();
+      if (disposed || librarySession() !== session || !isTaskSource()
+          || currentFmmRecord() !== record || !recordsReady()) return;
+      setClipboardRequest({ record, session, rows: parseFmmClipboardText(text) });
+    } catch (clipboardError) {
+      if (!disposed && librarySession() === session) {
+        setActionError(`Вставка не выполнена: ${clipboardError?.name === "NotAllowedError"
+          ? "разрешите браузеру чтение буфера обмена и повторите операцию."
+          : actionErrorMessage(clipboardError, "прочитать буфер обмена")}`);
+      }
+    } finally {
+      endAction();
+    }
+  }
+
+  async function applyFmmClipboard(startRow) {
+    const request = clipboardRequest();
+    if (!request || actionBusy() || !recordsReady() || !isTaskSource()) return;
+    const isCurrent = () => !disposed && librarySession() === request.session
+      && isTaskSource() && currentFmmRecord() === request.record;
+    if (!isCurrent()) return;
+    const row = table.getRows().find(item => item.getData() === request.record);
+    if (!row) return;
+    beginAction();
+    try {
+      const record = await saveFmmClipboardBlock({
+        taskHandle: taskHandle(), record: request.record, rows: request.rows, startRow,
+        service: taskMaterialLibraryService,
+      });
+      if (!isCurrent()) return;
+      // Preserve the RowComponent's data identity used by detail views/history.
+      await row.update(record);
+      const updated = row.getData();
+      setCurrentFmmRecord(updated);
+      setDirtyRecords(current => current.filter(item => item !== request.record));
+      const entry = recordDetailViews.get(request.record);
+      if (entry) {
+        detailRegion.showHint();
+        entry.view.destroy();
+        recordDetailViews.delete(request.record);
+      }
+      showPropertyDetail(row);
+      setSelectedRecords(selectedTableRecords(table.getSelectedRows()));
+      clearLibraryHistory();
+      setClipboardRequest(null);
+      notifyAppliedLibraryChange();
+      setActionMessage(`Таблица H–M характеристики «${record.name}» заменена и сохранена.`);
+    } catch (pasteError) {
+      if (isCurrent()) {
+        setActionError(`Вставка не сохранена: ${actionErrorMessage(pasteError, "сохранить характеристику")}`);
+      }
+    } finally {
+      endAction();
     }
   }
 
@@ -912,7 +1031,9 @@ export function MaterialLibraryTab(props) {
     const destination = taskHandle();
     if (!ready || !table) return;
     if (source === "task") {
-      materialLibraryRevisionService.revision(definition.kind);
+      const revision = materialLibraryRevisionService.revision(definition.kind);
+      if (untrack(() => recordsReady() && appliedLocalRevision?.session === librarySession()
+          && appliedLocalRevision.revision === revision)) return;
     }
     untrack(() => { void loadRecords({ source, destination }); });
   });
@@ -1027,6 +1148,16 @@ export function MaterialLibraryTab(props) {
               onClick={importLegacyFmmMaterials}
             >
               Импортировать
+            </button>
+            <button disabled={!canEditLibrary()}
+              title="Создать локальную характеристику Новая с 12 нулевыми парами H–M"
+              onClick={createFmmMaterial}>
+              Создать
+            </button>
+            <button disabled={!canEditLibrary() || !currentFmmRecord()?._taskLibraryRecord}
+              title="Заменить текущую таблицу H–M блоком из 12 строк первых двух колонок буфера и сохранить характеристику"
+              onClick={readFmmClipboard}>
+              Из буфера
             </button>
           </Show>
           <button
@@ -1171,6 +1302,9 @@ export function MaterialLibraryTab(props) {
         onCancel={() => setDeleteRequest(null)}
         onConfirm={confirmDeleteSelectedMaterials}
       />
+      <FmmClipboardDialog request={clipboardRequest()} busy={actionBusy()} error={actionError()}
+        onCancel={() => { if (!actionBusy()) setClipboardRequest(null); }}
+        onApply={applyFmmClipboard} />
     </div>
   );
 }
