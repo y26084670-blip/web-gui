@@ -101,18 +101,6 @@
     pointer-events: none;
 }
 
-.general-information-sample.general-information-about-sample {
-    width: 30px;
-    height: 27px;
-}
-
-.general-information-about-sample img {
-    display: block;
-    width: 30px;
-    height: 27px;
-    object-fit: contain;
-}
-
 .general-information-sample.general-information-menu-sample {
     width: 30px;
     height: 26px;

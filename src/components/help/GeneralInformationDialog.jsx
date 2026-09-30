@@ -1,5 +1,4 @@
 import { For, createEffect, createSignal, onCleanup } from "solid-js";
-import aboutIconUrl from "../../assets/zaica.BMP";
 import projectSelectionUrl from "../../assets/help/project-selection.png";
 import taskSelectionUrl from "../../assets/help/task-selection.png";
 import { ExamplesInstaller } from "./ExamplesInstaller";
@@ -112,17 +111,9 @@ export function GeneralInformationDialog(props) {
         <section aria-labelledby="general-information-selection">
           <h3 id="general-information-selection">2. Выбор и предпросмотр</h3>
           <p>
-            Если режим администратора не включён по паролю в панели
-            {" «О программе» "}
-            <span
-              class="general-information-sample general-information-about-sample"
-              role="img"
-              aria-label="Значок панели «О программе»"
-            >
-              <img src={aboutIconUrl} alt="" draggable={false} />
-            </span>
-            , доступ к проектам открывается в фиксированной
-            папке <strong>clark.projects</strong>.
+            Нажмите <strong>«Выбрать каталог с проектами»</strong> и выберите
+            базовый каталог с любым именем и расположением.
+            Обычное имя каталога примеров — <strong>clark.projects</strong>.
           </p>
           <p>
             Редактор использует двухуровневую систему каталогов:

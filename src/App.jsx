@@ -113,7 +113,6 @@ export default function App() {
   });
   onCleanup(() => jweakLoader.dispose());
 
-  const [admin, setAdmin] = createSignal(false);
   const [sidePanelOpen, setSidePanelOpen] = createSignal(false);
   const [materialRequest, setMaterialRequest] = createSignal(null);
   const [geometryViewerOpen, setGeometryViewerOpen] = createSignal(false);
@@ -335,12 +334,6 @@ export default function App() {
     }
   }
 
-  function handleAdminUnlock(password) {
-    if (password !== "_qwerty123") return false;
-    setAdmin(true);
-    return true;
-  }
-
   const tabs = [
     {
       id: TABS.TASKS.id,
@@ -351,7 +344,6 @@ export default function App() {
           editorBusy={Boolean(savePending() || validationPending())}
           active={props.active}
           summaryBounds={taskSummaryBounds()}
-          admin={admin()}
           onReturnToEditing={props.onReturnToEditing}
           onValidate={handleModelValidation}
           onSave={handleSave}
@@ -674,10 +666,8 @@ export default function App() {
   return (
     <div class="app-container">
       <TaskInfoBar
-        admin={admin()}
         path={selectionService.loadedTaskPath()}
         isDemo={selectionService.loadedTaskIsDemo()}
-        onAdminUnlock={handleAdminUnlock}
         onValidate={handleModelValidation}
         validationBusy={Boolean(validationPending())}
         validating={Boolean(validationPending())
