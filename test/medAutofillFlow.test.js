@@ -139,6 +139,21 @@ test("changing task closes the old list and rejects delayed analysis",async()=>{
     } finally {r.dispose();}
 });
 
+test("closing while flushing an edit cancels apply and does not reopen the panel",async()=>{
+    const r=await runtime();
+    try {
+        await r.api.analyzeCurrentMed();
+        r.edit(model=>{model.elements[0].med[0]=[0];return model;});
+        let finish;
+        r.state.flush=()=>new Promise(resolve=>{finish=resolve;});
+        const pending=r.api.applyCurrentMed();await tick();
+        r.api.closeMed();finish();await pending;
+        assert.equal(r.api.medOpen(),false);
+        assert.equal(r.state.workers.length,1);
+        assert.equal(r.state.writes,0);
+    } finally {r.dispose();}
+});
+
 test("edits during refresh cancel it and a later apply uses a fresh snapshot",async()=>{
     const r=await runtime();
     try {

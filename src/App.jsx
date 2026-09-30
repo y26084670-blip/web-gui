@@ -184,9 +184,11 @@ export default function App() {
   }
   async function applyCurrentMed() {
     if (medApplying() || medBusy()) return;
+    const applyingRequest = medRequest();
     setMedApplying(true);
     try {
       await medEditor?.flush();
+      if (!medOpen() || applyingRequest !== medRequest()) return;
       let request = medRequest(), result = medResult();
       if (!request) throw new Error("Сначала выполните анализ MED.");
       if (request.taskKey !== selectionService.loadedTaskHandle()) return;
@@ -196,7 +198,7 @@ export default function App() {
         ({request,result}=analyzed);
       }
       await assertJweakLocalUnchanged(request.taskKey, request.snapshot.jweakLocal);
-      if (!medOpen() || request.taskKey !== selectionService.loadedTaskHandle()) return;
+      if (!medOpen() || request !== medRequest() || request.taskKey !== selectionService.loadedTaskHandle()) return;
       const changed = applyMedResult({request,result,modelService,
         schema:tabRegistry.find(s=>s.id===TABS.ELEMENTS.id),taskKey:selectionService.loadedTaskHandle()});
       if (!changed) { setMedNotice("Изменений MED не требуется."); return; }
