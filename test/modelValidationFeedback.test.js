@@ -30,7 +30,7 @@ const createValidationRuntime = new Function("dependencies", `
   } = dependencies;
   let modelValidationRevision = 0;
   ${sourceRegion("  const [validationPending, setValidationPending]", "  const [savePending, setSavePending]")}
-  ${sourceRegion("  async function handleModelValidation()", "  function handleAdminUnlock")}
+  ${sourceRegion("  async function handleModelValidation()", "  const tabs = [")}
   return {
     handleModelValidation, validationPending, validationFeedback,
     getRevision: () => modelValidationRevision,

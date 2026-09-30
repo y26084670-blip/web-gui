@@ -1,45 +1,94 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import {
+    getFilePickerErrorMessage,
+    getFileSystemAccessSupport,
+    isFilePickerCancellation,
+} from "../src/services/fileSystemAccessSupport.js";
 
-const tasksComponent = new URL("../src/tabs/Tasks.jsx", import.meta.url);
+const source = await readFile(new URL("../src/tabs/Tasks.jsx", import.meta.url), "utf8");
+const start = source.indexOf("  const handlePickDirectory = async () => {");
+const end = source.indexOf("  // выбор проекта", start);
+assert.ok(start >= 0 && end > start);
 
-test("task root picker requests read-write permission", async () => {
-    const source = await readFile(tasksComponent, "utf8");
+// Execute the component's picker with browser permissions and directory state mocked.
+const createPicker = new Function("dependencies", `
+    const {
+        window, bindingBusy, operation, getFileSystemAccessSupport, showTaskError,
+        rootHandle, invalidateBrowserSelection, resetWorkspaceBinding,
+        setRootHandle, setRootName, setProjects, setSelectedProject, setTasks,
+        setSelectedTask, setTaskInfo, setTaskResultsText, getSubdirs,
+        isFilePickerCancellation, getFilePickerErrorMessage, console,
+    } = dependencies;
+    let directoryPickRevision = 0, selectionRevision = 0, disposed = false;
+    const EMPTY_TASK_INFO = Object.freeze({ summaryText: "" });
+    ${source.slice(start, end)}
+    return handlePickDirectory;
+`);
 
-    assert.match(
-        source,
-        /showDirectoryPicker\s*\(\s*\{\s*mode:\s*["']readwrite["']/,
-    );
+function runtime(picker) {
+    const state = { root: null, projects: [], errors: [], permissions: [], resets: 0 };
+    const pick = createPicker({
+        window: {
+            isSecureContext: true,
+            showDirectoryPicker: async options => {
+                state.permissions.push(options);
+                return picker();
+            },
+        },
+        bindingBusy: () => false, operation: () => null,
+        getFileSystemAccessSupport, isFilePickerCancellation, getFilePickerErrorMessage,
+        showTaskError: message => state.errors.push(message),
+        rootHandle: () => state.root,
+        invalidateBrowserSelection: () => 0,
+        resetWorkspaceBinding: () => state.resets++,
+        setRootHandle: value => { state.root = value; },
+        setRootName: value => { state.rootName = value; },
+        setProjects: value => { state.projects = value; },
+        setSelectedProject() {}, setTasks() {}, setSelectedTask() {},
+        setTaskInfo() {}, setTaskResultsText() {},
+        getSubdirs: async handle => handle.projects,
+        console: { error() {} },
+    });
+    return { state, pick };
+}
+
+test("editor accepts project roots of any name with read-write permission", async () => {
+    for (const name of ["clark.projects", "Расчёты 2026", "custom-projects"]) {
+        const handle = { name, projects: [{ name: "Project" }] };
+        const { state, pick } = runtime(() => handle);
+        await pick();
+        assert.equal(state.root, handle);
+        assert.deepEqual(state.projects, handle.projects);
+        assert.equal(state.rootName, `Корневой каталог: ${name}`);
+        assert.deepEqual(state.permissions, [{ mode: "readwrite" }]);
+        assert.equal(state.resets, 1);
+        assert.deepEqual(state.errors, []);
+    }
 });
 
-test("ordinary mode accepts only the clark.projects root", async () => {
-    const source = await readFile(tasksComponent, "utf8");
+test("cancelling the editor picker preserves the current directory", async () => {
+    const { state, pick } = runtime(() => {
+        throw new DOMException("Cancelled", "AbortError");
+    });
+    const previous = { name: "Previous" };
+    state.root = previous;
+    await pick();
+    assert.equal(state.root, previous);
+    assert.deepEqual(state.errors, []);
+    assert.equal(state.resets, 0);
+});
 
-    assert.match(
-        source,
-        /const PROJECTS_ROOT_NAME = "clark\.projects";/u,
-    );
-    assert.match(
-        source,
-        /if \(!props\.admin && handle\.name !== PROJECTS_ROOT_NAME\)/u,
-    );
-    assert.match(source, /Выберите каталог «\$\{PROJECTS_ROOT_NAME\}»/u);
-    assert.match(
-        source,
-        /props\.admin[\s\S]*?"Выбрать каталог с проектами"[\s\S]*?: "Выбрать каталог clark\.projects"/u,
-    );
-
-    const pickerIndex = source.indexOf("window.showDirectoryPicker");
-    const guardIndex = source.indexOf(
-        "if (!props.admin && handle.name !== PROJECTS_ROOT_NAME)",
-    );
-    const invalidationIndex = source.indexOf(
-        "const requestId = invalidateBrowserSelection()",
-    );
-    const mutationIndex = source.indexOf("setRootHandle(handle)");
-
-    assert.ok(pickerIndex >= 0 && guardIndex > pickerIndex);
-    assert.ok(invalidationIndex > guardIndex);
-    assert.ok(mutationIndex > guardIndex);
+test("denied browser access is still reported by the editor", async () => {
+    const { state, pick } = runtime(() => {
+        throw new DOMException("Denied", "NotAllowedError");
+    });
+    const previous = { name: "Previous" };
+    state.root = previous;
+    await pick();
+    assert.equal(state.root, previous);
+    assert.equal(state.errors.length, 1);
+    assert.match(state.errors[0], /разреш|доступ/iu);
+    assert.equal(state.resets, 0);
 });
