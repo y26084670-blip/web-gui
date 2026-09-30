@@ -2,7 +2,7 @@ import test, {after} from "node:test";
 import assert from "node:assert/strict";
 import {createServer} from "vite";
 import {analyzeMed} from "../src/services/medAnalysisService.js";
-import {applyMedResult,createMedRequest,medRequestIsCurrent} from "../src/services/medAutofillService.js";
+import {applyMedResult,createMedRequest,medRequestIsCurrent,medRequestCanNavigate} from "../src/services/medAutofillService.js";
 import {medBox,medModel} from "./fixtures/medContactCases.js";
 
 // Load the real application model and serializer (including existing extension-
@@ -46,6 +46,30 @@ test("geometric error causes no partial writes",()=>{
     const before=modelService.getModel();
     assert.throws(()=>applyMedResult(args),/ошибки/u);
     assert.equal(modelService.getModel(),before);assert.equal(modelService.canUndo("elements"),false);
+});
+test("successive corrections retain navigation while the old result cannot be applied",()=>{
+    const args=setup(), rows=[{},{}];
+    args.request=createMedRequest(modelService.getModel(),args.taskKey,rows);
+    for(let block=0;block<2;block++) {
+        const elements=modelService.getModel().elements.map((row,i)=>i===block
+            ? {...row,med:row.med.map(()=>[0])} : row);
+        modelService.setModelPart(schema,elements);
+        assert.equal(medRequestIsCurrent(args.request,modelService.getModel(),args.taskKey),false);
+        assert.equal(medRequestCanNavigate(args.request,modelService.getModel(),args.taskKey,rows),true);
+        assert.throws(()=>applyMedResult(args),/устарел/u);
+    }
+    const snapshot=modelService.getModel();
+    assert.equal(applyMedResult({...args,request:createMedRequest(snapshot,args.taskKey,rows),
+        result:analyzeMed(snapshot)}),true);
+    assert.equal(analyzeMed(modelService.getModel()).changes.length,0);
+});
+test("navigation rejects another task, renumbered, removed, or replaced rows",()=>{
+    const args=setup(),rows=[{},{}],request=createMedRequest(args.request.snapshot,args.taskKey,rows);
+    assert.equal(medRequestCanNavigate(request,args.request.snapshot,args.taskKey,rows),true);
+    for(const current of [rows.slice(1),[...rows].reverse(),[{},{}],[...rows,{}]]) {
+        assert.equal(medRequestCanNavigate(request,args.request.snapshot,args.taskKey,current),false);
+    }
+    assert.equal(medRequestCanNavigate(request,args.request.snapshot,{},rows),false);
 });
 test("reanalysis after apply is a no-op with no new revision or history item",()=>{
     const args=setup();applyMedResult(args);

@@ -96,6 +96,7 @@ export function DataEditor(props) {
   let latestModelRevision = 0;
   let observedModelRevision = 0;
   let modelApplyQueue = Promise.resolve();
+  const [medRowsVersion,setMedRowsVersion] = createSignal(0);
   async function flushMedEdits() {
     document.activeElement?.blur();
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -109,7 +110,7 @@ export function DataEditor(props) {
       // Default getRows() retains source order; "active" applies filtering and
       // sorting. getData() may return accessor copies, so identity is unsuitable.
       const row = table.getRows()[request.block - 1];
-      if (!row) return;
+      if (!row || (request.row && request.row !== row)) return;
       if (!table.getRows("active").includes(row)) table.clearFilter(true);
       table.deselectRow(); row.select();
       await table.scrollToRow(row, "center", false);
@@ -262,7 +263,9 @@ export function DataEditor(props) {
     };
 
     table = new Tabulator(tableDiv, options);
-    props.onMedEditorReady?.({flush:flushMedEdits});
+    props.onMedEditorReady?.({flush:flushMedEdits, rows:()=>{
+      medRowsVersion(); return table.getRows();
+    }});
     onCleanup(() => props.onMedEditorReady?.(null));
 
     // Контекст GUI данного экземпляра Tabulator.
@@ -466,6 +469,7 @@ export function DataEditor(props) {
           });
     await table.setData(rows);
     notifyRecordSelection();
+    setMedRowsVersion(value=>value+1);
     activateDefaultReferenceView();
   }
 
@@ -821,6 +825,7 @@ export function DataEditor(props) {
         try {
           await table.replaceData(rows);
           notifyRecordSelection();
+          setMedRowsVersion(value=>value+1);
           activateDefaultReferenceView();
         } finally {
           applyingModel = false;

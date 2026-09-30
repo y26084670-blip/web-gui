@@ -5,7 +5,7 @@ import "./MedAutofillDialog.css";
 
 export function MedAutofillDialog(props) {
   const link = (block,face) => <button type="button" class="med-element-link"
-    disabled={props.stale} title="Перейти к исходной записи элемента и полю MED"
+    disabled={!props.navigationEnabled} title="Перейти к исходной записи элемента и полю MED"
     onClick={()=>props.onNavigate(block,face)}>
     ШГ {block}{face===undefined?"":` · ${MED_FACE_NAMES[face]}`}
   </button>;
@@ -17,12 +17,16 @@ export function MedAutofillDialog(props) {
         Полный согласованный контакт считается проводящим, включая прежние MED = −1 / −1.</p>
       <div class="med-toolbar">
         <button type="button" onClick={props.onAnalyze} title="Повторить полный анализ текущих исходных данных">{props.busy?"Начать анализ заново":"Повторить анализ"}</button>
-        <button type="button" disabled={props.busy||props.stale||!props.result?.canApply}
-          onClick={props.onApply} title="Применить все предлагаемые MED одной операцией с поддержкой Undo/Redo">Применить</button>
+        <button type="button" disabled={props.busy||props.applying||!props.result||(!props.stale&&!props.result.canApply)}
+          onClick={props.onApply} title="При изменении данных обновить анализ, затем применить MED одной операцией с поддержкой Undo/Redo">
+          {props.stale?"Проверить и применить":"Применить"}</button>
         <button type="button" onClick={props.onClose} title="Закрыть окно без применения новых предложений">Закрыть</button>
       </div>
       <Show when={props.busy}><p role="status">Анализ контактов…</p></Show>
-      <Show when={props.stale}><p class="med-error" role="alert">Исходные данные изменены. Результат устарел — повторите анализ.</p></Show>
+      <Show when={props.stale}><p role="status">Исходные данные изменены. Список относится к последнему анализу.
+        Можно продолжить исправления; перед применением анализ обновится автоматически.</p></Show>
+      <Show when={props.stale&&!props.busy&&!props.navigationEnabled}><p class="med-error" role="alert">
+        Нумерация или состав строк изменены. Обновите анализ для переходов по списку.</p></Show>
       <Show when={props.error}><p class="med-error" role="alert">{props.error}</p></Show>
       <Show when={props.notice}><p role="status">{props.notice}</p></Show>
       <Show when={props.result}>{result => <>
