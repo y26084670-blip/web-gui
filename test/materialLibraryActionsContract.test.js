@@ -36,7 +36,8 @@ test("material tabs expose copy and FMM-only legacy import actions", async () =>
     assert.match(source, /legacyFmmStatus/u);
     assert.doesNotMatch(source, /identifyLegacyFmmLibrary/u);
     assert.match(source, /modelService\.getModel\(\)\.elements/u);
-    assert.match(source, /legacyFmmStatus\(\) !== "importable"/u);
+    assert.match(source, /!\["importable", "missing"\]\.includes\(legacyFmmStatus\(\)\)/u);
+    assert.match(source, /XAP.lib отсутствует: скопировать готовые файлы ФММ текущих элементов из базовой библиотеки/u);
     assert.match(source, /Одноимённые характеристики заменяются/u);
     assert.match(source, /MaterialDeleteConfirmationDialog/u);
     assert.match(source, /sourceRecord: source/u);

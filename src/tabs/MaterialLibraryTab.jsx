@@ -774,9 +774,9 @@ export function MaterialLibraryTab(props) {
       case "error":
         return "Не удалось проверить наличие XAP.lib; импорт недоступен";
       case "missing":
-        return "В каталоге выбранного задания отсутствует XAP.lib";
+        return "XAP.lib отсутствует: скопировать готовые файлы ФММ текущих элементов из базовой библиотеки. Одноимённые характеристики заменяются";
       default:
-        return "Импортировать из XAP.lib только ФММ текущих элементов, включая несохранённые изменения. Одноимённые характеристики заменяются; отсутствующие имена выводятся в сообщении";
+        return "Импортировать из XAP.lib только ФММ текущих элементов, включая несохранённые изменения. Недостающие имена ищутся в базовой библиотеке; готовые файлы копируются оттуда. Одноимённые характеристики заменяются; отсутствующие в обоих источниках имена выводятся в сообщении";
     }
   }
 
@@ -1020,7 +1020,7 @@ export function MaterialLibraryTab(props) {
               disabled={
                 actionBusy() || !recordsReady()
                 || !taskHandle()
-                || legacyFmmStatus() !== "importable"
+                || !["importable", "missing"].includes(legacyFmmStatus())
                 || dirtyRecords().length > 0
               }
               title={localImportTitle()}

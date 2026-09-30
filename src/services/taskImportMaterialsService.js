@@ -1,6 +1,7 @@
 import { createFmmMaterialFile, parseXapLibrary } from "./materialImport/xapLibImporter.js";
 import { validateLegacyMaterialName } from "./materialImport/legacyMaterialName.js";
-import { MaterialBatchConflictError, taskMaterialLibraryService } from "./taskMaterialLibraryService.js";
+import { MaterialBatchConflictError, MaterialBatchWriteError, taskMaterialLibraryService } from "./taskMaterialLibraryService.js";
+import { defaultLibraryService } from "./defaultLibraryService.js";
 import { materialLibraryRevisionService } from "./materialLibraryRevisionService.js";
 
 const nameKey = value => value.trim().normalize("NFC").toLocaleLowerCase("ru-RU");
@@ -41,6 +42,7 @@ async function taskDirectory(root, path) {
 export async function importUsedFmmMaterials(task, elements, {
   isCurrent = () => true,
   libraryService = taskMaterialLibraryService,
+  baseLibraryService = defaultLibraryService,
   notifyChanged = () => materialLibraryRevisionService.notifyChanged("FMM"),
 } = {}) {
   const result = { imported: 0, messages: [], writeResult: null };
@@ -48,12 +50,12 @@ export async function importUsedFmmMaterials(task, elements, {
   // Снимок ссылок формируется до первого await.
   const names = collectUsedFmmNames(elements);
   if (!isCurrent()) return result;
+  if (!names.length) { info("Используемых характеристик ФММ нет."); return result; }
   const xap = await findLocalXap(task);
   if (!isCurrent()) return result;
-  if (!xap) throw new Error("В каталоге выбранного задания отсутствует XAP.lib.");
-  if (!names.length) { info("Используемых характеристик ФММ нет."); return result; }
   // Выборочный импорт допускает и стандартную локальную XAP.lib.
-  const records = parseXapLibrary(await (await xap.getFile()).arrayBuffer());
+  const records = xap ? parseXapLibrary(await (await xap.getFile()).arrayBuffer()) : [];
+  if (!isCurrent()) return result;
   const byName = new Map();
   for (const record of records) {
     const key = nameKey(record.name);
@@ -61,31 +63,83 @@ export async function importUsedFmmMaterials(task, elements, {
     byName.set(key, record);
   }
   const materials = [];
+  const missing = [];
   for (const name of names) {
     const record = byName.get(nameKey(name));
-    if (!record) info(`Характеристика «${name}» не найдена в XAP.lib; импорт продолжается.`);
+    if (!record) missing.push(name);
     else materials.push(createFmmMaterialFile({ ...record, name }));
   }
+  const baseRecords = [];
+  if (missing.length) {
+    const base = await baseLibraryService.loadRecords("FMM");
+    if (!isCurrent()) return result;
+    for (const name of missing) {
+      const matches = base.filter(record => nameKey(record.name) === nameKey(name));
+      if (matches.length > 1) throw new Error(`Неоднозначное имя в базовой библиотеке: ${name}`);
+      if (matches.length) baseRecords.push(matches[0]);
+      else info(`Характеристика «${name}» не найдена в XAP.lib и базовой библиотеке; импорт продолжается.`);
+    }
+  }
   if (!isCurrent()) return result;
-  if (!materials.length) return result;
-  const request = { taskHandle: task, kind: "FMM", materials, sourceName: "XAP.lib" };
+  const batches = [];
+  // Сначала штатное побайтовое копирование: все базовые файлы проверяются
+  // до первой записи. Готовый JSON не проходит legacy-преобразование.
+  if (baseRecords.length) batches.push({
+    execute: request => libraryService.copyMaterials(request),
+    request: { taskHandle: task, records: baseRecords },
+    files: baseRecords,
+  });
+  if (materials.length) batches.push({
+    execute: request => libraryService.writeImportedBatch(request),
+    request: { taskHandle: task, kind: "FMM", materials, sourceName: "XAP.lib" },
+    files: materials,
+  });
+  if (!batches.length) return result;
+  const sourceName = [baseRecords.length ? "базовая библиотека" : "",
+    materials.length ? "XAP.lib" : ""].filter(Boolean).join(" / ");
+  const results = [];
+  const appendResult = batch => {
+    results.push(...batch.results);
+    result.imported = results.length;
+    result.writeResult = { ...batch, sourceName, results,
+      created: results.filter(item => item.status === "created").length,
+      replaced: results.filter(item => item.status === "replaced").length,
+      unchanged: results.filter(item => item.status === "unchanged").length };
+  };
   try {
-    try {
-      result.writeResult = await libraryService.writeImportedBatch(request);
-    } catch (error) {
-      if (!(error instanceof MaterialBatchConflictError)) throw error;
+    for (let index = 0; index < batches.length; index += 1) {
       if (!isCurrent()) return result;
-      // Замена уже подтверждена общей командой импорта. Штатный writer
-      // повторно сверяет SHA конфликтов, не обходя защиту от внешних правок.
-      result.writeResult = await libraryService.writeImportedBatch({ ...request, overwrite: true,
-        expectedConflicts: error.conflicts });
+      const { execute, request } = batches[index];
+      try {
+        let batch;
+        try {
+          batch = await execute(request);
+        } catch (error) {
+          if (!(error instanceof MaterialBatchConflictError)) throw error;
+          if (!isCurrent()) return result;
+          // Замена подтверждена командой импорта. Штатный writer повторно
+          // сверяет SHA конфликтов, сохраняя защиту от внешних правок.
+          batch = await execute({ ...request, overwrite: true, expectedConflicts: error.conflicts });
+        }
+        appendResult(batch);
+      } catch (error) {
+        if (error instanceof MaterialBatchWriteError) {
+          throw new MaterialBatchWriteError({ kind: error.kind, sourceName,
+            written: [...results, ...error.written], failed: error.failed,
+            remaining: [...error.remaining, ...batches.slice(index + 1).flatMap(next => next.files.map(file => ({
+              fileName: file.fileName, path: `input3XX/xapLibFMM/${file.fileName}`,
+            })))], cause: error });
+        }
+        if (results.length) throw new Error(`Уже перенесены характеристики ФММ: ${results.length}. ${messageOf(error)}`, { cause: error });
+        throw error;
+      }
     }
   } finally {
     // В том числе после возможной частичной записи при файловой ошибке.
     notifyChanged();
   }
-  result.imported = materials.length;
-  info(`Характеристики ФММ перенесены: ${materials.length} из ${names.length} используемых.`);
+  info(`Характеристики ФММ перенесены: ${result.imported} из ${names.length} используемых.`);
+  if (baseRecords.length) info(`Из базовой библиотеки скопированы готовые файлы: ${baseRecords.length}.`);
   return result;
 }
 
@@ -96,6 +150,7 @@ export async function importUsedFmmMaterials(task, elements, {
 export async function importUsedTaskMaterials(root, entries, {
   isCurrent = () => true,
   libraryService = taskMaterialLibraryService,
+  baseLibraryService = defaultLibraryService,
   notifyChanged = () => materialLibraryRevisionService.notifyChanged("FMM"),
 } = {}) {
   const messages = [];
@@ -110,9 +165,7 @@ export async function importUsedTaskMaterials(root, entries, {
     seenPaths.add(key);
     try {
       const task = await taskDirectory(root, path);
-      const xap = await findLocalXap(task);
       if (!isCurrent()) break;
-      if (!xap) continue;
       const input = await task.getDirectoryHandle("input3XX");
       const file = await (await input.getFileHandle("kvs.txt")).getFile();
       const text = (await file.text()).replace(/^\uFEFF/, "");
@@ -124,7 +177,7 @@ export async function importUsedTaskMaterials(root, entries, {
         return record;
       });
       const result = await importUsedFmmMaterials(task, elements, {
-        isCurrent, libraryService, notifyChanged,
+        isCurrent, libraryService, baseLibraryService, notifyChanged,
       });
       imported += result.imported;
       messages.push(...result.messages.map(message => ({ ...message, path })));
