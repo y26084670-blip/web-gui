@@ -1,10 +1,11 @@
 /*
-{"fullAxialSymmetry":false,"doubleFloat":false,"mirrorSymmetryX":-1,"mirrorSymmetryY":-1,"countTimeSteps":8,"timeStep":1.0,"polusForce":[0.0,0.0,0.0],"evalForce":true,"htcRegimFC":false,"htcMu":true,"htcRo":true}
+{"useMED":true,"fullAxialSymmetry":false,"doubleFloat":false,"mirrorSymmetryX":-1,"mirrorSymmetryY":-1,"countTimeSteps":8,"timeStep":1.0,"polusForce":[0.0,0.0,0.0],"evalForce":true,"htcRegimFC":false,"htcMu":true,"htcRo":true}
 ...
 json_str = readline(f)
 JSON3.read!(json_str, me.general)
 ...
 mutable struct General
+    useMED::Bool = true
     fullAxialSymmetry::Bool = false
     doubleFloat::Bool = false
     mirrorSymmetryX::INT = -1
@@ -97,6 +98,16 @@ export default createSchema({
     },
 
     properties: {
+
+        useMED: {
+            type: FIELD_TYPES.BOOLEAN,
+            label: "Учёт зарядов",
+            description: "Учёт потенциальной составляющей электрического поля во всей задаче. "
+                + "Отключайте только при её заведомом отсутствии, например для длинных проводников с продольными токами.",
+            default: true,
+            textOn: "Включён",
+            textOff: "Отключён",
+        },
 
         fullAxialSymmetry: {
             type: FIELD_TYPES.BOOLEAN,
