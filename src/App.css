@@ -24,6 +24,12 @@ body,
   overflow: hidden;
 }
 
+.tabs-viewport.horizontal-drag-scrolling,
+.tabs-viewport.horizontal-drag-scrolling * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
 .tabs-frame {
   display: flex;
   flex-direction: column;
