@@ -85,7 +85,9 @@ export function elementsValidator(
         context.materialCatalog,
         diagnostics,
     );
-    diagnostics.push(...medDiagnostics(analyzeMed(service.getModel())));
+    if (service.getModel().general?.useMED !== false) {
+        diagnostics.push(...medDiagnostics(analyzeMed(service.getModel())));
+    }
 }
 
 function validateRecordRules(elements, diagnostics) {

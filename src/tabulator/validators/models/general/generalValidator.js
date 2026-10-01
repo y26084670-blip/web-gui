@@ -9,6 +9,17 @@ export function generalValidator(
     const general = service.getModel().general;
     if (!general) return;
 
+    if (general.useMED === false && service.getModel().elements?.some(
+        row => row?.targ === 0 && Number.isFinite(row.rv) && row.rv > 0,
+    )) {
+        diagnostics.push(createWarning({
+            tab: TABS.GENERAL,
+            property: "useMED",
+            message: "Учёт зарядов отключён. Используйте этот режим, только если отсутствие "
+                + "потенциальной составляющей известно из постановки задачи, например для длинных проводников с продольными токами.",
+        }));
+    }
+
     if (
         general.countTimeSteps > 0 &&
         general.timeStep <= 0.0

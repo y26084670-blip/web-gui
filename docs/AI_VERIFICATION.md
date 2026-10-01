@@ -1,6 +1,21 @@
 # Проверка web-gui
 
-Обновлено: 2026-10-01 22:43 UTC+3.
+Обновлено: 2026-10-01 23:34 UTC+3.
+
+## useMED — общие параметры задачи
+
+База `54714bd6889e24d5e8958d011cc510619dd11e45`; подготовлена версия 4.37.0.
+Выполнены `node --test test/useMed.test.js test/elementsValidator.test.js test/medAnalysisService.test.js test/jweakLocalValidation.test.js`: 56/56.
+Новый тест через Vite загружает рабочие schema/serializer/валидаторы/файловые
+сервисы: старое поле по умолчанию, true/false round trip, неблокирующее Warning,
+возврат диагностики MED, неизменность данных, demo, создание нового задания,
+сохранение и повторное чтение general.txt. Файловые дескрипторы — штатный
+memory-адаптер demo. `npm run build` выполнена успешно, включая проверку ресурсов
+библиотек и руководства. Demo-пакет содержит 7 файлов, useMED=true.
+После объединения с main 4.36.0 повторены эти тесты и horizontalDragScroll.test.js: 74/74; сборка повторно успешна.
+Нативный браузерный сценарий и запуск установленного Windows Clark не проверялись.
+
+
 
 <a id="verification-horizontal-drag-scroll"></a>
 ## Горизонтальная прокрутка правой кнопкой мыши — 4.36.0
@@ -766,3 +781,4 @@ Chromium/Playwright: настоящая MaterialLibraryTab и OPFS; сохран
 
 Обе полные сборки `npm run build:release` и `npm run build:pages` прошли;
 проверены SHA-256 185 характеристик и 9 ресурсов руководства.
+
