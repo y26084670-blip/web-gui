@@ -35,6 +35,7 @@ import {
 import { loadMaterialReferenceCatalog } from "./services/materialReferenceValidation.js";
 import { createError } from "./tabulator/validators/common/createDiagnostic.js";
 import { assertJweakLocalUnchanged, createJweakLocalLoader } from "./services/jweakLocalService.js";
+import { installHorizontalDragScroll } from "./services/horizontalDragScroll.js";
 
 import "./App.css";
 
@@ -86,6 +87,7 @@ export default function App() {
   });
 
   onMount(() => {
+    onCleanup(installHorizontalDragScroll(tabsViewport));
     const observer = new ResizeObserver(scheduleTaskPanelMeasurement);
     observer.observe(tabsHeader);
     observer.observe(tasksContent);
