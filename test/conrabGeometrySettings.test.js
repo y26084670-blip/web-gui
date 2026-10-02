@@ -67,3 +67,14 @@ test("both profiles reject invalid angles without silently substituting defaults
         assert.deepEqual(config.invalid,["GEO_ANGLE"]);
     }
 });
+
+
+
+test("obsolete KPY is neither loaded nor saved; GEO_ANGLE survives",()=>{
+    const model=deserialize([{KPY:17,GEO_ANGLE:0.2},{KPY:"ignored",GEO_ANGLE:0.3}],schema);
+    assert.equal(Object.hasOwn(schema.properties,"KPY"),false);
+    for(const record of model) assert.equal(Object.hasOwn(record,"KPY"),false);
+    const saved=serialize(model,schema);
+    assert.deepEqual(saved.map(r=>r.GEO_ANGLE),[0.2,0.3]);
+    for(const record of saved) assert.equal(Object.hasOwn(record,"KPY"),false);
+});

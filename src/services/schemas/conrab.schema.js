@@ -2,7 +2,7 @@ import { GEOMETRY_VALIDATION_DEFAULTS } from "../solver/geometryValidationSettin
 /*
 Источник: solver/src/core/types.jl, Conrab; startITER и fullJNewton — логические параметры.
 Файл содержит две RECORDS-записи: Float32, затем Float64.
-Каждая запись GUI содержит 12 полей: 11 расчётных и собственный GEO_ANGLE.
+Каждая запись GUI содержит 11 полей: 10 расчётных и собственный GEO_ANGLE.
 Отсутствующие поля получают default схемы.
 */
 import {
@@ -25,7 +25,7 @@ export default createSchema({
             + "Значения продублированы для Float32 и Float64; "
             + "при сохранении будут записаны обе строки.",
     },
-    obsoleteStoragePaths: ["KB2", "B20", "KEPS2", "KEPS3", "KEPS4",
+    obsoleteStoragePaths: ["KPY", "KB2", "B20", "KEPS2", "KEPS3", "KEPS4",
         "EPS_0", "TAU_0", "KB1", "KEPS1", "CF_KEPS"],
     rowLabelDescription: "Параметры математической модели",
 
@@ -116,12 +116,6 @@ export default createSchema({
             digits: 6,
         },
 
-        KPY: {
-            type: FIELD_TYPES.INTEGER,
-            label: "KPY: Параме",
-            description: "Параметр точности интегрирования",
-            default: 300,
-        },
 
         LONGD: {
             type: FIELD_TYPES.FLOAT,
@@ -182,3 +176,4 @@ export default createSchema({
 
     },
 });
+

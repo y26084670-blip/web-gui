@@ -28,9 +28,9 @@ const schema = {
             label: "EPS — общий критерий",
             default: 0.005,
         },
-        KPY: {
+        LONGD: {
             type: "integer",
-            label: "KPY",
+            label: "LONGD",
             default: 150,
         },
         EXTRA: {
@@ -42,8 +42,8 @@ const schema = {
 };
 
 const profiles = [
-    { EPS: 0.001, KPY: 131, EXTRA: true },
-    { EPS: 0.0005, KPY: 300, EXTRA: false },
+    { EPS: 0.001, LONGD: 131, EXTRA: true },
+    { EPS: 0.0005, LONGD: 300, EXTRA: false },
 ];
 
 test("conrab accepts exactly two JSON-object records", () => {
@@ -95,8 +95,8 @@ test("conrab RECORDS are shown as Parameter, Float32 and Float64", () => {
             _record_1: 0.0005,
         },
         {
-            _property: "KPY",
-            rowLabel: "KPY",
+            _property: "LONGD",
+            rowLabel: "LONGD",
             _record_0: 131,
             _record_1: 300,
         },
