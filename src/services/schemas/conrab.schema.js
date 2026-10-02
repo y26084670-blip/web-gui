@@ -49,7 +49,7 @@ export default createSchema({
         // геометрическая проверка модели
         GEO_ANGLE: {
             type: FIELD_TYPES.FLOAT,
-            label: "Геометрия: угловой допуск, град",
+            label: "GEO_ANGLE: Угловой допуск непараллельности, град",
             description: "Максимальное отклонение от параллельности пар 13–24, 15–26, "
                 + "15–37, 15–48, 75–68. "
                 + "Используется активный профиль Float32 или Float64. Больше 0 и меньше 90°.",
@@ -62,10 +62,10 @@ export default createSchema({
 
         startITER: {
             type: FIELD_TYPES.BOOLEAN,
-            label: "StartITER",
+            label: "StartITER: Задание начального приближения",
             description: "Начальное приближение итерационного процесса: "
-                + "true — нулевые значения; "
-                + "false — значения предыдущей итерации",
+                + "true — использует нулевые значения; "
+                + "false — использует значения предыдущей итерации",
             default: false,
             textOn: "Нулевые значения",
             textOff: "Предыдущая итерация",
@@ -73,24 +73,24 @@ export default createSchema({
 
         EPS: {
             type: FIELD_TYPES.FLOAT,
-            label: "EPS — общий критерий",
-            description: "Общий критерий выхода из итерационного процесса, включая t = 0",
+            label: "EPS: Критерий выхода из итераций",
+            description: "Критерий выхода из итерационного процесса для плотности тока и намагниченности",
             default: 0.005,
             digits: 6,
         },
 
         TAU: {
             type: FIELD_TYPES.FLOAT,
-            label: "TAU — общий параметр",
-            description: "Общий параметр итерационного процесса, включая t = 0",
+            label: "TAU: Параметр итераций",
+            description: "Параметр итерационного процесса при расчете нового приближения",
             default: 0.3,
             digits: 6,
         },
 
         EXTRA: {
             type: FIELD_TYPES.BOOLEAN,
-            label: "Экстраполяция",
-            description: "Использование экстраполяции для намагниченности",
+            label: "EXTRA: Экстраполяция при итерациях",
+            description: "Использование экстраполяции для намагниченности при итерационном процессе",
             default: true,
             textOn: "Использовать",
             textOff: "Не использовать",
@@ -100,9 +100,9 @@ export default createSchema({
 
         ADMIN: {
             type: FIELD_TYPES.FLOAT,
-            label: "ADMIN",
-            description: "Нижнее регулязирующее ограничение диагональных элементов для намагниченности",
-            default: 0.01,
+            label: "ADMIN: Граница диагоналей",
+            description: "Нижнее регулязирующее ограничение диагональных элементов для намагниченности при итерационном процессе",
+            default: 0.001,
             digits: 6,
         },
 
@@ -110,24 +110,24 @@ export default createSchema({
 
         UZMIN: {
             type: FIELD_TYPES.FLOAT,
-            label: "UZMIN",
-            description: "Регуляризирующее ограничение на расстояние от точки наблюдения до площадки",
+            label: "UZMIN: Принудительное смещение",
+            description: "Регуляризирующее ограничение на расстояние от точки наблюдения до площадки интегрирования при расчете матриц",
             default: 0.005,
             digits: 6,
         },
 
         KPY: {
             type: FIELD_TYPES.INTEGER,
-            label: "KPY",
+            label: "KPY: Параме",
             description: "Параметр точности интегрирования",
-            default: 150,
+            default: 300,
         },
 
         LONGD: {
             type: FIELD_TYPES.FLOAT,
-            label: "LONGD",
-            description: "Коэффициент перехода к квадратуре дальней зоны: LONGD * |SY| <= YY; SY—интервал, YY — расстояние в плоскости y–z от точки наблюдения до начала интервала",
-            default: 150,
+            label: "LONGD: Коэффициент условия дальней зоны",
+            description: "Коэффициент перехода к квадратуре дальней зоны: LONGD * |SY| <= YY; SY—интервал интегрирования, YY — расстояние в плоскости y–z от точки наблюдения до начала интервала",
+            default: 200,
             digits: 6,
         },
 
@@ -135,7 +135,7 @@ export default createSchema({
 
         CF_FMMEPS: {
             type: FIELD_TYPES.FLOAT,
-            label: "CF_FMMEPS — допуск M, кА/м",
+            label: "CF_FMMEPS: Допуск поиска пробного решения для ФММ, кА/м",
             description: "Абсолютный допуск невязки намагниченности ФММ: "
                 + "abs(M из уравнений − M по характеристике) < CF_FMMEPS. "
                 + "Конечное положительное число. На насыщенной ветви поиск продолжается "
@@ -147,7 +147,7 @@ export default createSchema({
 
         CF_HTSEPS: {
             type: FIELD_TYPES.FLOAT,
-            label: "CF_HTSEPS — допуск M, кА/м",
+            label: "CF_HTSEPS: Допуск поиска пробного решения для ВТСП, кА/м",
             description: "Абсолютный допуск невязки намагниченности магнитной подсистемы ВТСП: "
                 + "abs(M из уравнений − M по характеристике) < CF_HTSEPS. "
                 + "Конечное положительное число. На возможном участке ветви M = const поиск "
@@ -159,7 +159,7 @@ export default createSchema({
 
         fullJNewton: {
             type: FIELD_TYPES.BOOLEAN,
-            label: "fullJNewton — полный Newton [J/λ]",
+            label: "fullJNewton: Полный метод Ньютона [J/λ] для J = const * E",
             description: "Выбор метода решения совместной системы для плотности тока J "
                 + "и множителей Лагранжа λ в ШГ с линейными электропроводящими свойствами. "
                 + "true — полный метод Ньютона с GMRES всей токовой системы; "
