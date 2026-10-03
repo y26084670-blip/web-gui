@@ -141,7 +141,7 @@
 | Владелец | Путь | Ответственность |
 |---|---|---|
 | Окно/viewport | `src/components/geometry/GeometryViewerWindow.jsx`, `ThreeGeometryViewport.jsx` | Жизненный цикл окна и Three.js-сцены. |
-| Плавающий прямоугольник | `src/components/window/FloatingWindow.jsx`; `test/floatingWindowDrag.test.js` | Ограничение viewport, включаемая у 3D подстройка размера при drag, восстановление и сохранение UI-состояния; проверка геометрии и реальных обработчиков. |
+| Плавающий прямоугольник | `src/components/window/FloatingWindow.jsx`/`.css`; `test/floatingWindowDrag.test.js`, `test/floatingWindowContract.test.js` | Подстройка 3D при drag по текущему размеру до половины доступной оси, ручной resize за стороны/угол, ограничение viewport и сохранение UI-состояния; проверка реальных обработчиков. |
 | Сцена | `src/services/visualization/geometrySceneModel.js` | Чистая проекция `general`, `elements`, `regions`. |
 | Время | `src/services/visualization/geometryTimeModel.js` | Положение, углы и амплитуды в выбранный момент. |
 | Источники | `src/services/visualization/sourceVectorSceneModel.js` | Векторы `mhj`, AS/PS и симметричные образы. |

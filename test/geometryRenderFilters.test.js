@@ -208,3 +208,48 @@ test("only positive symmetry indices classify an instance as an image", () => {
         mirrorY: -1,
     }, disabled), true);
 });
+
+test("except-selected mode complements each category using original record indices", () => {
+    const modes = { elements: OBJECT_VISIBILITY_MODES.EXCEPT_SELECTED,
+        regions: OBJECT_VISIBILITY_MODES.SELECTED };
+    const selections = { elements: new Set([0, 2]), regions: [0, 1] };
+    assert.deepEqual([0, 1, 2, 3].filter(index => primitiveVisible(
+        primitive("elements", index), modes, selections)), [1, 3]);
+    assert.deepEqual([0, 1, 2, 3].filter(index => primitiveVisible(
+        primitive("regions", index), modes, selections)), [0, 1]);
+    modes.regions = OBJECT_VISIBILITY_MODES.EXCEPT_SELECTED;
+    assert.deepEqual([0, 1, 2, 3].filter(index => primitiveVisible(
+        primitive("regions", index), modes, selections)), [2, 3]);
+});
+
+test("except-selected with no selection shows all records; selecting all hides all", () => {
+    for (const category of ["elements", "regions"]) {
+        const modes = { [category]: OBJECT_VISIBILITY_MODES.EXCEPT_SELECTED };
+        for (const selection of [[], new Set(), undefined]) {
+            assert.equal(primitiveVisible(primitive(category, 0), modes,
+                { [category]: selection }), true);
+        }
+        for (const selection of [[0, 1], new Set([0, 1])]) {
+            assert.equal(primitiveVisible(primitive(category, 0), modes,
+                { [category]: selection }), false);
+            assert.equal(primitiveVisible(primitive(category, 1), modes,
+                { [category]: selection }), false);
+        }
+    }
+});
+
+test("except-selected rejects malformed sources and combines with symmetry filtering", () => {
+    const modes = { elements: OBJECT_VISIBILITY_MODES.EXCEPT_SELECTED };
+    for (const index of [-1, 0.5, NaN, Infinity, "0", undefined]) {
+        assert.equal(primitiveVisible({ source: { schemaId: "elements", recordIndex: index } }, modes), false);
+    }
+    assert.equal(primitiveVisible(primitive("other", 0), modes), false);
+    const candidates = [
+        { ...primitive("elements", 0), instance: { ls: 0 } },
+        { ...primitive("elements", 1), instance: { ls: 0 } },
+        { ...primitive("elements", 1), instance: { ls: 1 } },
+    ];
+    const visible = candidates.filter(item => primitiveVisible(item, modes, { elements: [0] })
+        && instanceVisible(item.instance, { local: false }));
+    assert.deepEqual(visible, [candidates[1]]);
+});

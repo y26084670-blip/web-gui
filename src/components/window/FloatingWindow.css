@@ -119,3 +119,44 @@
 .floating-window.is-minimized .floating-window-content {
     display: none;
 }
+
+.floating-window-resize-edge {
+    position: absolute;
+    z-index: 3;
+    touch-action: none;
+    user-select: none;
+}
+
+.floating-window-resize-top,
+.floating-window-resize-bottom {
+    left: 6px;
+    right: 6px;
+    height: 6px;
+    cursor: ns-resize;
+}
+
+.floating-window-resize-top {
+    top: 0;
+}
+
+.floating-window-resize-bottom {
+    bottom: 0;
+    right: 18px;
+}
+
+.floating-window-resize-left,
+.floating-window-resize-right {
+    top: 6px;
+    bottom: 6px;
+    width: 6px;
+    cursor: ew-resize;
+}
+
+.floating-window-resize-left {
+    left: 0;
+}
+
+.floating-window-resize-right {
+    right: 0;
+    bottom: 18px;
+}

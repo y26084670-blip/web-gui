@@ -78,32 +78,59 @@ function clampRect(rect, options = {}) {
   };
 }
 
-// Keep the requested rectangle separate from its visible portion. In particular,
-// do not use the previous fitted width as the next drag's preferred width.
-function fitRectToViewport(rect, options = {}) {
+// An edge contact is enough to determine expansion. No former or hidden size
+// participates: after reaching half of the available span, the window moves.
+function moveFittedAxis(position, size, delta, start, end, minimum) {
+  const halfSpan = (end - start) / 2;
+  if (delta > 0 && position <= start + 0.5 && size < halfSpan) {
+    const growth = Math.min(delta, halfSpan - size);
+    size += growth;
+    delta -= growth;
+  } else if (delta < 0 && position + size >= end - 0.5 && size < halfSpan) {
+    const growth = Math.min(-delta, halfSpan - size);
+    position -= growth;
+    size += growth;
+    delta += growth;
+  }
+  const requested = position + delta;
+  const nextPosition = clamp(requested, start, end - minimum);
+  return {
+    position: nextPosition,
+    size: clamp(Math.min(requested + size, end) - nextPosition, minimum, size),
+  };
+}
+
+function moveFittedRect(rect, dx, dy, options = {}) {
   const viewport = options.viewport ?? viewportSize();
   const margin = options.margin ?? VIEWPORT_MARGIN;
-  const bounds = clampRect({ ...rect, x: margin, y: margin }, options);
   const minimum = clampRect({ width: 0, height: 0 }, options);
-  const requestedX = finiteNumber(rect.x, margin);
-  const requestedY = finiteNumber(rect.y, margin);
-  const x = clamp(requestedX, margin, viewport.width - margin - minimum.width);
-  const y = clamp(requestedY, margin, viewport.height - margin - minimum.height);
-
+  const horizontal = moveFittedAxis(rect.x, rect.width, dx,
+    margin, Math.max(margin + 1, viewport.width - margin), minimum.width);
+  const vertical = moveFittedAxis(rect.y, rect.height, dy,
+    margin, Math.max(margin + 1, viewport.height - margin), minimum.height);
   return {
-    x,
-    y,
-    width: clamp(
-      Math.min(requestedX + bounds.width, viewport.width - margin) - x,
-      minimum.width,
-      bounds.width,
-    ),
-    height: clamp(
-      Math.min(requestedY + bounds.height, viewport.height - margin) - y,
-      minimum.height,
-      bounds.height,
-    ),
+    x: horizontal.position, y: vertical.position,
+    width: horizontal.size, height: vertical.size,
   };
+}
+
+function resizeRectFromEdge(rect, edge, dx, dy, options = {}) {
+  const viewport = options.viewport ?? viewportSize();
+  const margin = options.margin ?? VIEWPORT_MARGIN;
+  const minimum = clampRect({ width: 0, height: 0 }, options);
+  const next = { ...rect };
+  if (edge === "left") {
+    next.x = clamp(rect.x + dx, margin, rect.x + rect.width - minimum.width);
+    next.width = rect.x + rect.width - next.x;
+  } else if (edge === "right") {
+    next.width = clamp(rect.width + dx, minimum.width, viewport.width - margin - rect.x);
+  } else if (edge === "top") {
+    next.y = clamp(rect.y + dy, margin, rect.y + rect.height - minimum.height);
+    next.height = rect.y + rect.height - next.y;
+  } else if (edge === "bottom") {
+    next.height = clamp(rect.height + dy, minimum.height, viewport.height - margin - rect.y);
+  }
+  return next;
 }
 
 function initialRect(props) {
@@ -152,8 +179,8 @@ export function FloatingWindow(props) {
 
   let windowElement;
   let dragState = null;
+  let resizeState = null;
   let restoreRect = null;
-  let preferredRect = null;
 
   const [rect, setRect] = createSignal({
     x: VIEWPORT_MARGIN,
@@ -174,18 +201,20 @@ export function FloatingWindow(props) {
       : DEFAULT_MINIMIZED_HEIGHT;
   };
 
-  const rectOptions = (viewport) => ({
+  const rectOptions = (viewport = viewportSize()) => ({
     viewport,
-    minWidth: minWidth(),
-    minHeight: minHeight(),
+    minWidth: props.fitOnDrag
+      ? Math.min(minWidth(), Math.max(1, (viewport.width - 2 * VIEWPORT_MARGIN) / 2))
+      : minWidth(),
+    minHeight: props.fitOnDrag
+      ? Math.min(minHeight(), Math.max(1, (viewport.height - 2 * VIEWPORT_MARGIN) / 2))
+      : minHeight(),
     positionHeight: positionHeight(),
   });
 
   const persistRect = (value = rect()) => {
     if (!maximized()) {
-      writeStoredRect(storageKey(), props.fitOnDrag && preferredRect
-        ? { ...value, preferredRect }
-        : value);
+      writeStoredRect(storageKey(), value);
     }
     props.onRectChange?.(value);
   };
@@ -193,19 +222,12 @@ export function FloatingWindow(props) {
   const replaceRect = (value, persist = false) => {
     const next = clampRect(value, rectOptions());
     setRect(next);
-    if (props.fitOnDrag && !minimized()) preferredRect = { ...next };
     if (persist) persistRect(next);
     return next;
   };
 
-  const fitPreferredRect = (value, persist = false) => {
-    preferredRect = {
-      x: finiteNumber(value.x, VIEWPORT_MARGIN),
-      y: finiteNumber(value.y, VIEWPORT_MARGIN),
-      width: finiteNumber(value.width, DEFAULT_WIDTH),
-      height: finiteNumber(value.height, DEFAULT_HEIGHT),
-    };
-    const next = fitRectToViewport(preferredRect, rectOptions());
+  const moveVisibleRect = (dx, dy, persist = false) => {
+    const next = moveFittedRect(rect(), dx, dy, rectOptions());
     setRect(next);
     if (persist) persistRect(next);
     return next;
@@ -232,15 +254,6 @@ export function FloatingWindow(props) {
     }
 
     const bounds = windowElement.getBoundingClientRect();
-    const current = rect();
-    if (props.fitOnDrag && preferredRect &&
-      Math.abs(bounds.left - current.x) < 0.5 &&
-      Math.abs(bounds.top - current.y) < 0.5 &&
-      Math.abs(bounds.width - current.width) < 0.5 &&
-      Math.abs(bounds.height - current.height) < 0.5) {
-      if (persist) persistRect();
-      return;
-    }
     replaceRect(
       {
         x: bounds.left,
@@ -257,16 +270,13 @@ export function FloatingWindow(props) {
       setRect(maximizeRect());
       return;
     }
-    if (props.fitOnDrag && !minimized() && preferredRect) {
-      fitPreferredRect(preferredRect, true);
-      return;
-    }
     replaceRect(rect(), true);
   };
 
   const finishPointerOperation = () => {
-    const wasDragging = Boolean(dragState);
+    const wasDragging = Boolean(dragState || resizeState);
     dragState = null;
+    resizeState = null;
     if (wasDragging && props.fitOnDrag && !minimized()) {
       persistRect();
       return;
@@ -280,11 +290,9 @@ export function FloatingWindow(props) {
 
   onMount(() => {
     const stored = readStoredRect(storageKey());
-    if (props.fitOnDrag && stored?.preferredRect) {
-      fitPreferredRect(stored.preferredRect);
-    } else {
-      replaceRect(stored ?? initialRect(props));
-    }
+    // Older saved records may include a preferred rectangle. Only their visible
+    // x/y/width/height are used, and the next save writes those four fields.
+    replaceRect(stored ?? initialRect(props));
     setReady(true);
 
     window.addEventListener("resize", handleViewportResize);
@@ -299,6 +307,7 @@ export function FloatingWindow(props) {
   const handleTitlePointerDown = (event) => {
     if (
       event.button !== 0 ||
+      dragState || resizeState ||
       (maximized() && !props.fitOnDrag) ||
       event.target.closest("button")
     ) {
@@ -306,14 +315,11 @@ export function FloatingWindow(props) {
     }
 
     syncRectFromElement(false);
-    const dragRect = props.fitOnDrag && !minimized() && !maximized()
-      ? preferredRect ?? rect()
-      : rect();
     dragState = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      rect: { ...dragRect },
+      rect: { ...rect() },
       wasMaximized: maximized(),
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -333,11 +339,11 @@ export function FloatingWindow(props) {
       dragState.wasMaximized = false;
     }
     if (props.fitOnDrag && !minimized()) {
-      fitPreferredRect({
-        ...dragState.rect,
-        x: dragState.rect.x + dx,
-        y: dragState.rect.y + dy,
-      });
+      moveVisibleRect(dx, dy);
+      // Discard overshoot at a minimum size. Reversing the next mouse movement
+      // expands immediately, without any invisible position or size to undo.
+      dragState.startX = event.clientX;
+      dragState.startY = event.clientY;
       return;
     }
     replaceRect({
@@ -357,6 +363,36 @@ export function FloatingWindow(props) {
     persistRect();
   };
 
+  const handleResizePointerDown = (event, edge) => {
+    if (!props.fitOnDrag || minimized() || maximized() || event.button !== 0 ||
+      dragState || resizeState) return;
+    syncRectFromElement(false);
+    resizeState = {
+      pointerId: event.pointerId, edge,
+      startX: event.clientX, startY: event.clientY, rect: { ...rect() },
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+    props.onActivate?.(event);
+  };
+
+  const handleResizePointerMove = (event) => {
+    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
+    replaceRect(resizeRectFromEdge(resizeState.rect, resizeState.edge,
+      event.clientX - resizeState.startX, event.clientY - resizeState.startY,
+      rectOptions()));
+  };
+
+  const handleResizePointerUp = (event) => {
+    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    resizeState = null;
+    persistRect();
+  };
+
   const handleTitleKeyDown = (event) => {
     if (event.target !== event.currentTarget) return;
 
@@ -371,27 +407,17 @@ export function FloatingWindow(props) {
 
     event.preventDefault();
     const step = event.shiftKey ? 1 : 10;
-    const fitting = props.fitOnDrag && !minimized();
-    const current = fitting ? preferredRect ?? rect() : rect();
-    const moveRect = fitting ? fitPreferredRect : replaceRect;
-    moveRect(
-      {
-        ...current,
-        x: current.x + offset[0] * step,
-        y: current.y + offset[1] * step,
-      },
-      true,
-    );
+    if (props.fitOnDrag && !minimized()) {
+      moveVisibleRect(offset[0] * step, offset[1] * step, true);
+      return;
+    }
+    replaceRect({ ...rect(), x: rect().x + offset[0] * step,
+      y: rect().y + offset[1] * step }, true);
   };
 
   const toggleMinimized = () => {
     if (maximized()) return;
-    const wasMinimized = minimized();
     setMinimized(!minimized());
-    if (props.fitOnDrag && wasMinimized && preferredRect) {
-      fitPreferredRect({ ...preferredRect, x: rect().x, y: rect().y }, true);
-      return;
-    }
     replaceRect(rect(), true);
   };
 
@@ -401,14 +427,13 @@ export function FloatingWindow(props) {
 
     if (maximized()) {
       setMaximized(false);
-      if (props.fitOnDrag) fitPreferredRect(restoreRect ?? initialRect(props), true);
-      else replaceRect(restoreRect ?? initialRect(props), true);
+      replaceRect(restoreRect ?? initialRect(props), true);
       restoreRect = null;
       return;
     }
 
     if (!wasMinimized) syncRectFromElement(true);
-    restoreRect = props.fitOnDrag ? preferredRect ?? rect() : rect();
+    restoreRect = { ...rect() };
     setRect(maximizeRect());
     setMaximized(true);
   };
@@ -438,10 +463,14 @@ export function FloatingWindow(props) {
               top: `${rect().y}px`,
               width: `${rect().width}px`,
               height: `${rect().height}px`,
-              "min-width": `min(${minWidth()}px, calc(100vw - ${2 * VIEWPORT_MARGIN}px))`,
+              "min-width": props.fitOnDrag
+                ? `min(${minWidth()}px, calc(50vw - ${VIEWPORT_MARGIN}px))`
+                : `min(${minWidth()}px, calc(100vw - ${2 * VIEWPORT_MARGIN}px))`,
               "min-height": minimized()
                 ? "0"
-                : `min(${minHeight()}px, calc(100vh - ${2 * VIEWPORT_MARGIN}px))`,
+                : props.fitOnDrag
+                  ? `min(${minHeight()}px, calc(50vh - ${VIEWPORT_MARGIN}px))`
+                  : `min(${minHeight()}px, calc(100vh - ${2 * VIEWPORT_MARGIN}px))`,
             }}
             onPointerDown={props.onActivate}
           >
@@ -492,6 +521,19 @@ export function FloatingWindow(props) {
             <div class="floating-window-content" aria-hidden={minimized()}>
               {props.children}
             </div>
+            <Show when={props.fitOnDrag && !minimized() && !maximized()}>
+              {["top", "right", "bottom", "left"].map((edge) => (
+                <div
+                  class={`floating-window-resize-edge floating-window-resize-${edge}`}
+                  aria-hidden="true"
+                  onPointerDown={(event) => handleResizePointerDown(event, edge)}
+                  onPointerMove={handleResizePointerMove}
+                  onPointerUp={handleResizePointerUp}
+                  onPointerCancel={finishPointerOperation}
+                  onLostPointerCapture={finishPointerOperation}
+                />
+              ))}
+            </Show>
           </section>
         </div>
       </Portal>
