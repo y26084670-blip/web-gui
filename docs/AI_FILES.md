@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-01 22:42 UTC+3.
+Обновлено: 2026-10-03 13:40 UTC+3.
 
 ## Назначение
 
@@ -75,7 +75,7 @@
 | Разрешение свойств | `src/tabulator/schema/propertyResolver.js` — единственная точка получения эффективного дескриптора свойства для ячейки. |
 | Преобразования | `src/tabulator/converters/` содержит ARRAY/RECORDS/CLUSTER-кодеки, вычисляемые представления, подписи строк и geo-варианты. |
 | Форматирование | `src/tabulator/formatters/formatterRegistry.js` и `universalFormatter.js`. |
-| Редактирование | `src/tabulator/editors/editorRegistry.js`, `editorFactory.js`, `universalEditor.js`. |
+| Редактирование | `src/tabulator/editors/editorRegistry.js`, `editorFactory.js`, `universalEditor.js`; `test/inputEditorKeyboard.test.js` проверяет клавиши ввода и сохранение фокуса. |
 | Представления | `src/tabulator/views/viewRegistry.js`, `TableView.js`, `DetailRegion.js`, `HtcMaterialDetailView.js`, `registerDefaultViews.js`. |
 | Операции | `src/tabulator/actions/recordsActions.js` и `elementMaterialActions.js`. |
 

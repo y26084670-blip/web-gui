@@ -14,22 +14,23 @@ function scrollsHorizontally(element, view) {
 }
 
 function scrollTarget(target, root, event, view) {
-  let candidate;
+  // Cells and headers belong to the same scroll surface, including formatted
+  // content inside a cell. Do not mistake their clipped content for a scrollbar.
+  const tablePart = target.closest(".tabulator-cell, .tabulator-header");
+  const holder = tablePart?.closest(".tabulator")?.querySelector(".tabulator-tableholder");
+  let candidate = holder && scrollsHorizontally(holder, view) ? holder : null;
   for (let element = target; element; element = element.parentElement) {
     const style = view.getComputedStyle(element);
-    if (SCROLL_OVERFLOW.test(style.overflowX) || SCROLL_OVERFLOW.test(style.overflowY)) {
-      // Do not turn native scrollbar/border presses into a content drag.
+    if (element === target && !tablePart
+      && (SCROLL_OVERFLOW.test(style.overflowX) || SCROLL_OVERFLOW.test(style.overflowY))) {
+      // A native scrollbar press targets its own scroll container, not a cell
+      // inside it. Checking every ancestor can reject visible table content.
       const bounds = element.getBoundingClientRect();
       const x = event.clientX - bounds.left - element.clientLeft;
       const y = event.clientY - bounds.top - element.clientTop;
       if (x < 0 || x >= element.clientWidth || y < 0 || y >= element.clientHeight) return null;
     }
     if (!candidate && scrollsHorizontally(element, view)) candidate = element;
-    if (!candidate && element.matches(".tabulator-header")) {
-      // Tabulator synchronizes its non-scrollable header from this holder.
-      const holder = element.closest(".tabulator")?.querySelector(".tabulator-tableholder");
-      if (holder && scrollsHorizontally(holder, view)) candidate = holder;
-    }
     if (element === root) return candidate;
   }
   return null;
@@ -43,6 +44,7 @@ export function installHorizontalDragScroll(root) {
   function finish(suppressMenu = false) {
     const finished = drag;
     drag = null;
+    root.classList.remove("horizontal-drag-ready");
     root.classList.remove("horizontal-drag-scrolling");
     if (suppressMenu && finished?.moved && !finished.contextMenuSeen) {
       suppressMenuUntil = Date.now() + 1000;
@@ -61,6 +63,10 @@ export function installHorizontalDragScroll(root) {
     if (!scroller) return;
     drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY,
       startLeft: scroller.scrollLeft, scroller, moved: false, contextMenuSeen: false };
+    root.classList.add("horizontal-drag-ready");
+    // Keep a right press on table data from also starting a compatibility
+    // mousedown action such as row selection or focus changes in Tabulator.
+    event.preventDefault();
   }
 
   function moveContent(event) {
@@ -95,13 +101,12 @@ export function installHorizontalDragScroll(root) {
   }
 
   function contextMenu(event) {
-    if (drag?.moved || (event.button === 2 && Date.now() < suppressMenuUntil)) {
+    if (event.button === 2 && (drag || Date.now() < suppressMenuUntil)) {
       event.preventDefault(); event.stopPropagation();
       if (drag) drag.contextMenuSeen = true;
       suppressMenuUntil = 0;
     } else {
-      // Some platforms open the native menu on press. Leave that menu alone
-      // and stop waiting for a drag rather than scrolling behind it.
+      // Keep keyboard menus and ordinary clicks outside an active drag intact.
       finish(); suppressMenuUntil = 0;
     }
   }

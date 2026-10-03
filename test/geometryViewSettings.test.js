@@ -22,7 +22,7 @@ test("опции компонентов сохраняются после уни
       assert.equal(read(), initial);
       const changed = typeof initial === "boolean" ? !initial :
         typeof initial === "number" ? initial + 0.25 :
-        name === "renderModeBeforeSources" ? "wireframe" : initial + "-changed";
+        name === "geometryTransparencyBeforeSources" ? 42 : initial + "-changed";
       write(changed);
       expected.set(name, changed);
     }

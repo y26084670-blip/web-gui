@@ -5,6 +5,7 @@ import {
     GEOMETRY_MATERIAL_KINDS,
     GEOMETRY_MATERIAL_PALETTE,
     classifyGeometryMaterial,
+    contrastingGeometryEdgeColor,
     geometryMaterialColor,
     geometryMaterialEdgeColor,
     geometryMaterialStyle,
@@ -16,42 +17,42 @@ const EXPECTED_PALETTE = Object.freeze({
     [KINDS.FMM_INSULATING]: {
         copy: 0x4b78e6,
         original: 0x3b60b8,
-        edge: 0x203a73,
+        edge: 0x000000,
     },
     [KINDS.FMM_CONDUCTIVE]: {
         copy: 0x3aad68,
         original: 0x2e8a53,
-        edge: 0x185331,
+        edge: 0x000000,
     },
     [KINDS.NONMAGNETIC_CONDUCTIVE]: {
         copy: 0xdf5555,
         original: 0xb94444,
-        edge: 0x722828,
+        edge: 0x000000,
     },
     [KINDS.HTSC_MAGNETIC]: {
         copy: 0x9b63df,
         original: 0x7d4fb5,
-        edge: 0x482d6b,
+        edge: 0x000000,
     },
     [KINDS.HTSC_CURRENT]: {
         copy: 0xd5c5ff,
         original: 0xb2a2df,
-        edge: 0x6d6292,
+        edge: 0x000000,
     },
     [KINDS.HTSC_BOTH]: {
         copy: 0x59616b,
         original: 0x424950,
-        edge: 0x15191d,
+        edge: 0xffffff,
     },
     [KINDS.PRESCRIBED_MAGNETIZATION]: {
         copy: 0x92dcf8,
         original: 0x70bad6,
-        edge: 0x386d82,
+        edge: 0x000000,
     },
     [KINDS.PRESCRIBED_CURRENT]: {
         copy: 0xffb2b2,
         original: 0xda9292,
-        edge: 0x8d5454,
+        edge: 0x000000,
     },
     [KINDS.VIRTUAL]: {
         copy: 0xffffff,
@@ -61,7 +62,7 @@ const EXPECTED_PALETTE = Object.freeze({
     [KINDS.NEUTRAL]: {
         copy: 0x929da9,
         original: 0x747e89,
-        edge: 0x414951,
+        edge: 0x000000,
     },
 });
 
@@ -186,4 +187,26 @@ test("style and unknown-kind fallback are stable for scene rendering", () => {
         geometryMaterialStyle("future-material"),
         geometryMaterialStyle(KINDS.NEUTRAL),
     );
+});
+
+
+test("edges maximize contrast for both original and copied material fills", () => {
+    const luminance = color => {
+        const rgb = [16, 8, 0].map(shift => ((color >> shift) & 255) / 255)
+            .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+        return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+    };
+    for (const kind of Object.values(KINDS)) for (const original of [false, true]) {
+        const style = geometryMaterialStyle(kind, original);
+        assert.ok([0, 0xffffff].includes(style.edgeColor));
+        const fill = luminance(style.color), edge = luminance(style.edgeColor);
+        const contrast = (Math.max(fill, edge) + 0.05) / (Math.min(fill, edge) + 0.05);
+        assert.ok(contrast >= 4.5, `${kind}, original=${original}: ${contrast}`);
+        assert.equal(geometryMaterialEdgeColor(kind, original), style.edgeColor);
+        if (!original) assert.equal(GEOMETRY_MATERIAL_PALETTE[kind].edge, style.edgeColor);
+    }
+    assert.equal(contrastingGeometryEdgeColor(0), 0xffffff);
+    assert.equal(contrastingGeometryEdgeColor(0xffffff), 0);
+    assert.equal(geometryMaterialEdgeColor(KINDS.HTSC_BOTH, true), 0xffffff);
+    assert.equal(geometryMaterialEdgeColor(KINDS.VIRTUAL, true), 0);
 });
