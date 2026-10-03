@@ -18,7 +18,7 @@ const createTaskLoading = new Function("dependencies", `
         setSelectedTask, selectedTask, setTaskInfo, setTaskResultsText, EMPTY_TASK_INFO,
         readTaskSummary, readTaskResultsSummary, loadedTaskHandle, unsavedChangesService,
         setPendingTaskLoad, pendingTaskLoad, unsavedDialog, returnToEditingButton,
-        operation, rootHandle, getFullPath, showLoadError, console } = dependencies;
+        operation, galleryBusy, rootHandle, getFullPath, showLoadError, console } = dependencies;
     let taskLoadRevision = 0, taskInfoRevision = 0;
     ${taskFunctions("  const commitTaskLoad =", "  const handleLaunchComplete =")}
     ${taskFunctions("  const requestTaskLoad =", "  const taskLoaded =")}
@@ -27,7 +27,7 @@ const createTaskLoading = new Function("dependencies", `
 
 function taskLoadingRuntime() {
     const state = { selected: null, loaded: null, path: "", active: TABS.TASKS.id,
-        pending: null, dirty: false, opened: [], errors: [], returned: 0 };
+        pending: null, dirty: false, opened: [], errors: [], returned: 0, galleryBusy: false };
     const api = createTaskLoading({
         batch: callback => callback(),
         clearLoadedTaskState: () => { state.loaded = null; state.path = ""; },
@@ -47,6 +47,7 @@ function taskLoadingRuntime() {
         setPendingTaskLoad: value => { state.pending = value; }, pendingTaskLoad: () => state.pending,
         unsavedDialog: { open: false, showModal() { this.open = true; }, close() { this.open = false; } },
         returnToEditingButton: null, operation: () => null, rootHandle: () => ({ name: "Projects" }),
+        galleryBusy: () => state.galleryBusy,
         getFullPath: async (_root, handle) => `Projects/${handle.name}`,
         showLoadError: name => state.errors.push(name), console: { log() {}, error() {} },
     });
@@ -93,6 +94,15 @@ test("selecting a row stays in Tasks; successful load opens General after task s
     assert.equal(h.state.active, TABS.TASKS.id); assert.deepEqual(h.state.opened, []);
     await h.requestTaskLoad();
     assert.deepEqual(h.state.opened, [{ tab: TABS.GENERAL.id, loaded: task.handle, path: "Projects/New task" }]);
+});
+
+test("GIF deletion blocks candidate changes and editor loads until it finishes", async () => {
+    const h = taskLoadingRuntime(), task = taskCandidate("Selected"), other = taskCandidate("Other");
+    await h.selectTaskCandidate(task);h.state.galleryBusy = true;
+    await h.selectTaskCandidate(other);await h.requestTaskLoad();
+    assert.equal(h.state.selected, task);assert.equal(h.state.loaded, null);assert.deepEqual(h.state.opened, []);
+    h.state.galleryBusy = false;await h.selectTaskCandidate(other);await h.requestTaskLoad();
+    assert.equal(h.state.selected, other);assert.equal(h.state.loaded, other.handle);
 });
 
 test("unsaved changes require confirmation before General opens; cancelling does not switch there", async () => {
