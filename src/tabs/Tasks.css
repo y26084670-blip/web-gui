@@ -11,6 +11,17 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  background: #141a20;
+}
+
+.task-browser-panel,
+.task-summary-panel,
+.task-results-panel {
+  padding: 20px;
+  border: 3px solid #596773;
+  background: #202932;
+  color: #eef3f7;
+  color-scheme: dark;
 }
 
 .task-browser-panel {
@@ -31,6 +42,7 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  gap: 12px;
 }
 
 .task-browser-content > :not(.task-list-group) {
@@ -79,7 +91,7 @@
 .task-panel-caption {
   flex: 0 0 auto;
   margin: 0;
-  color: #333;
+  color: #dce5ec;
   font-size: 14px;
   font-weight: 600;
   line-height: 20px;
@@ -90,9 +102,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .task-directory-buttons {
@@ -104,10 +116,10 @@
 }
 
 .task-directory-hint {
-  flex: 1 1 200px;
+  flex: 1 0 100%;
   min-width: 0;
   margin: 0;
-  color: #555;
+  color: #c0ccd6;
   font-size: 12px;
   line-height: 1.4;
 }
@@ -132,8 +144,8 @@
 }
 
 .task-directory-buttons > button:disabled {
-  color: #666;
-  background: #d1d5db;
+  color: #abb7c1;
+  background: #37434f;
   cursor: default;
 }
 
@@ -147,7 +159,7 @@
   flex: 1 0 100%;
   margin: 0;
   font-size: 12px;
-  color: #555;
+  color: #c0ccd6;
 }
 
 .task-binding-status.is-unbound {
@@ -180,25 +192,28 @@
   background: #1b622f;
 }
 
-.box {
-  background: white;
+.task-browser-panel .box {
+  background: #2a3540;
   padding: 10px;
   border-radius: 10px;
   max-width: 600px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
-.box h4 {
+.task-browser-panel .box h4 {
   margin-top: 5px;
   /* отступ снизу от заголовка */
   margin-bottom: 5px;
 }
 
-.box select {
+.task-browser-panel .box select {
   margin-top: 5px;
   /* отступ сверху от select */
   width: 100%;
   /* чтобы select занимал всю ширину */
+  color: #eef3f7;
+  background: #141a20;
+  border-color: #697c8b;
 }
 
 
@@ -210,24 +225,25 @@
   bottom: 5px;
   max-width: 600px;
   overflow-y: auto;
-  border: 1px solid #ccc;
+  border: 1px solid #697c8b;
   padding: 8px;
-  background: #fafafa;
+  background: #141a20;
 }
 
 .listTask-item {
   padding: 8 px 10px;
   cursor: pointer;
-  border-bottom: 1px solid #eee;
-}
-
-.listTask-item.selected {
-  background: #c0d8ff;
-  font-weight: bold;
+  border-bottom: 1px solid #37434f;
 }
 
 .listTask-item:hover {
-  background: #e0e0e0;
+  background: #334454;
+}
+
+.listTask-item.selected {
+  color: #fff;
+  background: #254b6b;
+  font-weight: bold;
 }
 
 select {
@@ -427,10 +443,10 @@ button:hover {
   min-height: 0;
   padding: 10px;
   resize: none;
-  border: 1px solid #888;
+  border: 1px solid #697c8b;
   border-radius: 4px;
-  background: #fff;
-  color: #000;
+  background: #141a20;
+  color: #eef3f7;
   font-family: monospace;
   font-size: 14px;
   line-height: 1.4;
@@ -443,10 +459,7 @@ button:hover {
   box-sizing: border-box;
   min-width: 0;
   min-height: 0;
-  padding: 20px;
   overflow: hidden;
-  border: 3px solid #161414;
-  background: lightgray;
 }
 
 .task-results-text {
@@ -459,10 +472,10 @@ button:hover {
   resize: none;
   overflow: auto;
   white-space: pre;
-  border: 1px solid #888;
+  border: 1px solid #697c8b;
   border-radius: 4px;
-  background: #fff;
-  color: #000;
+  background: #141a20;
+  color: #eef3f7;
   font-family: monospace;
   font-size: 14px;
   line-height: 1.4;

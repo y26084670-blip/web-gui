@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-03 13:40 UTC+3.
+Обновлено: 2026-10-03 17:19 UTC+3.
 
 ## Назначение
 
@@ -72,6 +72,7 @@
 | Область | Пути и владельцы |
 |---|---|
 | Построение | `src/tabulator/builders/TableBuilder.js` создаёт таблицы по схеме; `src/tabulator/tableOptions.js` владеет общими инвариантными опциями. |
+| Ширина подписей конфигурации | `src/services/schemas/conrab.schema.js` выбирает `rowLabelWidth: "auto"`; `TableBuilder.js` передаёт измерение колонки штатной раскладке Tabulator. |
 | Разрешение свойств | `src/tabulator/schema/propertyResolver.js` — единственная точка получения эффективного дескриптора свойства для ячейки. |
 | Преобразования | `src/tabulator/converters/` содержит ARRAY/RECORDS/CLUSTER-кодеки, вычисляемые представления, подписи строк и geo-варианты. |
 | Форматирование | `src/tabulator/formatters/formatterRegistry.js` и `universalFormatter.js`. |
@@ -140,6 +141,7 @@
 | Владелец | Путь | Ответственность |
 |---|---|---|
 | Окно/viewport | `src/components/geometry/GeometryViewerWindow.jsx`, `ThreeGeometryViewport.jsx` | Жизненный цикл окна и Three.js-сцены. |
+| Плавающий прямоугольник | `src/components/window/FloatingWindow.jsx`; `test/floatingWindowDrag.test.js` | Ограничение viewport, включаемая у 3D подстройка размера при drag, восстановление и сохранение UI-состояния; проверка геометрии и реальных обработчиков. |
 | Сцена | `src/services/visualization/geometrySceneModel.js` | Чистая проекция `general`, `elements`, `regions`. |
 | Время | `src/services/visualization/geometryTimeModel.js` | Положение, углы и амплитуды в выбранный момент. |
 | Источники | `src/services/visualization/sourceVectorSceneModel.js` | Векторы `mhj`, AS/PS и симметричные образы. |

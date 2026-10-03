@@ -458,6 +458,7 @@ export function GeometryViewerWindow(props) {
       onClose={props.onClose}
       class="geometry-viewer-floating-window"
       storageKey="web-gui:geometry-viewer-window:v2"
+      fitOnDrag
       initialWidth={1220}
       initialHeight={680}
       minWidth={520}

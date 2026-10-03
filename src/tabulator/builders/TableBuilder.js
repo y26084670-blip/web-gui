@@ -181,7 +181,9 @@ export const TableBuilder = {
             {
                 title: schema.config.rowLabelTitle ?? "Параметр",
                 field: "rowLabel",
-                width: schema.config.rowLabelWidth ?? 250,
+                // No fixed width lets Tabulator measure the longest rendered label.
+                ...(schema.config.rowLabelWidth === "auto"
+                    ? {} : { width: schema.config.rowLabelWidth ?? 250 }),
                 headerTooltip: schema.config.rowLabelDescription ?? "",
             },
         ];

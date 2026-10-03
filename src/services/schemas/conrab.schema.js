@@ -28,6 +28,7 @@ export default createSchema({
     obsoleteStoragePaths: ["KPY", "KB2", "B20", "KEPS2", "KEPS3", "KEPS4",
         "EPS_0", "TAU_0", "KB1", "KEPS1", "CF_KEPS"],
     rowLabelDescription: "Параметры математической модели",
+    rowLabelWidth: "auto",
 
     views: {
         recordsAsColumns: {
@@ -176,4 +177,3 @@ export default createSchema({
 
     },
 });
-
