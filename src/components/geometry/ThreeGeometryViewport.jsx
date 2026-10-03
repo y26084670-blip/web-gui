@@ -38,6 +38,7 @@ import {
 } from "../../services/visualization/geometryPicking.js";
 import {
   GEOMETRY_MATERIAL_KINDS,
+  contrastingGeometryEdgeColor,
   geometryMaterialStyle as resolveGeometryMaterialStyle,
 } from "../../services/visualization/geometryMaterialStyle.js";
 
@@ -80,7 +81,7 @@ function materialStyle(primitive, category, mode) {
     ? resolveGeometryMaterialStyle(primitive.materialKind, original)
     : {
         color: original ? 0xd99043 : 0xffb65e,
-        edgeColor: 0x754817,
+        edgeColor: contrastingGeometryEdgeColor(original ? 0xd99043 : 0xffb65e),
       };
 
   return {
@@ -624,7 +625,6 @@ function appendSurfaceEdges(
   );
   if (!wireframe) return;
 
-  const translucent = mode === "translucent";
   const edges = new THREE.LineSegments(
     wireframe.geometry,
     new THREE.LineBasicMaterial({
@@ -632,8 +632,8 @@ function appendSurfaceEdges(
       depthTest: true,
       depthWrite: false,
       linewidth: 1,
-      opacity: translucent ? 0.78 : 1,
-      transparent: translucent,
+      opacity: 1,
+      transparent: false,
     }),
   );
   edges.name = "surface-edges";
@@ -1151,6 +1151,35 @@ function resizeCameraProjection(camera, aspect) {
   camera.updateProjectionMatrix();
 }
 
+// Fade only geometry layers, preserving original material settings and GPU
+// allocations. Prescribed sources have their own root and are not included.
+export function applyGeometryOpacity(layers, geometryOpacity, defaults) {
+  const opacity = geometryOpacity ?? 1;
+  for (const [root, enabled] of layers) {
+    if (!root) continue;
+    root.visible = enabled && opacity > 0;
+    root.traverse(object => {
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        if (!material) continue;
+        let original = defaults.get(material);
+        if (!original) {
+          if (geometryOpacity === null) continue;
+          original = { opacity: material.opacity, transparent: material.transparent, depthWrite: material.depthWrite };
+          defaults.set(material, original);
+        }
+        material.opacity = original.opacity * opacity;
+        material.depthWrite = original.depthWrite && opacity >= 1;
+        const transparent = original.transparent || material.opacity < 1;
+        if (material.transparent !== transparent) {
+          material.transparent = transparent;
+          material.needsUpdate = true;
+        }
+      }
+    });
+  }
+}
+
 export function ThreeGeometryViewport(props) {
   let host;
   let renderer;
@@ -1208,6 +1237,8 @@ export function ThreeGeometryViewport(props) {
   let discretizationLinesMaterialized = false;
   let discretizationPointsMaterialized = false;
   let activeRenderMode = "solid";
+  let geometryOpacity = null;
+  const geometryMaterialDefaults = new WeakMap();
   let baseRenderStats = {
     budget: GEOMETRY_INSTANCE_BUDGET,
     invalidInstances: 0,
@@ -1465,19 +1496,19 @@ export function ThreeGeometryViewport(props) {
     raycaster.params.Line.threshold = unitsPerPixel * 5;
     raycaster.params.Points.threshold = unitsPerPixel * 9;
 
-    const geometryHit = raycaster.intersectObjects(
-      geometryPickTargets,
-      false,
-    )[0] ?? null;
+    const geometryHit = geometryOpacity !== 0
+      ? raycaster.intersectObjects(geometryPickTargets, false)[0] ?? null
+      : null;
     const discretizationHit =
-      discretizationPointsVisible && discretizationPoints
+      discretizationPointsVisible && discretizationPoints?.visible
         ? raycaster.intersectObject(discretizationPoints, false)[0] ?? null
         : null;
-    const vertexHit = verticesVisible && vertexPoints
+    const vertexHit = verticesVisible && vertexPoints?.visible
       ? raycaster.intersectObject(vertexPoints, false)[0] ?? null
       : null;
     const pointIsVisible = (hit) =>
       activeRenderMode !== "solid" ||
+      (geometryOpacity ?? 1) < 1 ||
       !geometryHit ||
       hit.distance <= geometryHit.distance + unitsPerPixel * 9;
 
@@ -1584,6 +1615,13 @@ export function ThreeGeometryViewport(props) {
       scheduleFrame();
     }
   };
+
+  const updateGeometryOpacity = () => applyGeometryOpacity([
+    [geometryRoot, true],
+    [vertexPoints, verticesVisible],
+    [discretizationLines, discretizationLinesVisible],
+    [discretizationPoints, discretizationPointsVisible],
+  ], geometryOpacity, geometryMaterialDefaults);
 
   const materializeVertexPoints = () => {
     if (!THREE || !helperRoot || vertexPoints) return;
@@ -1977,6 +2015,7 @@ export function ThreeGeometryViewport(props) {
       segmentBudget: props.discretizationSegmentBudget, pointBudget: props.discretizationPointBudget,
       primitiveCount: sceneModel?.primitives?.length ?? 0,
     };
+    updateGeometryOpacity();
     sourcesDirty = true;
     publishRenderStats();
     if (!contextLost) {
@@ -2109,6 +2148,7 @@ export function ThreeGeometryViewport(props) {
     if (!ready()) return;
     if (verticesVisible && !vertexPoints) materializeVertexPoints();
     if (vertexPoints) vertexPoints.visible = verticesVisible;
+    updateGeometryOpacity();
     clearHoverTooltip();
     requestRender();
   });
@@ -2125,6 +2165,7 @@ export function ThreeGeometryViewport(props) {
     if (discretizationLines) {
       discretizationLines.visible = discretizationLinesVisible;
     }
+    updateGeometryOpacity();
     updateSurfacePolygonOffset();
     clearHoverTooltip();
     publishRenderStats();
@@ -2143,6 +2184,7 @@ export function ThreeGeometryViewport(props) {
     if (discretizationPoints) {
       discretizationPoints.visible = discretizationPointsVisible;
     }
+    updateGeometryOpacity();
     updateSurfacePolygonOffset();
     clearHoverTooltip();
     publishRenderStats();
@@ -2157,6 +2199,16 @@ export function ThreeGeometryViewport(props) {
     magnetizationSourceScale = prescribedSourceScale(props.magnetizationSourceScale);
     if (!ready()) return;
     sourcesDirty = true;
+    requestRender();
+  });
+
+  createEffect(() => {
+    const opacity = props.geometryOpacity;
+    geometryOpacity = typeof opacity === "number" && Number.isFinite(opacity)
+      ? Math.max(0, Math.min(1, opacity)) : null;
+    if (!ready()) return;
+    updateGeometryOpacity();
+    clearHoverTooltip();
     requestRender();
   });
 

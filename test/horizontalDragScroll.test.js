@@ -70,10 +70,34 @@ function fixture(t, options = {}) {
   };
 }
 
+// Tabulator 6.5 structure/roles: RowManager's holder/table, Row and Cell,
+// and ColumnManager's separately synchronized header. Geometry is supplied
+// here; these tests do not assert a real browser's layout or native menus.
+function tabulatorFixture(h) {
+  const table = h.element(h.root, { classes: ["tabulator"], role: "grid" });
+  const header = h.element(table, { classes: ["tabulator-header"] });
+  const headerContents = h.element(header, { classes: ["tabulator-header-contents"] });
+  const headers = h.element(headerContents, { classes: ["tabulator-headers"] });
+  const column = h.element(headers, { classes: ["tabulator-col"], role: "columnheader" });
+  const columnContent = h.element(column, { classes: ["tabulator-col-content"] });
+  const title = h.element(columnContent, { classes: ["tabulator-col-title"], textContent: "Значение" });
+  const holder = h.element(table, { classes: ["tabulator-tableholder"], overflowX: "auto", overflowY: "auto",
+    scrollWidth: 400, scrollLeft: 80 });
+  const body = h.element(holder, { classes: ["tabulator-table"], role: "rowgroup",
+    overflowX: "visible", overflowY: "visible", clientWidth: 400, left: -80 });
+  const row = h.element(body, { classes: ["tabulator-row"], role: "row", clientWidth: 400, left: -80 });
+  const cell = h.element(row, { classes: ["tabulator-cell"], role: "gridcell", clientWidth: 200,
+    scrollWidth: 240, left: -80, textContent: "Заполненная ячейка 12.345" });
+  const formatted = h.element(cell, { tagName: "span", textContent: "12.345", clientWidth: 0 });
+  return { table, title, holder, cell, formatted };
+}
+
 test("right drag scrolls the nearest overflowing pane, preserves vertical position and clamps edges", t => {
   const h = fixture(t), inner = h.element(h.root, { overflowX: "auto", scrollWidth: 300, scrollLeft: 90 });
   h.start(h.element(inner));
   assert.equal(h.root.hasPointerCapture(1), false);
+  assert.equal(h.root.classList.contains("horizontal-drag-ready"), true);
+  assert.equal(h.root.classList.contains("horizontal-drag-scrolling"), false);
   assert.equal(h.move(70).defaultPrevented, true);
   assert.equal(inner.scrollLeft, 70); assert.equal(inner.scrollTop, 17); assert.equal(h.root.scrollLeft, 100);
   assert.equal(h.root.hasPointerCapture(1), true);
@@ -83,6 +107,7 @@ test("right drag scrolls the nearest overflowing pane, preserves vertical positi
   h.end({ clientX: -400 });
   assert.equal(h.root.hasPointerCapture(1), false);
   assert.equal(h.root.classList.contains("horizontal-drag-scrolling"), false);
+  assert.equal(h.root.classList.contains("horizontal-drag-ready"), false);
 });
 
 test("non-overflowing and hidden-overflow panes fall back to the outer tab scroller", t => {
@@ -92,12 +117,25 @@ test("non-overflowing and hidden-overflow panes fall back to the outer tab scrol
   assert.equal(h.root.scrollLeft, 130); assert.equal(inner.scrollLeft, 0); assert.equal(hidden.scrollLeft, 0);
 });
 
-test("dragging a Tabulator header scrolls its holder instead of the tab viewport", t => {
-  const h = fixture(t), table = h.element(h.root, { classes: ["tabulator"] });
-  const header = h.element(table, { classes: ["tabulator-header"] });
-  const holder = h.element(table, { classes: ["tabulator-tableholder"], overflowX: "auto", scrollWidth: 300, scrollLeft: 80 });
-  h.start(h.element(header)); h.move(70);
-  assert.equal(holder.scrollLeft, 60); assert.equal(h.root.scrollLeft, 100);
+for (const part of ["title", "cell", "formatted"]) {
+  test(`right drag on a Tabulator ${part} uses its holder without selection/focus mousedown`, t => {
+    const h = fixture(t), table = tabulatorFixture(h);
+    assert.equal(h.start(table[part]).defaultPrevented, true);
+    assert.equal(h.root.classList.contains("horizontal-drag-ready"), true);
+    h.move(70);
+    assert.equal(table.holder.scrollLeft, 60); assert.equal(table.holder.scrollTop, 17);
+    assert.equal(h.root.scrollLeft, 100);
+  });
+}
+
+test("an active editor inside a filled cell keeps its own right mouse interaction", t => {
+  const h = fixture(t), table = tabulatorFixture(h);
+  table.cell.classList.add("tabulator-editing");
+  const input = h.element(table.cell, { tagName: "input" });
+  assert.equal(h.start(input).defaultPrevented, false);
+  h.move(70);
+  assert.equal(table.holder.scrollLeft, 80);
+  assert.equal(h.root.classList.contains("horizontal-drag-ready"), false);
 });
 
 test("readonly summary text scrolls independently while editable controls and graphics keep their gestures", t => {
@@ -162,10 +200,22 @@ test("menu before drag release is suppressed without swallowing the next ordinar
   h.start(); h.end(); assert.equal(h.root.emit("contextmenu").defaultPrevented, false);
 });
 
-test("platforms opening the native menu on initial press retain it without later background scrolling", t => {
+test("an early native menu over a filled table cell does not cancel an available drag", t => {
+  const h = fixture(t), table = tabulatorFixture(h);
+  h.start(table.formatted);
+  assert.equal(h.root.emit("contextmenu", { target: table.formatted }).defaultPrevented, true);
+  assert.equal(h.root.classList.contains("horizontal-drag-ready"), true);
+  h.move(10); assert.equal(table.holder.scrollLeft, 120);
+  h.end({ clientX: 10 });
+  assert.equal(h.root.classList.contains("horizontal-drag-ready"), false);
+});
+
+test("an early menu without motion keeps the ready cursor only until the button is released", t => {
   const h = fixture(t);
-  h.start(); assert.equal(h.root.emit("contextmenu").defaultPrevented, false);
-  h.move(10); assert.equal(h.root.scrollLeft, 100);
+  h.start(); assert.equal(h.root.emit("contextmenu").defaultPrevented, true);
+  h.end();
+  assert.equal(h.root.scrollLeft, 100);
+  assert.equal(h.root.classList.contains("horizontal-drag-ready"), false);
 });
 
 for (const reason of ["pointercancel", "lostpointercapture", "Escape", "blur", "buttons released", "dispose"]) {
@@ -181,6 +231,7 @@ for (const reason of ["pointercancel", "lostpointercapture", "Escape", "blur", "
     assert.equal(h.root.scrollLeft, 80);
     assert.equal(h.root.hasPointerCapture(1), false);
     assert.equal(h.root.classList.contains("horizontal-drag-scrolling"), false);
+    assert.equal(h.root.classList.contains("horizontal-drag-ready"), false);
     if (reason === "dispose") {
       h.start(); h.move(10); assert.equal(h.root.scrollLeft, 80);
       assert.equal(h.root.emit("contextmenu").defaultPrevented, false);

@@ -10,7 +10,7 @@ import { diagnosticService } from "../services/diagnosticService";
 import { modelService } from "../services/modelService";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import { DEMO_TASK_NAME, loadDemoTask } from "../services/demoTaskService.js";
-import { DIRECTORIES } from "../services/schemas/common/constants";
+import { DIRECTORIES, TABS } from "../services/schemas/common/constants";
 import { TaskGeometryPreview } from "../components/geometry/TaskGeometryPreview.jsx";
 import { TaskLaunchWindow } from "../components/tasks/TaskLaunchWindow.jsx";
 import { importUsedTaskMaterials } from "../services/taskImportMaterialsService.js";
@@ -144,7 +144,7 @@ export function Tasks(props) {
     if (rebindLoaded) {
       const relative = await request.root.resolve(result.handle);
       const fullPath = relative ? `${request.root.name}/${relative.join("/")}` : `${destination.name}/${result.name}`;
-      commitTaskLoad({ task: { name: result.name, handle: result.handle }, fullPath });
+      commitTaskLoad({ task: { name: result.name, handle: result.handle }, fullPath, openEditor: false });
     }
     const updated = await getSubdirs(request.parent);
     setTasks(updated);
@@ -384,13 +384,14 @@ export function Tasks(props) {
   };
 
   // выбор задания
-  const commitTaskLoad = ({ task, fullPath }) => {
+  const commitTaskLoad = ({ task, fullPath, openEditor = true }) => {
     batch(() => {
       clearLoadedTaskState();
       selectionService.setLoadedTaskIsDemo(task.isDemo === true);
       selectionService.setLoadedTaskPath(fullPath);
       selectionService.setLoadedTaskHandle(task.handle);
     });
+    if (openEditor) props.onOpenTab?.(TABS.GENERAL.id);
     if (task.isDemo) void selectTaskCandidate(task);
     console.log("Выбранное задание:", fullPath);
   };

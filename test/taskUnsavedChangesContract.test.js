@@ -1,9 +1,61 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { DIRECTORIES, TABS } from "../src/services/schemas/common/constants.js";
 
 const tasksUrl = new URL("../src/tabs/Tasks.jsx", import.meta.url);
 const appUrl = new URL("../src/App.jsx", import.meta.url);
+
+const tasksSource = await readFile(tasksUrl, "utf8");
+function taskFunctions(startMarker, endMarker) {
+    const start = tasksSource.indexOf(startMarker), end = tasksSource.indexOf(endMarker, start);
+    assert.ok(start >= 0 && end > start);
+    return tasksSource.slice(start, end);
+}
+// Execute the actual selection, load and confirmation paths without JSX.
+const createTaskLoading = new Function("dependencies", `
+    const { batch, clearLoadedTaskState, selectionService, props, TABS, DIRECTORIES,
+        setSelectedTask, selectedTask, setTaskInfo, setTaskResultsText, EMPTY_TASK_INFO,
+        readTaskSummary, readTaskResultsSummary, loadedTaskHandle, unsavedChangesService,
+        setPendingTaskLoad, pendingTaskLoad, unsavedDialog, returnToEditingButton,
+        operation, rootHandle, getFullPath, showLoadError, console } = dependencies;
+    let taskLoadRevision = 0, taskInfoRevision = 0;
+    ${taskFunctions("  const commitTaskLoad =", "  const handleLaunchComplete =")}
+    ${taskFunctions("  const requestTaskLoad =", "  const taskLoaded =")}
+    return { commitTaskLoad, selectTaskCandidate, requestTaskLoad, confirmTaskLoad, returnToEditing };
+`);
+
+function taskLoadingRuntime() {
+    const state = { selected: null, loaded: null, path: "", active: TABS.TASKS.id,
+        pending: null, dirty: false, opened: [], errors: [], returned: 0 };
+    const api = createTaskLoading({
+        batch: callback => callback(),
+        clearLoadedTaskState: () => { state.loaded = null; state.path = ""; },
+        selectionService: {
+            setLoadedTaskIsDemo() {},
+            setLoadedTaskPath: value => { state.path = value; },
+            setLoadedTaskHandle: value => { state.loaded = value; },
+        },
+        props: { onOpenTab: tab => {
+            state.active = tab; state.opened.push({ tab, loaded: state.loaded, path: state.path });
+        }, onReturnToEditing: () => { state.returned++; } },
+        TABS, DIRECTORIES,
+        setSelectedTask: value => { state.selected = value; }, selectedTask: () => state.selected,
+        setTaskInfo() {}, setTaskResultsText() {}, EMPTY_TASK_INFO: {},
+        readTaskSummary: async () => ({}), readTaskResultsSummary: async () => "",
+        loadedTaskHandle: () => state.loaded, unsavedChangesService: { hasDirty: () => state.dirty },
+        setPendingTaskLoad: value => { state.pending = value; }, pendingTaskLoad: () => state.pending,
+        unsavedDialog: { open: false, showModal() { this.open = true; }, close() { this.open = false; } },
+        returnToEditingButton: null, operation: () => null, rootHandle: () => ({ name: "Projects" }),
+        getFullPath: async (_root, handle) => `Projects/${handle.name}`,
+        showLoadError: name => state.errors.push(name), console: { log() {}, error() {} },
+    });
+    return { state, ...api };
+}
+
+function taskCandidate(name, getDirectoryHandle = async () => ({})) {
+    return { name, handle: { name, getDirectoryHandle } };
+}
 
 test("task selection is committed only by the explicit load action", async () => {
     const source = await readFile(tasksUrl, "utf8");
@@ -33,4 +85,48 @@ test("tab headers expose reactive saved-state indicators", async () => {
     assert.match(source, /dirty: unsavedChangesService\.isDirty\(tab\.id\)/u);
     assert.match(source, /unsavedChangesService\.setBaseline\(schema\.id, itemModel\)/u);
     assert.match(source, /handleReturnToEditing/u);
+});
+
+test("selecting a row stays in Tasks; successful load opens General after task state is committed", async () => {
+    const h = taskLoadingRuntime(), task = taskCandidate("New task");
+    await h.selectTaskCandidate(task);
+    assert.equal(h.state.active, TABS.TASKS.id); assert.deepEqual(h.state.opened, []);
+    await h.requestTaskLoad();
+    assert.deepEqual(h.state.opened, [{ tab: TABS.GENERAL.id, loaded: task.handle, path: "Projects/New task" }]);
+});
+
+test("unsaved changes require confirmation before General opens; cancelling does not switch there", async () => {
+    const h = taskLoadingRuntime(), task = taskCandidate("Replacement");
+    h.state.loaded = { name: "Original" }; h.state.dirty = true;
+    await h.selectTaskCandidate(task); await h.requestTaskLoad();
+    assert.deepEqual(h.state.opened, []); assert.ok(h.state.pending);
+    h.returnToEditing();
+    assert.deepEqual(h.state.opened, []); assert.equal(h.state.pending, null); assert.equal(h.state.returned, 1);
+    await h.requestTaskLoad(); h.confirmTaskLoad();
+    assert.equal(h.state.active, TABS.GENERAL.id); assert.equal(h.state.loaded, task.handle);
+});
+
+test("missing input and a stale editor load do not navigate away from Tasks", async () => {
+    const h = taskLoadingRuntime();
+    await h.selectTaskCandidate(taskCandidate("Missing", async () => { throw new DOMException("Missing", "NotFoundError"); }));
+    await h.requestTaskLoad();
+    assert.deepEqual(h.state.errors, ["Missing"]); assert.deepEqual(h.state.opened, []);
+    let finish;
+    const delayed = new Promise(resolve => { finish = resolve; });
+    await h.selectTaskCandidate(taskCandidate("Old", () => delayed));
+    const load = h.requestTaskLoad();
+    await h.selectTaskCandidate(taskCandidate("Latest"));
+    finish({}); await load;
+    assert.equal(h.state.loaded, null); assert.equal(h.state.active, TABS.TASKS.id);
+    assert.deepEqual(h.state.opened, []);
+});
+
+test("rebinding a renamed or moved loaded task updates its handle without switching tabs", () => {
+    const h = taskLoadingRuntime(), task = taskCandidate("Renamed");
+    h.state.active = TABS.ELEMENTS.id;
+    h.commitTaskLoad({ task, fullPath: "Other project/Renamed", openEditor: false });
+    assert.equal(h.state.loaded, task.handle); assert.equal(h.state.path, "Other project/Renamed");
+    assert.equal(h.state.active, TABS.ELEMENTS.id); assert.deepEqual(h.state.opened, []);
+    assert.match(taskFunctions("  async function finishTaskOperation(", "  let taskErrorCloseButton;"),
+        /commitTaskLoad\(\{[^\n]+openEditor: false \}\)/u);
 });

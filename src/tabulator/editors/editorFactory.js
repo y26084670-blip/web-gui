@@ -61,11 +61,24 @@ export function createInputEditor({
             "keydown",
             e => {
 
-                if (e.key === "Enter") {
+                // Tabulator binds Home/End to scrolling and focusing the table.
+                // Keep the browser's caret/selection action inside this input;
+                // numeric inputs do not support setSelectionRange().
+                // Numpad codes need their navigation meaning with NumLock off;
+                // the same physical keys must still insert digits with it on.
+                const caretBoundaryKey = e.code === "Home" || e.code === "End"
+                    || (e.code === "Numpad7" && e.key === "Home")
+                    || (e.code === "Numpad1" && e.key === "End");
+                if (caretBoundaryKey) {
+                    e.stopPropagation();
+                    return;
+                }
+
+                if (e.code === "Enter" || e.code === "NumpadEnter") {
                     save();
                 }
 
-                if (e.key === "Escape") {
+                if (e.code === "Escape") {
                     cancel();
                 }
 

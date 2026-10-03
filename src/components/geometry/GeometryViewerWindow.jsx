@@ -104,8 +104,8 @@ export function GeometryViewerWindow(props) {
   let optionsPanelElement;
   let activePanelButton;
   let viewerResizeObserver;
-  const [renderModeBeforeSources, setRenderModeBeforeSources] =
-    createGeometryViewSetting("renderModeBeforeSources", null);
+  const [geometryTransparencyBeforeSources, setGeometryTransparencyBeforeSources] =
+    createGeometryViewSetting("geometryTransparencyBeforeSources", null);
   let sourceSettingsButton;
   let sourceSettingsBackButton;
   let viewportFrameController;
@@ -119,7 +119,7 @@ export function GeometryViewerWindow(props) {
   const [sceneError, setSceneError] = createSignal("");
   const [viewportError, setViewportError] = createSignal("");
   const [viewRequest, setViewRequest] = createSignal(null);
-  const [renderMode, setRenderMode] = createGeometryViewSetting("renderMode", "solid");
+  const [geometryTransparency, setGeometryTransparency] = createGeometryViewSetting("geometryTransparency", 0);
   const [orthographicView, setOrthographicView] = createGeometryViewSetting("orthographicView", true);
   const [showEdges, setShowEdges] = createGeometryViewSetting("showEdges", true);
   const [showVertices, setShowVertices] = createGeometryViewSetting("showVertices", false);
@@ -272,13 +272,13 @@ export function GeometryViewerWindow(props) {
   const changePrescribedSources = (checked) => {
     if (checked === showPrescribedSources()) return;
     if (checked) {
-      setRenderModeBeforeSources(renderMode());
-      setRenderMode("translucent");
+      setGeometryTransparencyBeforeSources(geometryTransparency());
+      setGeometryTransparency(58);
     } else {
-      if (renderModeBeforeSources() !== null) {
-        setRenderMode(renderModeBeforeSources());
+      if (geometryTransparencyBeforeSources() !== null) {
+        setGeometryTransparency(geometryTransparencyBeforeSources());
       }
-      setRenderModeBeforeSources(null);
+      setGeometryTransparencyBeforeSources(null);
     }
     setShowPrescribedSources(checked);
   };
@@ -535,20 +535,18 @@ export function GeometryViewerWindow(props) {
               Общие опции
             </button>
 
-            <select
-              class="geometry-viewer-select"
-              value={renderMode()}
-              aria-label="Режим представления"
-              title="Режим представления геометрии"
-              onChange={(event) => {
-                setRenderModeBeforeSources(null);
-                setRenderMode(event.currentTarget.value);
-              }}
-            >
-              <option value="solid">Сплошной</option>
-              <option value="translucent">Полупрозрачный</option>
-              <option value="wireframe">Каркас</option>
-            </select>
+            <label class="geometry-viewer-transparency"
+              title="Прозрачность геометрии и рёбер: 0% — сплошные, 100% — невидимые">
+              <span>Прозрачность <output>{geometryTransparency()}%</output></span>
+              <input type="range" min="0" max="100" step="1"
+                value={geometryTransparency()}
+                aria-label="Прозрачность геометрии и рёбер"
+                aria-valuetext={`${geometryTransparency()}%`}
+                onInput={(event) => {
+                  setGeometryTransparencyBeforeSources(null);
+                  setGeometryTransparency(event.currentTarget.valueAsNumber);
+                }} />
+            </label>
 
             <button
               type="button"
@@ -784,16 +782,10 @@ export function GeometryViewerWindow(props) {
                 />
                 Ортогональный вид
               </label>
-              <label
-                classList={{ "is-disabled": renderMode() === "wireframe" }}
-                title={renderMode() === "wireframe"
-                  ? "Рёбра обязательны в режиме «Каркас»"
-                  : undefined}
-              >
+              <label>
                 <input
                   type="checkbox"
-                  checked={renderMode() === "wireframe" || showEdges()}
-                  disabled={renderMode() === "wireframe"}
+                  checked={showEdges()}
                   onChange={(event) => setShowEdges(event.currentTarget.checked)}
                 />
                 Рёбра
@@ -943,7 +935,8 @@ export function GeometryViewerWindow(props) {
               if (pendingTimeSelection) controller?.requestRender();
             }}
             filters={filters()}
-            mode={renderMode()}
+            mode="solid"
+            geometryOpacity={1 - geometryTransparency() / 100}
             showEdges={showEdges()}
             showVertices={showVertices()}
             showDiscretizationLines={showDiscretizationLines()}

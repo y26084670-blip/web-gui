@@ -136,7 +136,7 @@ test("motion updates retained positions and picking coordinates without accumula
   assert.deepEqual(Array.from(attribute.array), reference);
 });
 
-const { createGeometryObjects } =
+const { createGeometryObjects, applyGeometryOpacity } =
   await server.ssrLoadModule("/src/components/geometry/ThreeGeometryViewport.jsx");
 
 function renderFixture(count) {
@@ -188,5 +188,69 @@ test("instance budget, selections and invalid matrices still apply", () => {
   assert.equal(stats.invalidInstances, 1);
   assert.equal(stats.renderedInstances, 2);
   assert.equal(stats.truncated, true);
+  releaseGeometry(root);
+});
+
+test("geometry transparency updates surfaces, edges and nodes without rebuilding resources", () => {
+  const {root} = collectGeometry(renderFixture(1), {}, "solid", true);
+  const surface = root.children[0];
+  const edges = surface.getObjectByName("surface-edges");
+  const nodes = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial());
+  const lines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({
+    opacity: 0.8, transparent: true, depthWrite: false,
+  }));
+  const sources = update(null, "thin", [vector(1)]);
+  const sourceMaterial = sources.children[0].material;
+  const objects = [surface, edges, nodes, lines];
+  const resources = objects.map(object => [object.geometry, object.material]);
+  const defaults = new WeakMap();
+  const layers = [[root, true], [nodes, true], [lines, false]];
+  assert.equal(edges.material.opacity, 1);
+  for (const opacity of [1, 0.42, 0.8, 0, 0.2, 1]) {
+    applyGeometryOpacity(layers, opacity, defaults);
+    assert.equal(root.visible, opacity > 0);
+    assert.equal(nodes.visible, opacity > 0);
+    assert.equal(lines.visible, false);
+    assert.equal(surface.material.opacity, opacity);
+    assert.equal(edges.material.opacity, opacity);
+    assert.equal(nodes.material.opacity, opacity);
+    assert.equal(lines.material.opacity, 0.8 * opacity);
+    assert.equal(surface.material.depthWrite, opacity === 1);
+    assert.equal(edges.material.depthWrite, false);
+    assert.equal(lines.material.transparent, true);
+    assert.equal(surface.material.transparent, opacity < 1);
+    objects.forEach((object, index) => {
+      assert.equal(object.geometry, resources[index][0]);
+      assert.equal(object.material, resources[index][1]);
+    });
+    assert.equal(sources.children[0].material, sourceMaterial);
+    assert.equal(sourceMaterial.opacity, 1);
+  }
+  layers[2][1] = true;
+  applyGeometryOpacity(layers, 0.5, defaults);
+  assert.equal(lines.visible, true);
+  assert.equal(lines.material.opacity, 0.4);
+  applyGeometryOpacity(layers, null, defaults);
+  assert.equal(surface.material.opacity, 1);
+  assert.equal(surface.material.transparent, false);
+  assert.equal(lines.material.opacity, 0.8);
+  for (const object of [root, nodes, lines, sources]) releaseGeometry(object);
+});
+
+test("task preview without geometry opacity retains original material settings", () => {
+  const {root} = collectGeometry(renderFixture(1), {}, "solid", true);
+  const materials = [];
+  root.traverse(object => {
+    if (object.material) materials.push([object.material, object.material.opacity,
+      object.material.transparent, object.material.depthWrite, object.material.version]);
+  });
+  applyGeometryOpacity([[root, true]], null, new WeakMap());
+  assert.equal(root.visible, true);
+  for (const [material, opacity, transparent, depthWrite, version] of materials) {
+    assert.equal(material.opacity, opacity);
+    assert.equal(material.transparent, transparent);
+    assert.equal(material.depthWrite, depthWrite);
+    assert.equal(material.version, version);
+  }
   releaseGeometry(root);
 });

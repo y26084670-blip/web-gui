@@ -58,13 +58,9 @@ test("toolbar exposes option panels and transient camera commands", async () => 
   assert.match(source, /aria-haspopup="dialog"/u);
   assert.match(source, /aria-label="Общие опции отображения"/u);
 
-  assert.match(source, /createSignal\("solid"\)/u);
-  assert.match(source, /<option value="solid">Сплошной<\/option>/u);
-  assert.match(
-    source,
-    /<option value="translucent">Полупрозрачный<\/option>/u,
-  );
-  assert.match(source, /<option value="wireframe">Каркас<\/option>/u);
+  assert.match(source, /createGeometryViewSetting\("geometryTransparency", 0\)/u);
+  assert.match(source, /type="range" min="0" max="100" step="1"/u);
+  assert.doesNotMatch(source, /<option value="(?:solid|translucent|wireframe)"/u);
   assert.doesNotMatch(source, /Вписать всё/u);
   assert.doesNotMatch(source, /fitRequest/u);
   assert.match(source, />\s*Показать все\s*<\/button>/u);
@@ -104,16 +100,17 @@ test("toolbar exposes option panels and transient camera commands", async () => 
   );
   assertAppearsAfter(
     source,
-    "aria-label=\"Режим представления\"",
+    "aria-label=\"Прозрачность геометрии и рёбер\"",
     "aria-label=\"Общие опции отображения\"",
   );
   assertAppearsAfter(
     source,
     ">\n              Показ",
-    "aria-label=\"Режим представления\"",
+    "aria-label=\"Прозрачность геометрии и рёбер\"",
   );
 
-  assert.match(source, /mode=\{renderMode\(\)\}/u);
+  assert.match(source, /mode="solid"/u);
+  assert.match(source, /geometryOpacity=\{1 - geometryTransparency\(\) \/ 100\}/u);
   assert.match(source, /showEdges=\{showEdges\(\)\}/u);
   assert.match(source, /showVertices=\{showVertices\(\)\}/u);
   assert.match(
@@ -190,9 +187,9 @@ test("object modes are exclusive while symmetry and general filters are independ
   assert.match(source, /Заданные источники/u);
   assert.match(
     source,
-    /checked=\{renderMode\(\) === "wireframe" \|\| showEdges\(\)\}/u,
+    /checked=\{showEdges\(\)\}/u,
   );
-  assert.match(source, /disabled=\{renderMode\(\) === "wireframe"\}/u);
+  assert.doesNotMatch(source, /disabled=\{renderMode\(\) === "wireframe"\}/u);
   assert.equal(
     source.match(/title="Функция будет реализована позднее"/gu)?.length,
     1,
