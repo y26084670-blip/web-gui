@@ -3,6 +3,7 @@
 //
 import { Show, batch, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { TaskOperationDialog } from "../components/tasks/TaskOperationDialog.jsx";
+import { TaskGifGallery } from "../components/tasks/TaskGifGallery.jsx";
 import { runTaskDirectoryOperation, suggestTaskCopyName } from "../services/taskDirectoryService.js";
 import { initializeTaskDirectory } from "../services/taskTemplateService.js";
 import { selectionService } from "../services/selectionService";
@@ -63,9 +64,11 @@ export function Tasks(props) {
   const [operationBusy, setOperationBusy] = createSignal(false);
   const [operationError, setOperationError] = createSignal("");
   const [operationFailed, setOperationFailed] = createSignal(false);
+  const [galleryBusy, setGalleryBusy] = createSignal(false);
 
-  const operationsBlocked = () => Boolean(operation()) || demoLoading() || bindingBusy()
+  const galleryDisabled = () => Boolean(operation()) || demoLoading() || bindingBusy()
     || launchBusy() || taskLaunchOpen() || props.editorBusy;
+  const operationsBlocked = () => galleryDisabled() || galleryBusy();
   createEffect(() => props.onTaskActionsChange?.({
     createEnabled: Boolean(selectedProject()) && !operationsBlocked(),
     selectedEnabled: Boolean(selectedTask()) && !operationsBlocked(),
@@ -203,7 +206,7 @@ export function Tasks(props) {
 
   const bindingIsCurrent = (root, revision) => !disposed
     && root === rootHandle() && revision === bindingRevision;
-  const bindingDisabled = () => !rootHandle() || bindingBusy() || launchBusy()
+  const bindingDisabled = () => !rootHandle() || bindingBusy() || launchBusy() || galleryBusy()
     || workspaceBinding()?.bindingState === "bound";
 
   const resetWorkspaceBinding = () => {
@@ -223,6 +226,7 @@ export function Tasks(props) {
   }
 
   function openTaskLaunch() {
+    if (operationsBlocked()) return;
     const request = createNativeSettingsRequest(workspaceBinding());
     setSettingsRequest(request);
     setTaskLaunchOpen(true);
@@ -317,7 +321,7 @@ export function Tasks(props) {
 
   // выбор корневого каталога
   const handlePickDirectory = async () => {
-    if (bindingBusy() || operation()) return;
+    if (bindingBusy() || operation() || galleryBusy()) return;
     const support = getFileSystemAccessSupport(window);
     if (!support.supported) {
       showTaskError(support.message);
@@ -359,7 +363,7 @@ export function Tasks(props) {
 
   // выбор проекта
   const handleProjectChange = async (event) => {
-    if (operation()) return;
+    if (operation() || galleryBusy()) return;
     const projectName = event.currentTarget.value;
     const requestId = invalidateBrowserSelection();
     setSelectedProject(projectName);
@@ -397,6 +401,7 @@ export function Tasks(props) {
   };
 
   const selectTaskCandidate = async (task) => {
+    if (galleryBusy()) return;
     taskLoadRevision += 1;
     const requestId = ++taskInfoRevision;
     setSelectedTask(task);
@@ -474,7 +479,7 @@ export function Tasks(props) {
   };
 
   const requestDemoLoad = async () => {
-    if (operation()) return;
+    if (operation() || galleryBusy()) return;
     if (demoLoading()) return;
     const requestId = ++taskLoadRevision;
     setDemoLoading(true);
@@ -497,7 +502,7 @@ export function Tasks(props) {
   };
 
   const requestTaskLoad = async () => {
-    if (operation()) return;
+    if (operation() || galleryBusy()) return;
     const task = selectedTask();
     if (!task || task.handle === loadedTaskHandle()) return;
     const requestId = ++taskLoadRevision;
@@ -558,7 +563,7 @@ export function Tasks(props) {
               <div class="task-directory-buttons">
                 <button
                   id="pickDir"
-                  disabled={bindingBusy()}
+                  disabled={bindingBusy() || Boolean(operation()) || galleryBusy()}
                   title={`Базовый каталог с проектами, обычно ${PROJECTS_ROOT_NAME}. Смена каталога не останавливает текущий расчёт. Одновременно допускается запуск только одного решателя.`}
                   onClick={handlePickDirectory}
                 >
@@ -596,7 +601,7 @@ export function Tasks(props) {
             <select
               id="listProject"
               value={selectedProject()}
-              disabled={Boolean(operation())}
+              disabled={Boolean(operation()) || galleryBusy()}
               onChange={handleProjectChange}
             >
               <option value="">Выбрать проект</option>
@@ -611,7 +616,7 @@ export function Tasks(props) {
               <button
                 type="button"
                 class="task-demo-button"
-                disabled={demoLoading()}
+                disabled={demoLoading() || galleryBusy()}
                 aria-busy={demoLoading()}
                 title="Загрузить демонстрационную задачу для редактирования"
                 onClick={requestDemoLoad}
@@ -645,7 +650,7 @@ export function Tasks(props) {
         <div class="task-browser-actions">
           <button
             class="task-load-button"
-            disabled={!selectedTask() || taskLoaded()}
+            disabled={!selectedTask() || taskLoaded() || galleryBusy()}
             onClick={requestTaskLoad}
           >
             <span class="task-load-label">
@@ -670,7 +675,7 @@ export function Tasks(props) {
           <button
             type="button"
             class="task-launch-open-button"
-            disabled={!rootHandle()}
+            disabled={!rootHandle() || operationsBlocked()}
             onClick={openTaskLaunch}
           >
             Формирование списка заданий и запуск решателей или импорта
@@ -699,6 +704,8 @@ export function Tasks(props) {
       </div>
 
       <section class="task-results-panel" aria-label="Результаты расчёта">
+        <TaskGifGallery taskHandle={selectedTask()?.handle} active={props.active}
+          disabled={galleryDisabled()} refreshKey={previewRevision()} onBusyChange={setGalleryBusy} />
         <textarea
           class="task-results-text"
           aria-label="Сводка результатов расчёта выбранного задания"

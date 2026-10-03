@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-03 17:19 UTC+3.
+Обновлено: 2026-10-03 23:30 UTC+3.
 
 ## Назначение
 
@@ -12,6 +12,7 @@
 [`AI_CLARK_INTEGRATION.md`](AI_CLARK_INTEGRATION.md).
 
 Карта проверена по `main` на коммите `105d7789c63ef9e012dbb4328b812de7535c72d3`.
+Раздел выбора задания дополнен файлами реализации 4.41.0 в рабочей ветке.
 
 ## 1. Точки входа и конфигурация
 
@@ -106,9 +107,18 @@
 | Список и запуск | `src/services/taskLaunchService.js` | `clark.tasks.txt`, связь с обработчиком `clark://` и формирование команд запуска. |
 | Окно запуска | `src/components/tasks/TaskLaunchWindow.jsx` | Представление списка и операций; предметный файловый контракт остаётся у сервиса. |
 | Предпросмотр | `src/services/taskGeometryPreviewService.js`, `src/components/geometry/TaskGeometryPreview.jsx` | Подготовка и показ геометрии выбранного, но ещё не загруженного задания. |
+| Галерея GIF | `src/components/tasks/TaskGifGallery.jsx`, `TaskGifGallery.css` | Сетка, действия миниатюр и модальное окно; подключение к выбранному заданию в `src/tabs/Tasks.jsx`. [Контракт](AI_UI_CONTRACTS.md#task-gif-gallery). |
+| Жизненный цикл GIF | `src/services/taskGifGalleryController.js` | Список, очередь видимых миниатюр и предпросмотра, отмена устаревших запросов и освобождение URL. |
+| Файлы GIF | `src/services/taskGifService.js` | File System Access API для списка, чтения, записи, удаления и уведомлений об изменении. Editor использует просмотр и удаление; сохранение фильма вызывает Viewer. |
+| Проверки GIF | `test/taskGifGallery.test.js`, `test/taskGifService.test.js` | Проверки контроллера, обработчиков компонента и файлового сервиса. [Методика](AI_VERIFICATION.md#verification-task-gifs-441). |
 | Сводки | `src/services/taskSummaryService.js` | Формирование и запись `input3XX/_summary.txt` из снимка сохраняемой модели; чтение обеих сводок без разбора результатов. Вызов записи — `App.handleSave`. [Контракт](AI_CLARK_INTEGRATION.md#task-summaries). |
 | Демо | `src/services/demoTaskService.js` | Загружаемая копия демонстрационного задания в памяти браузера. |
 | Примеры | `src/services/examplesService.js`, `src/components/help/ExamplesInstaller.jsx` | Установка дерева примеров из HTTP-источника. |
+
+Компонент галереи, его CSS, контроллер, файловый сервис и профильные тесты
+поддерживаются одинаковыми в `web-gui` и `clark-viewer`. Это общая реализация
+двух репозиториев; её подробный контракт в Editor —
+[AI_UI_CONTRACTS](AI_UI_CONTRACTS.md#task-gif-gallery).
 
 ## 7. Библиотеки материалов
 

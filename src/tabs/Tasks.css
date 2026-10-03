@@ -388,14 +388,19 @@ button:hover {
   }
 }
 
+.task-results-panel,
 .task-summary-panel {
   display: grid;
   grid-template-rows: minmax(240px, 3fr) minmax(160px, 2fr);
-  grid-auto-rows: min-content;
+  grid-auto-rows: 20px;
   gap: 10px;
   box-sizing: border-box;
-  min-width: 320px;
+  min-width: 0;
   min-height: 0;
+}
+
+.task-summary-panel {
+  min-width: 320px;
 }
 
 .task-geometry-preview {
@@ -453,12 +458,6 @@ button:hover {
 }
 
 .task-results-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-sizing: border-box;
-  min-width: 0;
-  min-height: 0;
   overflow: hidden;
 }
 

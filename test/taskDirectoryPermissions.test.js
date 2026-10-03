@@ -15,7 +15,7 @@ assert.ok(start >= 0 && end > start);
 // Execute the component's picker with browser permissions and directory state mocked.
 const createPicker = new Function("dependencies", `
     const {
-        window, bindingBusy, operation, getFileSystemAccessSupport, showTaskError,
+        window, bindingBusy, operation, galleryBusy, getFileSystemAccessSupport, showTaskError,
         rootHandle, invalidateBrowserSelection, resetWorkspaceBinding,
         setRootHandle, setRootName, setProjects, setSelectedProject, setTasks,
         setSelectedTask, setTaskInfo, setTaskResultsText, getSubdirs,
@@ -28,7 +28,7 @@ const createPicker = new Function("dependencies", `
 `);
 
 function runtime(picker) {
-    const state = { root: null, projects: [], errors: [], permissions: [], resets: 0 };
+    const state = { root: null, projects: [], errors: [], permissions: [], resets: 0, galleryBusy: false };
     const pick = createPicker({
         window: {
             isSecureContext: true,
@@ -37,7 +37,7 @@ function runtime(picker) {
                 return picker();
             },
         },
-        bindingBusy: () => false, operation: () => null,
+        bindingBusy: () => false, operation: () => null, galleryBusy: () => state.galleryBusy,
         getFileSystemAccessSupport, isFilePickerCancellation, getFilePickerErrorMessage,
         showTaskError: message => state.errors.push(message),
         rootHandle: () => state.root,
@@ -91,4 +91,12 @@ test("denied browser access is still reported by the editor", async () => {
     assert.equal(state.errors.length, 1);
     assert.match(state.errors[0], /разреш|доступ/iu);
     assert.equal(state.resets, 0);
+});
+
+test("editor waits for GIF deletion before allowing a different root", async () => {
+    const handle = { name: "Next", projects: [] };
+    const { state, pick } = runtime(() => handle);
+    const previous = { name: "Previous", isSameEntry: async () => false };state.root = previous;state.galleryBusy = true;
+    await pick();assert.equal(state.root, previous);assert.deepEqual(state.permissions, []);
+    state.galleryBusy = false;await pick();assert.equal(state.root, handle);
 });
