@@ -551,14 +551,7 @@ export function Tasks(props) {
           : undefined,
       }}
     >
-      <div
-        class="task-browser-panel"
-        style={{
-          border: "3px solid #161414",
-          padding: "20px",
-          background: "lightgray",
-        }}
-      >
+      <div class="task-browser-panel">
         <div class="task-browser-content">
           <div>
             <div class="task-directory-actions">
@@ -587,11 +580,7 @@ export function Tasks(props) {
                 </button>
               </div>
               <p class="task-directory-hint">
-                Для подготовки к запуску расчетов из редактора выполнить:
-                «Связать с Решателем» →
-                «Формирование списка заданий и запуск решателей или импорта» →
-                «Обновить список» → выделить задания →
-                «Подключить» → «Запустить расчёт».
+                Для подготовки к запуску расчетов выполнить: «Связать с Решателем»
               </p>
               <Show when={rootHandle()}>
                 <p class="task-binding-status" role="status"
@@ -601,7 +590,6 @@ export function Tasks(props) {
               </Show>
             </div>
             <span id="rootName">{rootName()}</span>
-            <p></p>
           </div>
           <div class="box">
             <h4>Список проектов</h4>
@@ -690,14 +678,7 @@ export function Tasks(props) {
         </div>
         <div class="task-panel-caption">выбор задания</div>
       </div>
-      <div
-        class="task-summary-panel"
-        style={{
-          border: "3px solid #161414",
-          padding: "20px",
-          background: "lightgray",
-        }}
-      >
+      <div class="task-summary-panel">
         <Show when={previewRevision()} keyed>
           {() => (
             <TaskGeometryPreview

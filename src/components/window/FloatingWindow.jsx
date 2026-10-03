@@ -78,6 +78,34 @@ function clampRect(rect, options = {}) {
   };
 }
 
+// Keep the requested rectangle separate from its visible portion. In particular,
+// do not use the previous fitted width as the next drag's preferred width.
+function fitRectToViewport(rect, options = {}) {
+  const viewport = options.viewport ?? viewportSize();
+  const margin = options.margin ?? VIEWPORT_MARGIN;
+  const bounds = clampRect({ ...rect, x: margin, y: margin }, options);
+  const minimum = clampRect({ width: 0, height: 0 }, options);
+  const requestedX = finiteNumber(rect.x, margin);
+  const requestedY = finiteNumber(rect.y, margin);
+  const x = clamp(requestedX, margin, viewport.width - margin - minimum.width);
+  const y = clamp(requestedY, margin, viewport.height - margin - minimum.height);
+
+  return {
+    x,
+    y,
+    width: clamp(
+      Math.min(requestedX + bounds.width, viewport.width - margin) - x,
+      minimum.width,
+      bounds.width,
+    ),
+    height: clamp(
+      Math.min(requestedY + bounds.height, viewport.height - margin) - y,
+      minimum.height,
+      bounds.height,
+    ),
+  };
+}
+
 function initialRect(props) {
   const viewport = viewportSize();
   const width = finiteNumber(props.initialWidth, DEFAULT_WIDTH);
@@ -125,6 +153,7 @@ export function FloatingWindow(props) {
   let windowElement;
   let dragState = null;
   let restoreRect = null;
+  let preferredRect = null;
 
   const [rect, setRect] = createSignal({
     x: VIEWPORT_MARGIN,
@@ -154,13 +183,29 @@ export function FloatingWindow(props) {
 
   const persistRect = (value = rect()) => {
     if (!maximized()) {
-      writeStoredRect(storageKey(), value);
+      writeStoredRect(storageKey(), props.fitOnDrag && preferredRect
+        ? { ...value, preferredRect }
+        : value);
     }
     props.onRectChange?.(value);
   };
 
   const replaceRect = (value, persist = false) => {
     const next = clampRect(value, rectOptions());
+    setRect(next);
+    if (props.fitOnDrag && !minimized()) preferredRect = { ...next };
+    if (persist) persistRect(next);
+    return next;
+  };
+
+  const fitPreferredRect = (value, persist = false) => {
+    preferredRect = {
+      x: finiteNumber(value.x, VIEWPORT_MARGIN),
+      y: finiteNumber(value.y, VIEWPORT_MARGIN),
+      width: finiteNumber(value.width, DEFAULT_WIDTH),
+      height: finiteNumber(value.height, DEFAULT_HEIGHT),
+    };
+    const next = fitRectToViewport(preferredRect, rectOptions());
     setRect(next);
     if (persist) persistRect(next);
     return next;
@@ -187,6 +232,15 @@ export function FloatingWindow(props) {
     }
 
     const bounds = windowElement.getBoundingClientRect();
+    const current = rect();
+    if (props.fitOnDrag && preferredRect &&
+      Math.abs(bounds.left - current.x) < 0.5 &&
+      Math.abs(bounds.top - current.y) < 0.5 &&
+      Math.abs(bounds.width - current.width) < 0.5 &&
+      Math.abs(bounds.height - current.height) < 0.5) {
+      if (persist) persistRect();
+      return;
+    }
     replaceRect(
       {
         x: bounds.left,
@@ -203,12 +257,20 @@ export function FloatingWindow(props) {
       setRect(maximizeRect());
       return;
     }
+    if (props.fitOnDrag && !minimized() && preferredRect) {
+      fitPreferredRect(preferredRect, true);
+      return;
+    }
     replaceRect(rect(), true);
   };
 
   const finishPointerOperation = () => {
     const wasDragging = Boolean(dragState);
     dragState = null;
+    if (wasDragging && props.fitOnDrag && !minimized()) {
+      persistRect();
+      return;
+    }
     if (minimized()) {
       if (wasDragging) persistRect();
       return;
@@ -218,7 +280,11 @@ export function FloatingWindow(props) {
 
   onMount(() => {
     const stored = readStoredRect(storageKey());
-    replaceRect(stored ?? initialRect(props));
+    if (props.fitOnDrag && stored?.preferredRect) {
+      fitPreferredRect(stored.preferredRect);
+    } else {
+      replaceRect(stored ?? initialRect(props));
+    }
     setReady(true);
 
     window.addEventListener("resize", handleViewportResize);
@@ -233,19 +299,22 @@ export function FloatingWindow(props) {
   const handleTitlePointerDown = (event) => {
     if (
       event.button !== 0 ||
-      maximized() ||
+      (maximized() && !props.fitOnDrag) ||
       event.target.closest("button")
     ) {
       return;
     }
 
     syncRectFromElement(false);
+    const dragRect = props.fitOnDrag && !minimized() && !maximized()
+      ? preferredRect ?? rect()
+      : rect();
     dragState = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      x: rect().x,
-      y: rect().y,
+      rect: { ...dragRect },
+      wasMaximized: maximized(),
     };
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -254,11 +323,27 @@ export function FloatingWindow(props) {
   const handleTitlePointerMove = (event) => {
     if (!dragState || dragState.pointerId !== event.pointerId) return;
 
-    const current = rect();
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    if (dragState.wasMaximized) {
+      if (dx === 0 && dy === 0) return;
+      // A drag starts from the visible maximized size, not the old restore size.
+      setMaximized(false);
+      restoreRect = null;
+      dragState.wasMaximized = false;
+    }
+    if (props.fitOnDrag && !minimized()) {
+      fitPreferredRect({
+        ...dragState.rect,
+        x: dragState.rect.x + dx,
+        y: dragState.rect.y + dy,
+      });
+      return;
+    }
     replaceRect({
-      ...current,
-      x: dragState.x + event.clientX - dragState.startX,
-      y: dragState.y + event.clientY - dragState.startY,
+      ...rect(),
+      x: dragState.rect.x + dx,
+      y: dragState.rect.y + dy,
     });
   };
 
@@ -286,8 +371,10 @@ export function FloatingWindow(props) {
 
     event.preventDefault();
     const step = event.shiftKey ? 1 : 10;
-    const current = rect();
-    replaceRect(
+    const fitting = props.fitOnDrag && !minimized();
+    const current = fitting ? preferredRect ?? rect() : rect();
+    const moveRect = fitting ? fitPreferredRect : replaceRect;
+    moveRect(
       {
         ...current,
         x: current.x + offset[0] * step,
@@ -299,7 +386,12 @@ export function FloatingWindow(props) {
 
   const toggleMinimized = () => {
     if (maximized()) return;
+    const wasMinimized = minimized();
     setMinimized(!minimized());
+    if (props.fitOnDrag && wasMinimized && preferredRect) {
+      fitPreferredRect({ ...preferredRect, x: rect().x, y: rect().y }, true);
+      return;
+    }
     replaceRect(rect(), true);
   };
 
@@ -309,13 +401,14 @@ export function FloatingWindow(props) {
 
     if (maximized()) {
       setMaximized(false);
-      replaceRect(restoreRect ?? initialRect(props), true);
+      if (props.fitOnDrag) fitPreferredRect(restoreRect ?? initialRect(props), true);
+      else replaceRect(restoreRect ?? initialRect(props), true);
       restoreRect = null;
       return;
     }
 
     if (!wasMinimized) syncRectFromElement(true);
-    restoreRect = rect();
+    restoreRect = props.fitOnDrag ? preferredRect ?? rect() : rect();
     setRect(maximizeRect());
     setMaximized(true);
   };
@@ -360,6 +453,7 @@ export function FloatingWindow(props) {
               onPointerMove={handleTitlePointerMove}
               onPointerUp={handleTitlePointerUp}
               onPointerCancel={finishPointerOperation}
+              onLostPointerCapture={finishPointerOperation}
               onKeyDown={handleTitleKeyDown}
             >
               <div id={titleId()} class="floating-window-title">
