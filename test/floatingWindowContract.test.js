@@ -66,3 +66,15 @@ test("floating window exposes minimize, maximize, and close actions", async () =
     assert.match(source, /На весь экран/u);
     assert.match(source, /Закрыть окно/u);
 });
+
+test("3D edge handles are enabled only while expanded and leave the native corner available", async () => {
+    const source = await readFile(componentUrl, "utf8");
+    const styles = await readFile(stylesUrl, "utf8");
+    assert.match(source, /<Show when=\{props\.fitOnDrag && !minimized\(\) && !maximized\(\)\}>/u);
+    assert.match(source, /\["top", "right", "bottom", "left"\]\.map/u);
+    assert.match(source, /onPointerDown=\{\(event\) => handleResizePointerDown\(event, edge\)\}/u);
+    assert.match(source, /onPointerMove=\{handleResizePointerMove\}/u);
+    assert.match(source, /onPointerUp=\{handleResizePointerUp\}/u);
+    assert.match(styles, /\.floating-window-resize-bottom\s*\{[^}]*right:\s*18px;/su);
+    assert.match(styles, /\.floating-window-resize-right\s*\{[^}]*bottom:\s*18px;/su);
+});
