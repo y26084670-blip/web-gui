@@ -79,7 +79,7 @@ test("Check model button publishes name ERROR and clears it after correction wit
             selectionService: {loadedTaskHandle: () => taskHandle},
             modelService: {getModel: () => snapshot}, modelValidator, createError,
             TABS,
-            loadMaterialReferenceCatalog: async () => ({catalog: {FMM: [], HTC: []}, errors: []}),
+            loadMaterialReferenceCatalog: async () => ({catalog: {FMM: [], HTS: []}, errors: []}),
             assertJweakLocalUnchanged: async () => {}, setTimeout: () => 1, clearTimeout: () => {}, console});
     });
     t.after(() => {diagnosticService.clearDiagnostics(); diagnosticService.clearLoadResult();});

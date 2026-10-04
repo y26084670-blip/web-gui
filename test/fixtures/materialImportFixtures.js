@@ -76,7 +76,7 @@ export function concatenateBuffers(...buffers) {
 
 const valueLine = value => `${value}\tfixture`;
 
-export function buildHtcConfig(version, overrides = {}) {
+export function buildHtsConfig(version, overrides = {}) {
     const values = {
         j_HC0: 2300,
         JC0: 150,

@@ -1,5 +1,5 @@
 /*
-{"useMED":true,"fullAxialSymmetry":false,"doubleFloat":false,"mirrorSymmetryX":-1,"mirrorSymmetryY":-1,"countTimeSteps":8,"timeStep":1.0,"polusForce":[0.0,0.0,0.0],"evalForce":true,"htcRegimFC":false,"htcMu":true,"htcRo":true}
+{"useMED":true,"fullAxialSymmetry":false,"doubleFloat":false,"mirrorSymmetryX":-1,"mirrorSymmetryY":-1,"countTimeSteps":8,"timeStep":1.0,"polusForce":[0.0,0.0,0.0],"evalForce":true,"htsRegimFC":false,"htsMu":true,"htsRo":true}
 ...
 json_str = readline(f)
 JSON3.read!(json_str, me.general)
@@ -14,9 +14,9 @@ mutable struct General
     timeStep::REAL = ZERO
     polusForce::VEC = VZERO3()
     evalForce::Bool = false
-    htcRegimFC::Bool = false
-    htcMu::Bool = true
-    htcRo::Bool = true
+    htsRegimFC::Bool = false
+    htsMu::Bool = true
+    htsRo::Bool = true
 end
  general::General = General()
 */
@@ -187,7 +187,8 @@ export default createSchema({
             textOff: "Нет",
         },
 
-        htcRegimFC: {
+        htsRegimFC: {
+            storageAliases: ["htcRegimFC"],
             type: FIELD_TYPES.BOOLEAN,
             label: "ВТСП: режим",
             description: "",
@@ -196,7 +197,8 @@ export default createSchema({
             textOff: "ZFC режим",
         },
 
-        htcMu: {
+        htsMu: {
+            storageAliases: ["htcMu"],
             type: FIELD_TYPES.BOOLEAN,
             label: "ВТСП: Магнитная подсистема",
             description: "",
@@ -205,7 +207,8 @@ export default createSchema({
             textOff: "Отключено",
         },
 
-        htcRo: {
+        htsRo: {
+            storageAliases: ["htcRo"],
             type: FIELD_TYPES.BOOLEAN,
             label: "ВТСП: Токовая подсистема",
             description: "",

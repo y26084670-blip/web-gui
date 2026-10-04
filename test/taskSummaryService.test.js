@@ -85,7 +85,7 @@ test("task tab renders readonly summary and ignores stale reads", async () => {
 const { formatTaskSummary, writeTaskSummary } = await import("../src/services/taskSummaryService.js");
 const savedAt = new Date("2026-09-20T12:00:00Z");
 const summaryModel = {
-  general:{doubleFloat:true,htcMu:true,htcRo:true,htcRegimFC:false,evalForce:true,timeStep:0.125,countTimeSteps:4},
+  general:{doubleFloat:true,htsMu:true,htsRo:true,htsRegimFC:false,evalForce:true,timeStep:0.125,countTimeSteps:4},
   elements:[
     {targ:0,model:2,rv:1,xapName:"HTS",dp:[[2],[3],[1]],symLs:2,symAs:3,symPs:4,symKya:-1,symKyp:0},
     {targ:1,model:0,rv:0,xapName:"",dp:[[1],[1],[1]]},

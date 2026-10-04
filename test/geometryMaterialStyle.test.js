@@ -75,22 +75,22 @@ test("targ classifies virtual and prescribed sources before material fields", ()
 
     assert.equal(
         classifyGeometryMaterial({ ...conflicting, targ: 3 }, {
-            htcMu: true,
-            htcRo: true,
+            htsMu: true,
+            htsRo: true,
         }),
         KINDS.VIRTUAL,
     );
     assert.equal(
         classifyGeometryMaterial({ ...conflicting, targ: 2 }, {
-            htcMu: true,
-            htcRo: true,
+            htsMu: true,
+            htsRo: true,
         }),
         KINDS.PRESCRIBED_CURRENT,
     );
     assert.equal(
         classifyGeometryMaterial({ ...conflicting, targ: 1 }, {
-            htcMu: true,
-            htcRo: true,
+            htsMu: true,
+            htsRo: true,
         }),
         KINDS.PRESCRIBED_MAGNETIZATION,
     );
@@ -100,19 +100,19 @@ test("HTSC subsystem flags select magnetic, current, both, or fallback", () => {
     const htsc = { targ: 0, model: 2, xapName: "ignored", rv: 1 };
 
     assert.equal(
-        classifyGeometryMaterial(htsc, { htcMu: true, htcRo: false }),
+        classifyGeometryMaterial(htsc, { htsMu: true, htsRo: false }),
         KINDS.HTSC_MAGNETIC,
     );
     assert.equal(
-        classifyGeometryMaterial(htsc, { htcMu: false, htcRo: true }),
+        classifyGeometryMaterial(htsc, { htsMu: false, htsRo: true }),
         KINDS.HTSC_CURRENT,
     );
     assert.equal(
-        classifyGeometryMaterial(htsc, { htcMu: true, htcRo: true }),
+        classifyGeometryMaterial(htsc, { htsMu: true, htsRo: true }),
         KINDS.HTSC_BOTH,
     );
     assert.equal(
-        classifyGeometryMaterial(htsc, { htcMu: false, htcRo: false }),
+        classifyGeometryMaterial(htsc, { htsMu: false, htsRo: false }),
         KINDS.NEUTRAL,
     );
     assert.equal(classifyGeometryMaterial(htsc), KINDS.HTSC_BOTH);

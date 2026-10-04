@@ -108,7 +108,7 @@ with sync_playwright() as pw:
         check('guide:no-js-reading-and-navigation', page.locator('section.chapter').count()==17 and urlsplit(page.url).fragment=='med')
         check('guide:no-js-control-hidden', not page.locator('#theme-toggle').is_visible())
         context.close()
-        for kind in ['FMM', 'HTC']:
+        for kind in ['FMM', 'HTS']:
             context = browser.new_context(viewport={'width':1440,'height':1100})
             page=context.new_page(); errors=[]
             page.on('pageerror',lambda e:errors.append(str(e)))

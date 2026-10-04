@@ -1,13 +1,13 @@
 import { TabulatorFull as Tabulator } from "tabulator-tables";
 
-import { createHtcMaterialDetailSchema } from "../../services/materials/materialLibraryModel.js";
+import { createHtsMaterialDetailSchema } from "../../services/materials/materialLibraryModel.js";
 import { modelToRows } from "../converters/modelConverter.js";
 import { TableBuilder } from "../builders/TableBuilder.js";
 import { COMMON_TABLE_OPTIONS } from "../tableOptions.js";
 
-export class HtcMaterialDetailView {
+export class HtsMaterialDetailView {
     constructor({ schema, record, isWritable, setValue }) {
-        this.schema = createHtcMaterialDetailSchema(schema);
+        this.schema = createHtsMaterialDetailSchema(schema);
         this.record = record;
         this.isWritable = isWritable;
         this.setValue = setValue;
@@ -65,7 +65,7 @@ export class HtcMaterialDetailView {
                 cell.getValue(),
                 cell.getOldValue(),
             )).catch(error => {
-                console.error("HTC detail commit error:", error);
+                console.error("HTS detail commit error:", error);
             });
         });
         return undefined;

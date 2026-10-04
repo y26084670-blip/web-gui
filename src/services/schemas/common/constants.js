@@ -71,8 +71,8 @@ export const TABS = {
         label: "Характеристики ФММ",
     },
 
-    HTC_LIBRARY: {
-        id: "htcLibrary",
+    HTS_LIBRARY: {
+        id: "htsLibrary",
         label: "Характеристики ВТСП",
     },
 };

@@ -22,8 +22,8 @@ const LIBRARIES = Object.freeze([
         title: "Характеристики ФММ",
     }),
     Object.freeze({
-        kind: "HTC",
-        directory: "xapLibHTC",
+        kind: "HTS",
+        directory: "xapLibHTS",
         title: "Характеристики ВТСП",
     }),
 ]);

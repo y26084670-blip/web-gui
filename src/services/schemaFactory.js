@@ -117,6 +117,7 @@ export function createSchema({
         const           Константное значение. Редактирование запрещено, значение должно совпадать с указанным.
 
         storageKey      Ключ или точечный путь в StorageModel. По умолчанию используется имя свойства схемы.
+        storageAliases  Прежние пути только для чтения; канонический storageKey имеет приоритет.
 
         Форматирование float параметра
         floatExp        Использовать экспоненциальный формат отображения вещественного числа.
@@ -208,6 +209,10 @@ function validateSchema(schema) {
     for (const [propertyName, property] of Object.entries(schema.properties)) {
 
         validatePropertyEnum(schema.id, propertyName, property);
+        if (property.storageAliases !== undefined &&
+            (!isStoredProperty(property) || !Array.isArray(property.storageAliases))) {
+            throw new Error(`Schema '${schema.id}', property '${propertyName}': storageAliases requires a stored property and an array.`);
+        }
         if (property.displayLabel !== undefined &&
             (property.type !== FIELD_TYPES.ENUM || typeof property.displayLabel !== "function")) {
             throw new Error(`Schema '${schema.id}', property '${propertyName}': displayLabel requires ENUM and a function.`);
@@ -256,26 +261,28 @@ function validateSchema(schema) {
         }
 
         if (isStoredProperty(property)) {
-            const storagePath = property.storageKey ?? propertyName;
-            validateStoragePath(schema.id, propertyName, storagePath);
+            const paths = [property.storageKey ?? propertyName, ...(property.storageAliases ?? [])];
+            for (const storagePath of paths) {
+                validateStoragePath(schema.id, propertyName, storagePath);
 
-            const conflict = storagePaths.find(item =>
-                item.path === storagePath ||
-                item.path.startsWith(`${storagePath}.`) ||
-                storagePath.startsWith(`${item.path}.`)
-            );
-            if (conflict) {
-                throw new Error(
-                    `Schema '${schema.id}', properties '${conflict.propertyName}' `
-                    + `and '${propertyName}': conflicting storage paths `
-                    + `'${conflict.path}' and '${storagePath}'.`
+                const conflict = storagePaths.find(item =>
+                    item.path === storagePath ||
+                    item.path.startsWith(`${storagePath}.`) ||
+                    storagePath.startsWith(`${item.path}.`)
                 );
-            }
+                if (conflict) {
+                    throw new Error(
+                        `Schema '${schema.id}', properties '${conflict.propertyName}' `
+                        + `and '${propertyName}': conflicting storage paths `
+                        + `'${conflict.path}' and '${storagePath}'.`
+                    );
+                }
 
-            storagePaths.push({
-                propertyName,
-                path: storagePath,
-            });
+                storagePaths.push({
+                    propertyName,
+                    path: storagePath,
+                });
+            }
         }
     }
 

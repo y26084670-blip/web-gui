@@ -1,6 +1,49 @@
 # Проверка web-gui
 
-Обновлено: 2026-10-04 23:48 UTC+3.
+Обновлено: 2026-10-05, UTC+3.
+
+<a id="verification-hts-naming"></a>
+## Совместимый переход HTC → HTS — 4.44.3
+
+Проверено 05.10.2026, Node.js 24.19.0/Linux, до публикации подготовленной версии.
+База — commit main `3807e2c159e2e7df18489195282ef78285868e1f` (4.44.2),
+включающий исправление общей проверки названий элементов.
+Полный `node --test --test-reporter=tap`: **732/755**, 23 прежних сбоя;
+базовый полный прогон — **706/729**, те же 23 сбоя. Наборы имён сбоев
+сопоставлены с учётом переименования HTC → HTS, новых сбоев нет.
+Прежняя проверка перехода на базе 4.44.1 дала 728/751 против 702/725;
+после слияния изменения проверки имён сохранены.
+
+Прежние сбои: 12 проверок legacy config-парсера на неполных fixture
+(`JMOD1delta=undefined`), одна проверка старого снимка библиотеки с отсутствующим
+`ВТСП пресет 2.txt`, десять проверок прежних UI/3D/diagnostics source-контрактов.
+Эти самостоятельные проблемы данной правкой не исправлялись.
+
+`test/taskMaterialLibraryService.test.js` — **40/40**. Подтверждены совместное
+чтение двух каталогов с приоритетом HTS по каждому имени, case/NFC-сопоставление,
+сохранение фактических путей и SHA, миграция при сохранении/переименовании,
+удаление скрытых старых дубликатов без повторного появления, конфликт изменённой
+или добавленной копии, preflight импорта/копирования и откат при изменении
+legacy-файла во время миграции. Проверены и существующие ФММ-сценарии.
+
+Сериализатор, настоящая General-схема, диагностика файлов и неизменённый
+owner-SHA fixture TEAM7 — **15/15**: старые/новые/смешанные ключи,
+приоритет канонического `false`, прежние defaults и запись только `hts*`.
+Файл TEAM7 намеренно сохраняет исходные `htc*` и хеш как свидетельство.
+
+Объединённая целевая проверка сериализатора, General-схемы, библиотечного
+сервиса и `test/modelElementNames.test.js` — **54/54**. Все четыре новых
+теста названий из main проходят после замены fixture-каталога HTC на HTS.
+
+`npm run build:pages` успешно: 226 модулей, 185 библиотечных файлов и 9 файлов
+руководства проверены по SHA-256. Сгенерированные индекс/ресурсы используют HTS;
+package-lock изменён только в двух полях версии, integrity-суммы сохранены.
+`git diff --check` чист. Исторические evidence и ссылки на исходники старых
+commit не переименованы. Нативный браузерный файловый диалог и расчёт решателя
+не запускались; файловые сценарии проверены на воспроизводимых doubles.
+
+[Контракт перехода](AI_CLARK_INTEGRATION.md#hts-naming).
+
 
 <a id="verification-task-gifs-441"></a>
 ## Галерея GIF выбранного задания — 4.41.0
@@ -321,7 +364,7 @@ npm run preview
 | Модель и сериализация | `modelSerializer`, `modelCompute`, `arrayShape`, `variantChange`, `modelHistoryService` | Преобразования StorageModel/BaseModel, compute-граф, формы ARRAY и история. |
 | Схемы и ограничения | `elementsValidator`, `regionsValidator`, `prioritySchemaConstraints`, `modelConstraintDiagnostics`, `tableValidationHighlight` | Дескрипторные и модельные ограничения, диагностика и подсветка. |
 | Табличные представления | `tableViewLifecycle`, `referenceViewService`, `modelReferenceViews`, `sidePanelElementActionsContract` | Жизненный цикл View, связанные readonly-проекции и действия панели. |
-| Библиотеки материалов | `materialLibrary*`, `materialImportService`, `htcConfigImporter`, `xapLibImporter`, `materialReferenceValidation` | Источники библиотек, импорт, история, ссылки и представление. |
+| Библиотеки материалов | `materialLibrary*`, `materialImportService`, `htsConfigImporter`, `xapLibImporter`, `materialReferenceValidation` | Источники библиотек, импорт, история, ссылки и представление. |
 | Задания и файлы | `taskApprovalContract`, `taskDirectoryPermissions`, `taskMaterialLibraryService`, `taskSummaryService`, `fileSystemAccessSupport` | Маркеры, файловые права, сводки и классификация среды. |
 | Генераторы и графики | `timeFunction*`, `recordGraphModel`, `graphClipboard`, `graphContextMenuContract` | Разбор формул, временная сетка, история и действия графиков. |
 | Геометрия | `geometry*`, `kvDerived`, `mhjLayout`, `symmetryExpansion` | Чистая 3D-модель, камера, picking, дискретизация и перенесённая математика. |

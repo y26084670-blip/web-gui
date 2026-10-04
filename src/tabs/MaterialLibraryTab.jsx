@@ -15,7 +15,7 @@ import { FmmClipboardDialog } from "../components/materials/FmmClipboardDialog.j
 import { modelToRows } from "../tabulator/converters/modelConverter";
 import { TableBuilder } from "../tabulator/builders/TableBuilder";
 import { DetailRegion } from "../tabulator/views/DetailRegion";
-import { HtcMaterialDetailView } from "../tabulator/views/HtcMaterialDetailView.js";
+import { HtsMaterialDetailView } from "../tabulator/views/HtsMaterialDetailView.js";
 import { TableView } from "../tabulator/views/TableView";
 import { COMMON_TABLE_OPTIONS } from "../tabulator/tableOptions";
 import { FIELD_TYPES } from "../services/schemas/common/constants";
@@ -31,7 +31,7 @@ import { findLocalXap, importUsedFmmMaterials } from "../services/taskImportMate
 import { modelService } from "../services/modelService.js";
 import { diagnosticService } from "../services/diagnosticService.js";
 import { createFmmMaterialFile } from "../services/materialImport/xapLibImporter.js";
-import { createHtcMaterialFile } from "../services/materialImport/htcConfigImporter.js";
+import { createHtsMaterialFile } from "../services/materialImport/htsConfigImporter.js";
 import { materialLibraryHistoryService } from "../services/materialLibraryHistoryService.js";
 import { unsavedChangesService } from "../services/unsavedChangesService.js";
 import {
@@ -296,12 +296,12 @@ export function MaterialLibraryTab(props) {
     setSelectedRecords([]);
   }
 
-  function createHtcDetail(row) {
+  function createHtsDetail(row) {
     const rowData = row.getData();
     const host = document.createElement("div");
     host.className = "nested-table-view";
 
-    const view = new HtcMaterialDetailView({
+    const view = new HtsMaterialDetailView({
       schema: tableSchema,
       record: rowData,
       isWritable: () => canEditLibrary(),
@@ -361,10 +361,10 @@ export function MaterialLibraryTab(props) {
     return entry;
   }
 
-  function showHtcDetail(row) {
+  function showHtsDetail(row) {
     const rowData = row.getData();
     const entry = recordDetailViews.get(rowData)
-      ?? createHtcDetail(row);
+      ?? createHtsDetail(row);
     const name = entry.record.name || rowData.rowLabel;
 
     detailRegion.mount(
@@ -407,7 +407,7 @@ export function MaterialLibraryTab(props) {
       return;
     }
 
-    showHtcDetail(row);
+    showHtsDetail(row);
   }
 
   function handleSelectionChanged(_data, rows) {
@@ -828,7 +828,7 @@ export function MaterialLibraryTab(props) {
         const source = record._taskLibraryRecord;
         const file = isFmm
           ? createFmmMaterialFile(record)
-          : createHtcMaterialFile(record);
+          : createHtsMaterialFile(record);
         const result = await taskMaterialLibraryService.saveMaterial({
           taskHandle: destination,
           material: file,
@@ -841,6 +841,7 @@ export function MaterialLibraryTab(props) {
           relativePath: result.path,
           byteSize: result.byteSize,
           sha256: result.sha256,
+          shadowedRecords: [],
           data: file.data,
         };
         saved.add(record);

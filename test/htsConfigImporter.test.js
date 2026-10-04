@@ -2,22 +2,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-    createHtcMaterialFile,
-    HTC_PROPERTY_KEYS,
-    htcMaterialStorageRecord,
-    parseHtcConfig,
-    parseHtcMaterial,
-    serializeHtcMaterial,
-} from "../src/services/materialImport/htcConfigImporter.js";
+    createHtsMaterialFile,
+    HTS_PROPERTY_KEYS,
+    htsMaterialStorageRecord,
+    parseHtsConfig,
+    parseHtsMaterial,
+    serializeHtsMaterial,
+} from "../src/services/materialImport/htsConfigImporter.js";
 import {
-    buildHtcConfig,
+    buildHtsConfig,
     utf8Bytes,
     windows1251Bytes,
 } from "./fixtures/materialImportFixtures.js";
 
 for (const version of [201, 202, 203, 204]) {
-    test(`HTC config version ${version} produces canonical current property`, () => {
-        const parsed = parseHtcConfig(buildHtcConfig(version));
+    test(`HTS config version ${version} produces canonical current property`, () => {
+        const parsed = parseHtsConfig(buildHtsConfig(version));
 
         assert.equal(parsed.version, version);
         assert.equal(parsed.property.j_HC0, 2300);
@@ -39,121 +39,121 @@ for (const version of [201, 202, 203, 204]) {
     });
 }
 
-test("HTC parser ignores non-ASCII config descriptions", () => {
-    const bytes = utf8Bytes(buildHtcConfig(203));
+test("HTS parser ignores non-ASCII config descriptions", () => {
+    const bytes = utf8Bytes(buildHtsConfig(203));
     const headerStart = bytes.indexOf(0x0a) + 1;
     bytes[headerStart] = 0xff;
 
-    assert.equal(parseHtcConfig(bytes).version, 203);
+    assert.equal(parseHtsConfig(bytes).version, 203);
 });
 
-test("HTC material uses first comment line and supports CP1251 fallback", () => {
-    const utf8 = parseHtcMaterial({
+test("HTS material uses first comment line and supports CP1251 fallback", () => {
+    const utf8 = parseHtsMaterial({
         name: "ВТСП 1",
-        config: buildHtcConfig(203),
+        config: buildHtsConfig(203),
         comment: utf8Bytes("Первая строка\r\nВторая строка"),
     });
     assert.equal(utf8.record.comment, "Первая строка");
 
-    const cp1251 = parseHtcMaterial({
+    const cp1251 = parseHtsMaterial({
         name: "ВТСП 2",
-        config: buildHtcConfig(203),
+        config: buildHtsConfig(203),
         comment: windows1251Bytes("Комментарий"),
     });
     assert.equal(cp1251.record.comment, "Комментарий");
 });
 
-test("HTC material requires a nonempty comment file", () => {
+test("HTS material requires a nonempty comment file", () => {
     assert.throws(
-        () => parseHtcMaterial({
+        () => parseHtsMaterial({
             name: "ВТСП",
-            config: buildHtcConfig(203),
+            config: buildHtsConfig(203),
             comment: new Uint8Array(),
         }),
         /comment\.txt пуст/,
     );
 });
 
-test("HTC serializer writes current keys only and excludes transient metadata", () => {
-    const { version, record } = parseHtcMaterial({
+test("HTS serializer writes current keys only and excludes transient metadata", () => {
+    const { version, record } = parseHtsMaterial({
         name: "ВТСП",
-        config: buildHtcConfig(204),
+        config: buildHtsConfig(204),
         comment: "Описание",
     });
-    const storage = htcMaterialStorageRecord(record);
-    const file = createHtcMaterialFile(record, { version });
+    const storage = htsMaterialStorageRecord(record);
+    const file = createHtsMaterialFile(record, { version });
 
-    assert.deepEqual(Object.keys(storage), HTC_PROPERTY_KEYS);
+    assert.deepEqual(Object.keys(storage), HTS_PROPERTY_KEYS);
     assert.equal(Object.hasOwn(storage, "name"), false);
     assert.equal(Object.hasOwn(storage, "legacyVersion"), false);
-    assert.equal(file.kind, "HTC");
+    assert.equal(file.kind, "HTS");
     assert.equal(file.fileName, "ВТСП.txt");
     assert.equal(file.legacyVersion, 204);
     assert.deepEqual(file.data, storage);
-    assert.equal(file.text, serializeHtcMaterial(record));
+    assert.equal(file.text, serializeHtsMaterial(record));
     assert.equal(file.text.endsWith("\n"), true);
 });
 
-test("HTC parser rejects unsupported, malformed and truncated configs", () => {
+test("HTS parser rejects unsupported, malformed and truncated configs", () => {
     assert.throws(
-        () => parseHtcConfig(buildHtcConfig(205)),
+        () => parseHtsConfig(buildHtsConfig(205)),
         /Неподдерживаемая версия/,
     );
 
-    const noTab = buildHtcConfig(203).replace("2300\tfixture", "2300 fixture");
-    assert.throws(() => parseHtcConfig(noTab), /разделитель табуляции/);
+    const noTab = buildHtsConfig(203).replace("2300\tfixture", "2300 fixture");
+    assert.throws(() => parseHtsConfig(noTab), /разделитель табуляции/);
 
-    const truncated = buildHtcConfig(204).split(/\r?\n/).slice(0, 20).join("\n");
-    assert.throws(() => parseHtcConfig(truncated), /оборван/);
+    const truncated = buildHtsConfig(204).split(/\r?\n/).slice(0, 20).join("\n");
+    assert.throws(() => parseHtsConfig(truncated), /оборван/);
 });
 
-test("HTC serializer defaults missing j_ani and rejects non-boolean values", () => {
+test("HTS serializer defaults missing j_ani and rejects non-boolean values", () => {
     const record = Object.fromEntries(
-        HTC_PROPERTY_KEYS.map(key => [
+        HTS_PROPERTY_KEYS.map(key => [
             key,
             key === "comment" ? "Описание" : key === "M3D" ? false : 1,
         ]),
     );
     delete record.j_ani;
-    assert.equal(htcMaterialStorageRecord(record).j_ani, true);
+    assert.equal(htsMaterialStorageRecord(record).j_ani, true);
     for (const value of [true, false]) {
         record.j_ani = value;
-        assert.equal(JSON.parse(serializeHtcMaterial(record)).j_ani, value);
+        assert.equal(JSON.parse(serializeHtsMaterial(record)).j_ani, value);
     }
     for (const value of [0, 1, "false", null, undefined]) {
         record.j_ani = value;
         assert.throws(
-            () => serializeHtcMaterial(record),
+            () => serializeHtsMaterial(record),
             /j_ani.*логическим значением/u,
         );
     }
 });
 
-test("HTC material parser does not require unrelated version 204 circuit data", () => {
-    const materialSectionOnly = buildHtcConfig(204)
+test("HTS material parser does not require unrelated version 204 circuit data", () => {
+    const materialSectionOnly = buildHtsConfig(204)
         .split(/\r?\n/)
         .slice(0, 26)
         .join("\n");
 
-    const parsed = parseHtcConfig(materialSectionOnly);
+    const parsed = parseHtsConfig(materialSectionOnly);
     assert.equal(parsed.version, 204);
     assert.equal(parsed.property.JC0, 150);
     assert.equal(parsed.property.m3_b, 10);
 });
 
-test("HTC parser rejects nonintegral model selectors", () => {
+test("HTS parser rejects nonintegral model selectors", () => {
     assert.throws(
-        () => parseHtcConfig(buildHtcConfig(203, { m_type: 1.5 })),
+        () => parseHtsConfig(buildHtsConfig(203, { m_type: 1.5 })),
         /Mtype.*ожидалось целое/,
     );
     assert.throws(
-        () => parseHtcConfig(buildHtcConfig(203, { j2_n: 20.5 })),
+        () => parseHtsConfig(buildHtsConfig(203, { j2_n: 20.5 })),
         /JMOD2N.*ожидалось целое/,
     );
 });
 
-test("Float32-backed HTC integer fields are not narrowed to Int32", () => {
-    const parsed = parseHtcConfig(buildHtcConfig(203, {
+test("Float32-backed HTS integer fields are not narrowed to Int32", () => {
+    const parsed = parseHtsConfig(buildHtsConfig(203, {
         m_type: 3000000000,
         j2_n: 3000000000,
     }));

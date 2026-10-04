@@ -115,6 +115,26 @@ test("legacy htcFlatten field is dropped during CLUSTER round-trip", () => {
     );
 });
 
+test("read aliases preserve false and canonical presence wins during HTS round-trip", () => {
+    const schema = {
+        id: "general-fixture",
+        config: { storage: "cluster" },
+        properties: {
+            htsRegimFC: { type: "boolean", default: false, storageAliases: ["htcRegimFC"] },
+            htsMu: { type: "boolean", default: true, storageAliases: ["htcMu"] },
+            htsRo: { type: "boolean", default: true, storageAliases: ["htcRo"] },
+        },
+    };
+    const old = { htcRegimFC: true, htcMu: false, htcRo: false };
+    assert.deepEqual(deserialize(old, schema), { htsRegimFC: true, htsMu: false, htsRo: false });
+    assert.deepEqual(serialize(deserialize(old, schema), schema), { htsRegimFC: true, htsMu: false, htsRo: false });
+    assert.deepEqual(old, { htcRegimFC: true, htcMu: false, htcRo: false });
+    assert.deepEqual(deserialize({ ...old, htsRegimFC: false, htsMu: true, htsRo: true }, schema),
+        { htsRegimFC: false, htsMu: true, htsRo: true });
+    assert.equal(deserialize({ htsRo: null, htcRo: true }, schema).htsRo, null);
+    assert.deepEqual(deserialize({}, schema), { htsRegimFC: false, htsMu: true, htsRo: true });
+});
+
 test("legacy Conrab fields are dropped from both RECORDS profiles", () => {
     const legacyFields = {
         EPS_J: 0.001,

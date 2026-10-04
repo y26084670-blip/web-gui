@@ -71,21 +71,21 @@ try {
   await dialog.locator('input[name="taskName"]').fill('Created'); await submit('Создать задание'); await done();
   const created = await page.evaluate(() => taskFixture.readModel('Created'));
   const savedGeneral = JSON.parse(await read('Project/Created/input3XX/general.txt'));
-  check('new task saves and reloads both HTS subsystems disabled', savedGeneral.htcMu === false && savedGeneral.htcRo === false
-    && created.model.general.htcMu === false && created.model.general.htcRo === false);
+  check('new task saves and reloads both HTS subsystems disabled', savedGeneral.htsMu === false && savedGeneral.htsRo === false
+    && created.model.general.htsMu === false && created.model.general.htsRo === false);
   check('new task reloads all schema files', created.diagnostics.every(item => item.level !== 'error') && Object.values(created.model).every(x => x !== null));
   check('new task has no fabricated geometry and two conrab profiles', created.model.elements.length === 0 && created.model.regions.length === 0 && created.model.conrab.length === 2);
   check('new task has valid empty prescribed source object', JSON.parse(await read('Project/Created/input3XX/mhj.txt')).v.length === 0);
   check('new task guarded and not opened', (await state()).path === null && await page.evaluate(() => taskFixture.exists('Project/Created/input3XX/_nogo.e3d')));
   await choose('Original'); await button('Загрузить для редактирования').click();
   await page.waitForFunction(() => taskFixture.snapshot().model.general);
-  check('existing task loads enabled HTS subsystems unchanged', (await state()).model.general.htcMu === true && (await state()).model.general.htcRo === true);
+  check('existing task loads enabled HTS subsystems unchanged', (await state()).model.general.htsMu === true && (await state()).model.general.htsRo === true);
   await page.evaluate(() => taskFixture.dirty());
   const dirty = await state();
   await open('Создать копию'); await dialog.locator('input[name="taskName"]').fill('Copy'); await submit('Создать копию'); await done();
   const afterCopy = await state();
   const copiedGeneral = JSON.parse(await read('Project/Copy/input3XX/general.txt'));
-  check('copy preserves enabled HTS subsystems', copiedGeneral.htcMu === true && copiedGeneral.htcRo === true);
+  check('copy preserves enabled HTS subsystems', copiedGeneral.htsMu === true && copiedGeneral.htsRo === true);
   check('copy preserves unsaved loaded model', dirty.path === afterCopy.path && afterCopy.dirty && afterCopy.model.general.timeStep === 42);
   check('copy contains saved state, library and formulas', JSON.parse(await read('Project/Copy/input3XX/general.txt')).timeStep !== 42 && await read('Project/Copy/input3XX/FMM/custom.json') === '{"unchanged":true}' && await read('Project/Copy/input3XX/formulas-user.json') === '{"formula":"sin(t)"}');
   check('copy excludes results', !await page.evaluate(() => taskFixture.exists('Project/Copy/output3XX/result.bin')));

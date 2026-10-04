@@ -1,4 +1,4 @@
-export const HTC_PARAMETER_NAMES = Object.freeze([
+export const HTS_PARAMETER_NAMES = Object.freeze([
     "j_HC0",
     "JC0",
     "JCa",
@@ -19,8 +19,8 @@ export const HTC_PARAMETER_NAMES = Object.freeze([
     "M3D",
 ]);
 
-// solver/src/core/types.jl — defaults конструктора PropHTC.
-export const HTC_EFFECTIVE_DEFAULTS = Object.freeze({
+// solver/src/core/types.jl — defaults конструктора PropHTS.
+export const HTS_EFFECTIVE_DEFAULTS = Object.freeze({
     j_ani: true,
     KHabc: 1,
     Diag: 0,

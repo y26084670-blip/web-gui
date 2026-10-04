@@ -118,7 +118,7 @@ function baseFixture(names, { corrupt = false } = {}) {
  });
  const index = { schemaVersion:1, source:{fileCount:records.length,byteSize:records.reduce((n,r)=>n+r.byteSize,0)},
   libraries:{FMM:{kind:"FMM",directory:"xapLibFMM",title:"ФММ",records},
-   HTC:{kind:"HTC",directory:"xapLibHTC",title:"ВТСП",records:[]}} };
+   HTS:{kind:"HTS",directory:"xapLibHTS",title:"ВТСП",records:[]}} };
  const baseLibraryService = createDefaultLibraryService({cryptoImpl:webcrypto,baseUrl:"/web-gui/",
   fetchImpl:async url => {
    calls.push(url);

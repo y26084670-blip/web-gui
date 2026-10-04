@@ -8,8 +8,8 @@ import {
 } from "./common/constants";
 import { createSchema } from "../schemaFactory";
 import {
-    HTC_EFFECTIVE_DEFAULTS,
-    HTC_PARAMETER_NAMES,
+    HTS_EFFECTIVE_DEFAULTS,
+    HTS_PARAMETER_NAMES,
 } from "../materials/materialConstants";
 
 const scalar = (
@@ -26,11 +26,11 @@ const scalar = (
     hidden: true,
 });
 
-export { HTC_PARAMETER_NAMES };
+export { HTS_PARAMETER_NAMES };
 
 export default createSchema({
-    id: TABS.HTC_LIBRARY.id,
-    title: TABS.HTC_LIBRARY.label,
+    id: TABS.HTS_LIBRARY.id,
+    title: TABS.HTS_LIBRARY.label,
     storage: STORAGE_TYPES.RECORDS,
     required: false,
     stretchLastColumn: true,
@@ -72,7 +72,7 @@ export default createSchema({
                 FIELD_TYPES.BOOLEAN,
                 "Тип токовой подсистемы",
                 "true - планарная модель электропроводящих свойств с нулевой X компонентой в плоскости анизотропии, false - изотропные электропроводящие свойства",
-                HTC_EFFECTIVE_DEFAULTS.j_ani,
+                HTS_EFFECTIVE_DEFAULTS.j_ani,
             ),
             textOn: "Планарная",
             textOff: "Изотропная",
@@ -134,19 +134,19 @@ export default createSchema({
             FIELD_TYPES.FLOAT,
             "KHabc",
             "Параметр анизотропии для 3D",
-            HTC_EFFECTIVE_DEFAULTS.KHabc,
+            HTS_EFFECTIVE_DEFAULTS.KHabc,
         ),
         Diag: scalar(
             FIELD_TYPES.FLOAT,
             "Diag",
             "Диаграмма направленности для 3D",
-            HTC_EFFECTIVE_DEFAULTS.Diag,
+            HTS_EFFECTIVE_DEFAULTS.Diag,
         ),
         M3D: scalar(
             FIELD_TYPES.BOOLEAN,
             "M3D",
             "Использовать режим 3D",
-            HTC_EFFECTIVE_DEFAULTS.M3D,
+            HTS_EFFECTIVE_DEFAULTS.M3D,
         ),
         //
         comment: {

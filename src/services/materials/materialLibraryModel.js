@@ -1,6 +1,6 @@
 import {
-    HTC_EFFECTIVE_DEFAULTS,
-    HTC_PARAMETER_NAMES,
+    HTS_EFFECTIVE_DEFAULTS,
+    HTS_PARAMETER_NAMES,
 } from "./materialConstants.js";
 
 function isObject(value) {
@@ -83,9 +83,9 @@ function assertFiniteFmmValues(values) {
     }
 }
 
-export function createHtcMaterialDetailSchema(schema) {
+export function createHtsMaterialDetailSchema(schema) {
     const properties = Object.fromEntries(
-        HTC_PARAMETER_NAMES.map(name => [name, {
+        HTS_PARAMETER_NAMES.map(name => [name, {
             ...schema.properties[name],
             readonly: false,
             hidden: false,
@@ -127,7 +127,7 @@ export function toFmmLibraryModel(records) {
     });
 }
 
-export function toHtcLibraryModel(records) {
+export function toHtsLibraryModel(records) {
     if (!Array.isArray(records)) {
         throw new TypeError("Библиотека ВТСП должна быть массивом RECORDS.");
     }
@@ -136,11 +136,11 @@ export function toHtcLibraryModel(records) {
         const payload = cloneRecordPayload(record);
         delete payload.name;
         const currentProperty = Object.fromEntries(
-            HTC_PARAMETER_NAMES.map(name => [
+            HTS_PARAMETER_NAMES.map(name => [
                 name,
                 Object.hasOwn(payload, name)
                     ? payload[name]
-                    : HTC_EFFECTIVE_DEFAULTS[name],
+                    : HTS_EFFECTIVE_DEFAULTS[name],
             ]),
         );
         return {

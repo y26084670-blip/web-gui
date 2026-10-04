@@ -79,9 +79,9 @@ export function formatTaskSummary(model, savedAt = new Date()) {
     `Число траекторий: ${moves?.length ?? 0}`,
   ];
   if (elements.some(row => row.model === 2)) {
-    if (general.htcMu) lines.push("ВТСП: Подключена магнитная подсистема");
-    if (general.htcRo) lines.push("ВТСП: Подключена токовая подсистема");
-    lines.push(`ВТСП: Режим ${general.htcRegimFC ? "FC" : "ZFC"}`);
+    if (general.htsMu) lines.push("ВТСП: Подключена магнитная подсистема");
+    if (general.htsRo) lines.push("ВТСП: Подключена токовая подсистема");
+    lines.push(`ВТСП: Режим ${general.htsRegimFC ? "FC" : "ZFC"}`);
   }
   if (general.evalForce) lines.push("Расчет силы/момента подключен");
   if (ppj > 0) lines.push(`Число компонент плотн тока J (PPJ): ${ppj}`);

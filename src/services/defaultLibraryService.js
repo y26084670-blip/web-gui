@@ -4,12 +4,12 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 export const MATERIAL_LIBRARY_KINDS = Object.freeze({
     FMM: "FMM",
-    HTC: "HTC",
+    HTS: "HTS",
 });
 
 const LIBRARY_DIRECTORIES = Object.freeze({
     [MATERIAL_LIBRARY_KINDS.FMM]: "xapLibFMM",
-    [MATERIAL_LIBRARY_KINDS.HTC]: "xapLibHTC",
+    [MATERIAL_LIBRARY_KINDS.HTS]: "xapLibHTS",
 });
 
 function clone(value) {

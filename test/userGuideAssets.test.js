@@ -34,7 +34,7 @@ test('every internal guide link and runtime asset resolves inside the standalone
 
 test('mathematical model is part of the main guide with reachable subsections', async () => {
     assert.ok(!(await readdir(USER_GUIDE_SOURCE)).includes('model.html'));
-    assert.doesNotMatch(html, /model\.html|HTC_JC_OFFSET|AI_HTC_JC_OFFSET/u);
+    assert.doesNotMatch(html, /model\.html|HT[CS]_JC_OFFSET|AI_HT[CS]_JC_OFFSET/u);
     for (const id of ['integral', 'discretization', 'weak', 'newton', 'hts', 'symmetries', 'scope']) {
         assert.ok(ids.includes(`model-${id}`), id);
         assert.ok(attributes('href').includes(`#model-${id}`), id);
@@ -46,8 +46,8 @@ test('mathematical model is part of the main guide with reachable subsections', 
     for (const id of ['jweak1', 'model-hts-power', 'model-hts-tanh']) assert.ok(ids.includes(id), id);
     assert.match(html, /16\.5\. Аппроксимация для токовой подсистемы ВТСП/u);
     assert.match(html, /1−tanh\(ab\/\(2δ\)\)/u);
-    assert.match(html, /htcMu=false/u);
-    assert.match(html, /htcRo=false/u);
+    assert.match(html, /htsMu=false/u);
+    assert.match(html, /htsRo=false/u);
 });
 
 test('guide version matches the GUI and identifies the five implemented task commands', async () => {
@@ -154,4 +154,3 @@ test('Caddy serves guide assets without the SPA fallback', async () => {
     assert.match(source, /handle @user_guide\s*\{\s*file_server\s*\}/u);
     assert.ok(source.indexOf('handle @user_guide') < source.indexOf('try_files'));
 });
-

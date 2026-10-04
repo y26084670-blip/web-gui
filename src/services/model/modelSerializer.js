@@ -47,6 +47,12 @@ export function propertyStoragePath(propertyName, property) {
     return property.storageKey ?? propertyName;
 }
 
+// Каноническое имя всегда имеет приоритет, включая явно заданное false.
+// Альтернативные имена используются только при чтении старых файлов.
+export function propertyStorageReadPaths(propertyName, property) {
+    return [propertyStoragePath(propertyName, property), ...(property.storageAliases ?? [])];
+}
+
 // Есть ли значение по составному пути.
 export function hasStorageValue(storageItem, path) {
     let current = storageItem;
@@ -122,8 +128,9 @@ function deserializeItem(storageItem, properties) {
             continue;
         }
 
-        const path = propertyStoragePath(key, property);
-        baseItem[key] = hasStorageValue(storageItem, path)
+        const path = propertyStorageReadPaths(key, property)
+            .find(candidate => hasStorageValue(storageItem, candidate));
+        baseItem[key] = path !== undefined
             ? structuredClone(getStorageValue(storageItem, path))
             : structuredClone(property.default);
     }

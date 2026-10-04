@@ -4,13 +4,13 @@ import {
 } from "../defaultLibraryService";
 import {
     toFmmLibraryModel,
-    toHtcLibraryModel,
+    toHtsLibraryModel,
 } from "./materialLibraryModel";
 import { taskMaterialLibraryService } from "../taskMaterialLibraryService.js";
 
 const adapters = Object.freeze({
     [MATERIAL_LIBRARY_KINDS.FMM]: toFmmLibraryModel,
-    [MATERIAL_LIBRARY_KINDS.HTC]: toHtcLibraryModel,
+    [MATERIAL_LIBRARY_KINDS.HTS]: toHtsLibraryModel,
 });
 
 export async function loadMaterialLibrary(kind, options) {
