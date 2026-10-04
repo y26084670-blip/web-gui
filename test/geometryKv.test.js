@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { unpackKvVertices, validateKvVertices, validateKvVerticesDetailed }
+import { KV_GEO_FIELDS, KV_GEO_LENGTH, resetKvGeo, unpackKvVertices, validateKvVertices, validateKvVerticesDetailed }
     from "../src/services/solver/geometryKv.js";
 
 const DEG = Math.PI / 180;
@@ -143,4 +143,28 @@ test("all supported geometry types are checked after unpack",()=>{
     const pyramid=validateKvVerticesDetailed(unpackKvVertices([3,2,0,4,2,1,1],4).vertices);
     assert.equal(pyramid.valid,true);
     assert.equal(Object.hasOwn(pyramid.checks,"edge26"),false);
+});
+
+test("Editor examples have nonzero parameters and valid three-dimensional geometry for every KV type", () => {
+    for (let type = 0; type <= 4; type++) {
+        const geo = resetKvGeo(type);
+        assert.equal(geo.length, KV_GEO_LENGTH);
+        assert.ok(geo.every(Number.isFinite));
+        assert.ok(geo.slice(0, KV_GEO_FIELDS[type].length).every(value => value !== 0));
+        assert.ok(geo.slice(KV_GEO_FIELDS[type].length).every(value => value === 0));
+
+        const { vertices, err } = unpackKvVertices(geo, type);
+        assert.equal(err, 0, `type ${type}`);
+        assert.equal(validateKvVertices(vertices), true, `type ${type}`);
+        const edges = [1, 2, 4].map(index => vertices[index].map((value, axis) => value - vertices[0][axis]));
+        const [a, b, c] = edges;
+        const determinant = a[0] * (b[1] * c[2] - b[2] * c[1])
+            - a[1] * (b[0] * c[2] - b[2] * c[0])
+            + a[2] * (b[0] * c[1] - b[1] * c[0]);
+        assert.ok(Math.abs(determinant) > 0, `type ${type} must span a volume`);
+
+        const copy = resetKvGeo(type);
+        geo[0] = -999;
+        assert.deepEqual(resetKvGeo(type), copy, "examples are independent editable values");
+    }
 });
