@@ -1,4 +1,5 @@
-.uniform-field-coil { padding: 14px; overflow: auto; height: 100%; box-sizing: border-box; font: 14px/1.4 Arial, sans-serif; }
+.uniform-field-coil-window .floating-window-content { overflow: auto; }
+.uniform-field-coil { padding: 14px; box-sizing: border-box; font: 14px/1.4 Arial, sans-serif; }
 .uniform-field-coil label { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .uniform-field-coil input { min-width: 0; width: 100%; box-sizing: border-box; padding: 5px; }
 .coil-input-row { display: flex; gap: 12px; margin: 10px 0; }

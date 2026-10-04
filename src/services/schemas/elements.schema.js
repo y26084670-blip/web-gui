@@ -80,6 +80,7 @@ export default createSchema({
             description: "Название объёмного элемента",
             default: "",
             minLength: 1,
+            pattern: "\\S",
             columnWidth: 280,
         },
 
