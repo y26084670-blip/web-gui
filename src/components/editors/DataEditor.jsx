@@ -623,13 +623,15 @@ export function DataEditor(props) {
       recordIndex = recordIndexFromColumn(cell.getField());
     } else {
       propertyName = cell.getField();
-      recordIndex = table.getData().indexOf(rowData);
+      // getData() applies accessors and returns copies. Match the original
+      // RowComponent data in source order, independent of sorting/filtering.
+      recordIndex = table.getRows().findIndex(row => row.getData() === rowData);
     }
 
     if (
       !schema.properties[propertyName] ||
       (schema.config.storage === STORAGE_TYPES.RECORDS &&
-        !Number.isInteger(recordIndex))
+        (!Number.isInteger(recordIndex) || recordIndex < 0))
     ) {
       pendingCellChange = null;
       return;

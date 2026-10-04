@@ -11,8 +11,9 @@ export function UniformFieldCoilDialog(props) {
     catch(error){return {error:error.message};}
   });
   const number=v=>Number.isFinite(v)?v.toLocaleString("ru-RU",{maximumSignificantDigits:7}):"—";
-  return <FloatingWindow open={props.open} title="Катушка однородного поля" initialWidth={800} initialHeight={820}
-    minWidth={800} minHeight={820} storageKey="web-gui:uniform-field-coil" onClose={props.onClose}>
+  return <FloatingWindow open={props.open} title="Катушка однородного поля" initialWidth={600} initialHeight={640}
+    minWidth={600} minHeight={240} fitContentHeight class="uniform-field-coil-window"
+    storageKey="web-gui:uniform-field-coil:compact" onClose={props.onClose}>
     <div class="uniform-field-coil">
       <label>Название <input value={params().name} onInput={e=>change("name",e.currentTarget.value)} disabled={props.busy}/></label>
       <div class="coil-input-row">

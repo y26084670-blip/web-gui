@@ -19,7 +19,7 @@ const createRuntime = new Function("dependencies", `
     return { rect, minimized, maximized, handleTitlePointerDown, handleTitlePointerMove,
       handleTitlePointerUp, handleTitleKeyDown, finishPointerOperation, toggleMaximized, toggleMinimized,
       handleResizePointerDown, handleResizePointerMove, handleResizePointerUp,
-      handleViewportResize, syncRectFromElement,
+      handleViewportResize, syncRectFromElement, fitHeightToContent, attachWindowElement,
       attach(element) { windowElement = element; } };
   };
 `);
@@ -27,11 +27,20 @@ const createRuntime = new Function("dependencies", `
 function runtime(options = {}) {
   const storage = options.storage ?? new Map();
   const mounts = [], cleanup = [], listeners = new Map(), changed = [];
+  const frames = new Map(), observers = [];
+  let nextFrame = 0, contentHeight = options.contentHeight ?? 480;
   const window = {
     innerWidth: 1200, innerHeight: 900,
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     addEventListener: (name, callback) => listeners.set(name, callback),
     removeEventListener: name => listeners.delete(name),
+    requestAnimationFrame(callback) { const id = ++nextFrame; frames.set(id, callback); return id; },
+    cancelAnimationFrame(id) { frames.delete(id); },
+    ResizeObserver: class {
+      constructor(callback) { this.callback = callback; this.disconnected = false; observers.push(this); }
+      observe() {}
+      disconnect() { this.disconnected = true; }
+    },
   };
   const props = { open: true, fitOnDrag: true, minWidth: 520, minHeight: 360,
     initialWidth: 800, initialHeight: 600, initialX: 100, initialY: 100,
@@ -42,10 +51,16 @@ function runtime(options = {}) {
     createSignal(initial) { let value = initial; return [() => value, next => { value = next; }]; },
     onMount: callback => mounts.push(callback), onCleanup: callback => cleanup.push(callback),
   })(props);
-  api.attach({ isConnected: true, getBoundingClientRect() {
+  const content = {
+    scrollTop: 0,
+    children: [{getBoundingClientRect: () => ({bottom: contentHeight - content.scrollTop})}],
+    getBoundingClientRect: () => ({top: 0, height: api.rect().height - 40}),
+  };
+  const element = { isConnected: true, querySelector: () => content, getBoundingClientRect() {
     const r = api.rect();
     return measured ?? { left: r.x, top: r.y, width: r.width, height: api.minimized() ? 40 : r.height };
-  } });
+  } };
+  api.attach(element);
   mounts.forEach(callback => callback());
   const captures = new Set();
   const target = {
@@ -55,7 +70,12 @@ function runtime(options = {}) {
   const event = (x, y, extra = {}) => ({ pointerId: 1, button: 0, clientX: x, clientY: y,
     currentTarget: target, target: { closest: () => null }, preventDefault() {}, stopPropagation() {}, ...extra });
   return {
-    ...api, window, storage, changed, props,
+    ...api, window, storage, changed, props, element, observers,
+    flushContentFrames() {
+      const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback());
+    },
+    setContentHeight(height) { contentHeight = height; observers.at(-1)?.callback(); },
+    setContentScroll(top) { content.scrollTop = top; },
     down: (x = 300, y = 120, extra) => api.handleTitlePointerDown(event(x, y, extra)),
     move: (x, y, extra) => api.handleTitlePointerMove(event(x, y, extra)),
     up: () => api.handleTitlePointerUp(event(0, 0)),
@@ -83,6 +103,47 @@ function assertInside(h) {
   assert.ok(r.width >= Math.min(520, (h.window.innerWidth - 16) / divisor));
   assert.ok(r.height >= Math.min(360, (h.window.innerHeight - 16) / divisor));
 }
+
+test("content height fitting shrinks a tall panel and tracks form changes within viewport bounds", () => {
+  const h = runtime({props: {fitOnDrag: false, fitContentHeight: true,
+    initialWidth: 600, minWidth: 600, initialHeight: 820, minHeight: 240}});
+  h.attachWindowElement(h.element); h.flushContentFrames();
+  assert.equal(h.rect().height, 520);
+  assert.equal(h.rect().width, 600);
+  h.setContentHeight(760); h.flushContentFrames();
+  assert.equal(h.rect().height, 800);
+  assert.ok(h.rect().y + h.rect().height <= 892);
+  h.resize(640, 480); h.flushContentFrames();
+  assert.equal(h.rect().height, 464);
+  assert.equal(h.rect().y, 8);
+  h.setContentScroll(240);
+  h.setContentHeight(760); h.flushContentFrames();
+  assert.equal(h.rect().height, 464, "scrolling does not reduce the natural form height");
+  h.resize(1200, 900); h.flushContentFrames();
+  assert.equal(h.rect().height, 800, "a larger viewport fits the form again");
+  h.setContentScroll(0);
+  h.setContentHeight(260); h.flushContentFrames();
+  assert.equal(h.rect().height, 300);
+  h.dispose(); assert.ok(h.observers.every(observer => observer.disconnected));
+});
+
+test("content fitting is opt-in and leaves maximized, minimized and closed windows alone", () => {
+  const ordinary = runtime(); ordinary.attachWindowElement(ordinary.element);
+  ordinary.fitHeightToContent(); assert.equal(ordinary.rect().height, 600);
+  assert.equal(ordinary.observers.length, 0); ordinary.dispose();
+  const h = runtime({props: {fitOnDrag: false, fitContentHeight: true}});
+  h.attachWindowElement(h.element); h.flushContentFrames();
+  for (const mode of ["maximized", "minimized", "closed"]) {
+    if (mode === "maximized") h.toggleMaximized();
+    if (mode === "minimized") h.toggleMinimized();
+    if (mode === "closed") h.props.open = false;
+    const before = {...h.rect()}; h.setContentHeight(700); h.flushContentFrames();
+    assert.deepEqual(h.rect(), before);
+    if (mode === "maximized") h.toggleMaximized();
+    if (mode === "minimized") h.toggleMinimized();
+  }
+  h.dispose();
+});
 
 test("3D alone opts into fitting during drag; existing modeless dialogs retain their contract", () => {
   const viewer = readFileSync(new URL("../src/components/geometry/GeometryViewerWindow.jsx", import.meta.url), "utf8");

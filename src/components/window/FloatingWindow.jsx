@@ -191,6 +191,8 @@ export function FloatingWindow(props) {
   let dragState = null;
   let resizeState = null;
   let restoreRect = null;
+  let contentResizeObserver;
+  let contentResizeFrame = 0;
 
   const [rect, setRect] = createSignal({
     x: VIEWPORT_MARGIN,
@@ -237,6 +239,52 @@ export function FloatingWindow(props) {
     return next;
   };
 
+  const fitHeightToContent = () => {
+    if (!props.fitContentHeight || !props.open || !windowElement?.isConnected
+        || minimized() || maximized()) return;
+    const content = windowElement.querySelector(".floating-window-content");
+    if (!content?.children.length) return;
+    const bounds = windowElement.getBoundingClientRect();
+    const contentBounds = content.getBoundingClientRect();
+    const bottom = Math.max(...Array.from(content.children,
+      child => child.getBoundingClientRect().bottom));
+    // Children retain their natural height; frame/titlebar height is separate.
+    // clampRect keeps a tall form inside the viewport, with content scrolling.
+    const height = Math.ceil(bottom - contentBounds.top + (content.scrollTop || 0)
+      + bounds.height - contentBounds.height);
+    if (Number.isFinite(height) && height > 0) replaceRect({ ...rect(), height });
+  };
+
+  const scheduleContentFit = () => {
+    window.cancelAnimationFrame(contentResizeFrame);
+    contentResizeFrame = window.requestAnimationFrame(() => {
+      contentResizeFrame = 0;
+      fitHeightToContent();
+    });
+  };
+
+  const attachWindowElement = (element) => {
+    windowElement = element;
+    contentResizeObserver?.disconnect();
+    if (!props.fitContentHeight) return;
+    window.cancelAnimationFrame(contentResizeFrame);
+    contentResizeFrame = window.requestAnimationFrame(() => {
+      contentResizeFrame = 0;
+      if (!props.open || !windowElement?.isConnected) return;
+      const content = windowElement?.querySelector(".floating-window-content");
+      if (content && typeof window.ResizeObserver === "function") {
+        contentResizeObserver = new window.ResizeObserver(scheduleContentFit);
+        for (const child of content.children) contentResizeObserver.observe(child);
+      }
+      fitHeightToContent();
+    });
+  };
+
+  onCleanup(() => {
+    contentResizeObserver?.disconnect();
+    window.cancelAnimationFrame?.(contentResizeFrame);
+  });
+
   const moveVisibleRect = (dx, dy, persist = false) => {
     const next = moveFittedRect(rect(), dx, dy, rectOptions());
     setRect(next);
@@ -282,6 +330,7 @@ export function FloatingWindow(props) {
       return;
     }
     replaceRect(rect(), true);
+    if (props.fitContentHeight) scheduleContentFit();
   };
 
   const finishPointerOperation = () => {
@@ -430,6 +479,7 @@ export function FloatingWindow(props) {
     if (maximized()) return;
     setMinimized(!minimized());
     replaceRect(rect(), true);
+    if (props.fitContentHeight && !minimized()) scheduleContentFit();
   };
 
   const toggleMaximized = () => {
@@ -440,6 +490,7 @@ export function FloatingWindow(props) {
       setMaximized(false);
       replaceRect(restoreRect ?? initialRect(props), true);
       restoreRect = null;
+      if (props.fitContentHeight) scheduleContentFit();
       return;
     }
 
@@ -462,7 +513,7 @@ export function FloatingWindow(props) {
           style={{ "z-index": props.zIndex }}
         >
           <section
-            ref={(element) => (windowElement = element)}
+            ref={attachWindowElement}
             class={`floating-window${minimized() ? " is-minimized" : ""}${
               maximized() ? " is-maximized" : ""
             }${props.class ? ` ${props.class}` : ""}`}

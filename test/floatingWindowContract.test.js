@@ -48,7 +48,6 @@ test("floating window supports drag, viewport clamp, and persistence", async () 
     assert.match(source, /window\.localStorage\.setItem/u);
     assert.match(source, /!props\.open/u);
     assert.match(source, /!windowElement\?\.isConnected/u);
-    assert.doesNotMatch(source, /ResizeObserver/u);
 });
 
 test("floating window exposes minimize, maximize, and close actions", async () => {

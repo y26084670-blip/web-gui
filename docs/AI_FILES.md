@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-04 16:46 UTC+3.
+Обновлено: 2026-10-04 21:46 UTC+3.
 
 ## Назначение
 
@@ -76,6 +76,7 @@
 | Ширина подписей конфигурации | `src/services/schemas/conrab.schema.js` выбирает `rowLabelWidth: "auto"`; `TableBuilder.js` передаёт измерение колонки штатной раскладке Tabulator. |
 | Разрешение свойств | `src/tabulator/schema/propertyResolver.js` — единственная точка получения эффективного дескриптора свойства для ячейки. |
 | Преобразования | `src/tabulator/converters/` содержит ARRAY/RECORDS/CLUSTER-кодеки, вычисляемые представления, подписи строк и geo-варианты. |
+| Смена типа в таблице | `src/components/editors/DataEditor.jsx` передаёт контекст `cellEdited` в вариантную реакцию; `test/dataEditorVariantChange.test.js` проверяет реальные обработчики, геометрию, историю и ограничения названия. [Контракт](AI_DATA_CONTRACTS.md#element-geometry-examples). |
 | Форматирование | `src/tabulator/formatters/formatterRegistry.js` и `universalFormatter.js`. |
 | Редактирование | `src/tabulator/editors/editorRegistry.js`, `editorFactory.js`, `universalEditor.js`; `test/inputEditorKeyboard.test.js` проверяет клавиши ввода и сохранение фокуса. |
 | Представления | `src/tabulator/views/viewRegistry.js`, `TableView.js`, `DetailRegion.js`, `HtcMaterialDetailView.js`, `registerDefaultViews.js`. |
@@ -151,7 +152,7 @@
 | Владелец | Путь | Ответственность |
 |---|---|---|
 | Окно/viewport | `src/components/geometry/GeometryViewerWindow.jsx`, `ThreeGeometryViewport.jsx` | Жизненный цикл окна и Three.js-сцены. |
-| Плавающий прямоугольник | `src/components/window/FloatingWindow.jsx`/`.css`; `test/floatingWindowDrag.test.js`, `test/floatingWindowContract.test.js` | Подстройка 3D при drag по текущему размеру до половины ширины с пропорциональной viewport высотой, ручной resize за стороны/угол, ограничение viewport и сохранение UI-состояния; проверка реальных обработчиков. |
+| Плавающий прямоугольник | `src/components/window/FloatingWindow.jsx`/`.css`; `test/floatingWindowDrag.test.js`, `test/floatingWindowContract.test.js` | Подстройка 3D при drag по текущему размеру до половины ширины с пропорциональной viewport высотой, ручной resize за стороны/угол, ограничение viewport и сохранение UI-состояния; необязательная высота по содержимому для [панели катушки](AI_UI_CONTRACTS.md#uniform-field-coil); проверка реальных обработчиков. |
 | Сцена | `src/services/visualization/geometrySceneModel.js` | Чистая проекция `general`, `elements`, `regions`. |
 | Время | `src/services/visualization/geometryTimeModel.js` | Положение, углы и амплитуды в выбранный момент. |
 | Источники | `src/services/visualization/sourceVectorSceneModel.js` | Векторы `mhj`, AS/PS и симметричные образы. |
