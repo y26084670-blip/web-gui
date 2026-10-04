@@ -19,6 +19,7 @@ import {
 } from "./common/enums";
 import { createSchema } from "../schemaFactory";
 import { resetKvGeo } from "../solver/geometryKv.js";
+import { ELEMENT_NAME_CONSTRAINTS } from "./common/elementNameConstraints.js";
 import {
     eoCount,
     eoCountAll,
@@ -75,12 +76,10 @@ export default createSchema({
 
     properties: {
         name: {
-            type: FIELD_TYPES.STRING,
+            ...ELEMENT_NAME_CONSTRAINTS,
             label: "Название",
             description: "Название объёмного элемента",
             default: "",
-            minLength: 1,
-            pattern: "\\S",
             columnWidth: 280,
         },
 

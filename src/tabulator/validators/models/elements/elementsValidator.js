@@ -5,6 +5,8 @@ import {
     createWarning,
 } from "../../common/createDiagnostic.js";
 import { TABS } from "../../../../services/schemas/common/constants.js";
+import { ELEMENT_NAME_CONSTRAINTS } from "../../../../services/schemas/common/elementNameConstraints.js";
+import { validateConstraintValue } from "../../types/constraintValidator.js";
 import {
     unpackKvVertices,
     validateKvVerticesDetailed,
@@ -92,6 +94,16 @@ export function elementsValidator(
 
 function validateRecordRules(elements, diagnostics) {
     elements.forEach((record, index) => {
+        if (typeof record?.name !== "string"
+            || !validateConstraintValue(record.name, ELEMENT_NAME_CONSTRAINTS)) {
+            diagnostics.push(createError({
+                tab: TABS.ELEMENTS,
+                row: index + 1,
+                property: "name",
+                message: "название элемента должно содержать хотя бы один непробельный символ",
+            }));
+        }
+
         validateSymmetryPair({
             diagnostics,
             index,

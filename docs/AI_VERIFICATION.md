@@ -3,13 +3,16 @@
 Обновлено: 2026-10-05, UTC+3.
 
 <a id="verification-hts-naming"></a>
-## Совместимый переход HTC → HTS — 4.44.2
+## Совместимый переход HTC → HTS — 4.44.3
 
 Проверено 05.10.2026, Node.js 24.19.0/Linux, до публикации подготовленной версии.
-База — commit main `3b2209f733761a11b88d3a468d45d4e4d7789b46` (4.44.1).
-Полный `node --test --test-reporter=tap`: **728/751**, 23 прежних сбоя;
-до правки полный `npm test`: **702/725**, те же 23 сбоя. Наборы имён сбоев
+База — commit main `3807e2c159e2e7df18489195282ef78285868e1f` (4.44.2),
+включающий исправление общей проверки названий элементов.
+Полный `node --test --test-reporter=tap`: **732/755**, 23 прежних сбоя;
+базовый полный прогон — **706/729**, те же 23 сбоя. Наборы имён сбоев
 сопоставлены с учётом переименования HTC → HTS, новых сбоев нет.
+Прежняя проверка перехода на базе 4.44.1 дала 728/751 против 702/725;
+после слияния изменения проверки имён сохранены.
 
 Прежние сбои: 12 проверок legacy config-парсера на неполных fixture
 (`JMOD1delta=undefined`), одна проверка старого снимка библиотеки с отсутствующим
@@ -28,7 +31,11 @@ owner-SHA fixture TEAM7 — **15/15**: старые/новые/смешанны�
 приоритет канонического `false`, прежние defaults и запись только `hts*`.
 Файл TEAM7 намеренно сохраняет исходные `htc*` и хеш как свидетельство.
 
-`npm run build:pages` успешно: 225 модулей, 185 библиотечных файлов и 9 файлов
+Объединённая целевая проверка сериализатора, General-схемы, библиотечного
+сервиса и `test/modelElementNames.test.js` — **54/54**. Все четыре новых
+теста названий из main проходят после замены fixture-каталога HTC на HTS.
+
+`npm run build:pages` успешно: 226 модулей, 185 библиотечных файлов и 9 файлов
 руководства проверены по SHA-256. Сгенерированные индекс/ресурсы используют HTS;
 package-lock изменён только в двух полях версии, integrity-суммы сохранены.
 `git diff --check` чист. Исторические evidence и ссылки на исходники старых
@@ -357,7 +364,7 @@ npm run preview
 | Модель и сериализация | `modelSerializer`, `modelCompute`, `arrayShape`, `variantChange`, `modelHistoryService` | Преобразования StorageModel/BaseModel, compute-граф, формы ARRAY и история. |
 | Схемы и ограничения | `elementsValidator`, `regionsValidator`, `prioritySchemaConstraints`, `modelConstraintDiagnostics`, `tableValidationHighlight` | Дескрипторные и модельные ограничения, диагностика и подсветка. |
 | Табличные представления | `tableViewLifecycle`, `referenceViewService`, `modelReferenceViews`, `sidePanelElementActionsContract` | Жизненный цикл View, связанные readonly-проекции и действия панели. |
-| Библиотеки материалов | `materialLibrary*`, `materialImportService`, `htcConfigImporter`, `xapLibImporter`, `materialReferenceValidation` | Источники библиотек, импорт, история, ссылки и представление. |
+| Библиотеки материалов | `materialLibrary*`, `materialImportService`, `htsConfigImporter`, `xapLibImporter`, `materialReferenceValidation` | Источники библиотек, импорт, история, ссылки и представление. |
 | Задания и файлы | `taskApprovalContract`, `taskDirectoryPermissions`, `taskMaterialLibraryService`, `taskSummaryService`, `fileSystemAccessSupport` | Маркеры, файловые права, сводки и классификация среды. |
 | Генераторы и графики | `timeFunction*`, `recordGraphModel`, `graphClipboard`, `graphContextMenuContract` | Разбор формул, временная сетка, история и действия графиков. |
 | Геометрия | `geometry*`, `kvDerived`, `mhjLayout`, `symmetryExpansion` | Чистая 3D-модель, камера, picking, дискретизация и перенесённая математика. |
@@ -1093,3 +1100,48 @@ DOM-прямоугольники в тестах заданы двойником
 в том числе сектор; выполнить Undo/Redo; открыть панель катушки после старого
 сеанса, изменить параметры и размер экрана, проверить положение кнопок.
 Запуск решателя в эту проверку не входил.
+
+<a id="verification-element-names-4442"></a>
+## Названия элементов в общей проверке — 4.44.2 (04.10.2026)
+
+База — main 4.44.1, `3b2209f733761a11b88d3a468d45d4e4d7789b46`.
+Проверено на Node.js 24.19.0/Linux. [Контракт имён](AI_DATA_CONTRACTS.md#element-names).
+
+На исходной базе новый `test/modelElementNames.test.js` дал **1/4**:
+пустые/пробельные имена отсутствовали в результате `modelValidator`, а
+фактический обработчик кнопки «Проверить модель» публиковал SUCCESS при
+пробельном имени. Тесты 4.44.1 проверяли schema-ограничение отдельно и не
+подтверждали этот путь общей проверки.
+
+На исправленной реализации:
+
+- `node --test test/modelElementNames.test.js test/elementsValidator.test.js
+  test/dataEditorVariantChange.test.js test/modelConstraintDiagnostics.test.js
+  test/constraintDiagnosticService.test.js test/modelValidationFeedback.test.js
+  test/modelSaveFeedback.test.js test/modelReferenceValidation.test.js
+  test/uniformFieldCoil.test.js test/useMed.test.js
+  test/tableValidationHighlight.test.js test/userGuideAssets.test.js` — **115/115**.
+- Полный `npm test`: база — **702/725**, исправление — **706/729**.
+  Имена 23 исходных сбоев совпадают, `added=[]`, `resolved=[]`;
+  полный набор сохраняет код выхода 1.
+- `npm run build:pages` и `npm run assets:verify` — успешно.
+  Проверены SHA-256 185 библиотечных файлов и 9 файлов руководства;
+  предупреждение Vite о размере bundle сохраняется.
+
+Новые тесты исполняют настоящий `modelValidator`, схему и создание записей,
+а также фактические `App.handleModelValidation`, `performModelValidation` и
+`collectModelDiagnostics` с настоящим `diagnosticService`. Двойниками заменены
+файловый доступ/каталог материалов, получение задания/снимка модели и таймер
+обратной связи. Круглый
+индикатор и подсчёт schema-сводки не вызываются. Пустая строка, пробелы,
+табуляция и Unicode-пробелы дают ERROR при общей команде, а исправление имени
+и повторная команда снимают модельную ошибку. Проверены номер исходной записи,
+поле name, все четыре назначения элемента, отсутствующее/нестроковое имя,
+пустая таблица и отсутствие изменений исходной модели.
+Существующие проверки сохранения подтверждают сохранение `_nogo.e3d` при ERROR;
+сохранение использует тот же проверенный `collectModelDiagnostics`.
+
+Браузерный DOM и визуальная панель диагностики в этом прогоне не проверялись.
+Ручная приёмка: в версии 4.44.2 очистить название или ввести пробелы, нажать
+«Проверить модель», открыть диагностику и проверить ERROR с номером элемента
+и полем «Название». Исправить название и повторить проверку.
