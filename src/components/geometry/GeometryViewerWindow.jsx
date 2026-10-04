@@ -460,6 +460,7 @@ export function GeometryViewerWindow(props) {
       class="geometry-viewer-floating-window"
       storageKey="web-gui:geometry-viewer-window:v2"
       fitOnDrag
+      fitViewportAspect
       initialWidth={1220}
       initialHeight={680}
       minWidth={520}
@@ -1041,4 +1042,3 @@ export function GeometryViewerWindow(props) {
     </FloatingWindow>
   );
 }
-

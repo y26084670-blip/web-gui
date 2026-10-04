@@ -1,0 +1,12 @@
+.uniform-field-coil { padding: 14px; overflow: auto; height: 100%; box-sizing: border-box; font: 14px/1.4 Arial, sans-serif; }
+.uniform-field-coil label { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.uniform-field-coil input { min-width: 0; width: 100%; box-sizing: border-box; padding: 5px; }
+.coil-input-row { display: flex; gap: 12px; margin: 10px 0; }
+.uniform-field-coil fieldset { border: 1px solid #8b969e; margin: 10px 0; }
+.uniform-field-coil p { margin: 10px 0; }
+.uniform-field-coil table { border-collapse: collapse; width: 100%; }
+.uniform-field-coil caption { text-align: left; font-weight: bold; margin-bottom: 5px; }
+.uniform-field-coil th,.uniform-field-coil td { border: 1px solid #8b969e; padding: 5px; text-align: right; }
+.uniform-field-coil th:first-child,.uniform-field-coil td:first-child { text-align: left; }
+.uniform-field-coil .coil-error { color: #b00020; background: #ffeded; border: 1px solid #b00020; padding: 8px; }
+.coil-actions { display: flex; gap: 10px; justify-content: flex-end; }

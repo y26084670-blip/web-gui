@@ -98,3 +98,41 @@ test("history keeps at most 100 actions per schema", () => {
     assert.equal(earliestRetained.value, 1);
     assert.equal(modelHistoryService.canUndo("a"), false);
 });
+
+function group() {
+    modelHistoryService.recordGroup([{schema:schemaA,before:0,after:1},{schema:schemaB,before:10,after:11}]);
+}
+test("a linked action waits for later edits in all tabs, then undoes and redoes together",()=>{
+    group();modelHistoryService.record(schemaB,11,12);
+    assert.equal(modelHistoryService.canUndo("a"),false);
+    assert.equal(modelHistoryService.takeUndo("a"),null);
+    modelHistoryService.takeUndo("b");
+    assert.deepEqual(modelHistoryService.takeUndo("a").changes.map(c=>c.value),[0,10]);
+    assert.equal(modelHistoryService.canUndo("b"),false);
+    assert.deepEqual(modelHistoryService.takeRedo("b").changes.map(c=>c.value),[1,11]);
+    assert.equal(modelHistoryService.canRedo("a"),false);
+    assert.equal(modelHistoryService.takeRedo("b").value,12);
+});
+test("branching after a linked undo invalidates dependent redo in both tabs",()=>{
+    group();modelHistoryService.record(schemaB,11,12);
+    modelHistoryService.takeUndo("b");modelHistoryService.takeUndo("a");
+    modelHistoryService.record(schemaA,0,3);
+    assert.equal(modelHistoryService.canRedo("b"),false);
+    assert.equal(modelHistoryService.canRedo("a"),false);
+    assert.equal(modelHistoryService.takeUndo("a").value,0);
+});
+test("clearing or trimming a linked history leaves no dangling group in another tab",()=>{
+    modelHistoryService.record(schemaB,9,10);group();
+    for(let i=1;i<=100;i++)modelHistoryService.record(schemaA,i,i+1);
+    assert.equal(modelHistoryService.canUndo("b"),false);
+    modelHistoryService.clear();group();modelHistoryService.clear("a");
+    assert.equal(modelHistoryService.canUndo("b"),false);
+});
+test("group snapshots are defensive and group validation has no partial history writes",()=>{
+    const after={value:1};modelHistoryService.recordGroup([{schema:schemaA,before:{value:0},after},{schema:schemaB,before:0,after:1}]);
+    after.value=99;modelHistoryService.takeUndo("b");
+    assert.equal(modelHistoryService.takeRedo("a").changes[0].value.value,1);
+    modelHistoryService.clear();
+    assert.throws(()=>modelHistoryService.recordGroup([{schema:schemaA,before:0,after:1},{schema:schemaA,before:1,after:2}]));
+    assert.equal(modelHistoryService.canUndo("a"),false);
+});

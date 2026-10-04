@@ -9,52 +9,31 @@ const [partUpdates, setPartUpdates] = createSignal({});
 const historySource = Symbol("model-history");
 let nextRevision = 0;
 
-function setModelPart(
-    schema,
-    data,
-    {
-        source = null,
-        recordHistory = false,
-    } = {},
-) {
-    if (!schema?.id) {
-        throw new Error("setModelPart requires a schema.");
-    }
-
-    const before = model()[schema.id];
-
-    // Нормализация выполняется до единственной публикации revision.
-    const computation = recomputeModel(schema, data);
-    const update = {
-        data: computation.model,
-        revision: ++nextRevision,
-        source,
-        computedPatches: computation.patches,
-    };
-
-    batch(() => {
-        setModel(current => ({
-            ...current,
-            [schema.id]: update.data,
-        }));
-
-        setPartUpdates(current => ({
-            ...current,
-            [schema.id]: update,
-        }));
+function setModelParts(parts, {source=null,recordHistory=false}={}) {
+    if(!parts.length || parts.some(p=>!p.schema?.id)
+        || new Set(parts.map(p=>p.schema.id)).size!==parts.length)throw new Error("Ожидались разные вкладки модели.");
+    // Prepare every part before publishing or recording anything.
+    const current=model();
+    const updates=parts.map(({schema,data})=>{
+        const computation=recomputeModel(schema,data);
+        return {schema,before:current[schema.id],update:{data:computation.model,
+            revision:++nextRevision,source,computedPatches:computation.patches}};
     });
+    batch(()=>{
+        if(recordHistory) {
+            if(updates.length===1){const p=updates[0];modelHistoryService.record(p.schema,p.before,p.update.data);}
+            else modelHistoryService.recordGroup(updates.map(p=>({schema:p.schema,before:p.before,after:p.update.data})));
+        }
+        setModel(old=>({...old,...Object.fromEntries(updates.map(p=>[p.schema.id,p.update.data]))}));
+        setPartUpdates(old=>({...old,...Object.fromEntries(updates.map(p=>[p.schema.id,p.update]))}));
+        for(const p of updates)unsavedChangesService.setCurrent(p.schema.id,p.update.data);
+    });
+    return updates.map(p=>p.update);
+}
 
-    if (recordHistory) {
-        modelHistoryService.record(
-            schema,
-            before,
-            update.data,
-        );
-    }
-
-    unsavedChangesService.setCurrent(schema.id, update.data);
-
-    return update;
+function setModelPart(schema,data,options={}) {
+    if(!schema?.id)throw new Error("setModelPart requires a schema.");
+    return setModelParts([{schema,data}],options)[0];
 }
 
 // Read-only task attachment: part of the immutable snapshot and revision,
@@ -111,11 +90,7 @@ function undo(schemaId) {
     const change = modelHistoryService.takeUndo(schemaId);
     if (!change) return false;
 
-    setModelPart(
-        change.schema,
-        change.value,
-        { source: historySource },
-    );
+    setModelParts((change.changes??[change]).map(c=>({schema:c.schema,data:c.value})),{source:historySource});
     return true;
 }
 
@@ -123,11 +98,7 @@ function redo(schemaId) {
     const change = modelHistoryService.takeRedo(schemaId);
     if (!change) return false;
 
-    setModelPart(
-        change.schema,
-        change.value,
-        { source: historySource },
-    );
+    setModelParts((change.changes??[change]).map(c=>({schema:c.schema,data:c.value})),{source:historySource});
     return true;
 }
 
@@ -135,6 +106,7 @@ export const modelService = {
     getModel,
     getModelPartUpdate,
     setModelPart,
+    setModelParts,
     setJweakLocal,
     clearModel,
     undo,

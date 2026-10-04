@@ -159,6 +159,8 @@ export function SidePanel(props) {
                   onClick={props.onAutofillMed}
                   title="Проанализировать контакты всех проводящих элементов при t = 0 и предложить MED. Выделение и фильтры не ограничивают поиск."
                 >Автозаполнение MED</button>
+                <button class="side-panel-option" disabled={!props.open || !props.medActionEnabled}
+                  onClick={props.onCreateUniformFieldCoil}>Катушка однородного поля</button>
               </div>
             </section>
           </>
