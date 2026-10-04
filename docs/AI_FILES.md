@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-04 21:46 UTC+3.
+Обновлено: 2026-10-04 23:42 UTC+3.
 
 ## Назначение
 
@@ -88,6 +88,7 @@
 |---|---|---|
 | Ограничения значения | `src/tabulator/validators/types/constraintValidator.js` и `src/tabulator/validators/constraints/` | Диспетчер и зарегистрированные проверки дескрипторных ограничений отдельной ячейки. |
 | Модельные ограничения | `src/tabulator/validators/types/modelValidator.js`, `src/tabulator/validators/models/modelRegistry.js` и профильные каталоги `models/*/` | Условные, межполевые и предметные проверки BaseModel. |
+| Название элемента | `src/services/schemas/common/elementNameConstraints.js`, `src/services/schemas/elements.schema.js`, `src/tabulator/validators/models/elements/elementsValidator.js`; `test/modelElementNames.test.js` | Единый дескриптор для схемы и модельного ERROR; тест общей команды проверки с фактическими обработчиками App. [Контракт](AI_DATA_CONTRACTS.md#element-names). |
 | Сводка ограничений | `src/services/modelConstraintDiagnostics.js` | Подсчёт нарушений независимо от наличия экземпляров таблиц. |
 | Готовая иерархия JWeak1 | `src/services/jweakLocalService.js`, `src/services/solver/jweakLocalValidation.js` | Readonly-загрузка, проверка неизменности файла, допустимость родителей; публикация в `modelService.setJweakLocal`, координация в `App`. [Контракт](AI_DATA_CONTRACTS.md#jweak-local-input). |
 | Общая диагностика | `src/services/diagnosticService.js` | Нормализация и группировка ошибок с координатами вкладки, записи и поля. |

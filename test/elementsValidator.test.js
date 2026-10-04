@@ -51,6 +51,7 @@ function element({
     ...overrides
 } = {}) {
     return {
+        name: "Элемент",
         symVi: vector(3),
         symR0: vector(3),
         symYl: 0,
