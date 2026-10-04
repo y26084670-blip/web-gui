@@ -80,8 +80,8 @@ function clampRect(rect, options = {}) {
 
 // An edge contact is enough to determine expansion. No former or hidden size
 // participates: after reaching half of the available span, the window moves.
-function moveFittedAxis(position, size, delta, start, end, minimum) {
-  const halfSpan = (end - start) / 2;
+function moveFittedAxis(position, size, delta, start, end, minimum, growthLimit = (end - start) / 2) {
+  const halfSpan = growthLimit;
   if (delta > 0 && position <= start + 0.5 && size < halfSpan) {
     const growth = Math.min(delta, halfSpan - size);
     size += growth;
@@ -106,8 +106,18 @@ function moveFittedRect(rect, dx, dy, options = {}) {
   const minimum = clampRect({ width: 0, height: 0 }, options);
   const horizontal = moveFittedAxis(rect.x, rect.width, dx,
     margin, Math.max(margin + 1, viewport.width - margin), minimum.width);
+  const availableWidth=Math.max(1,viewport.width-2*margin);
+  const availableHeight=Math.max(1,viewport.height-2*margin);
+  const proportionalHeight=clamp(horizontal.size*availableHeight/availableWidth,minimum.height,availableHeight);
   const vertical = moveFittedAxis(rect.y, rect.height, dy,
-    margin, Math.max(margin + 1, viewport.height - margin), minimum.height);
+    margin, Math.max(margin + 1, viewport.height - margin), minimum.height,
+    options.fitViewportAspect ? proportionalHeight : availableHeight/2);
+  // Only automatic recovery changes the ratio. Free dragging/manual resizing
+  // keep their visible dimensions and never restore a remembered rectangle.
+  if(options.fitViewportAspect && horizontal.size>rect.width) {
+    vertical.size=proportionalHeight;
+    vertical.position=clamp(vertical.position,margin,viewport.height-margin-vertical.size);
+  }
   return {
     x: horizontal.position, y: vertical.position,
     width: horizontal.size, height: vertical.size,
@@ -203,6 +213,7 @@ export function FloatingWindow(props) {
 
   const rectOptions = (viewport = viewportSize()) => ({
     viewport,
+    fitViewportAspect: props.fitViewportAspect,
     minWidth: props.fitOnDrag
       ? Math.min(minWidth(), Math.max(1, (viewport.width - 2 * VIEWPORT_MARGIN) / 2))
       : minWidth(),

@@ -51,28 +51,46 @@ function createChange(schema, before, after) {
     };
 }
 
+const parts=entry=>entry?.changes ?? (entry?[entry]:[]);
+function clearFutures(ids) {
+    const pending=[...ids],seen=new Set();
+    while(pending.length) {
+        const id=pending.pop();if(seen.has(id))continue;seen.add(id);
+        const h=getHistory(id);if(!h)continue;
+        for(const entry of h.future)if(entry.changes)pending.push(...entry.changes.map(c=>c.schema.id));
+        h.future.length=0;
+    }
+}
+function trimThrough(entry) {
+    for(const change of parts(entry)) {
+        const h=getHistory(change.schema.id),index=h?.past.indexOf(entry)??-1;
+        if(index<0)continue;
+        const removed=h.past.splice(0,index+1);
+        for(const old of removed)if(old.changes)trimThrough(old);
+    }
+}
+function pushEntry(entry,notifyChange=true) {
+    const ids=parts(entry).map(c=>c.schema.id);
+    clearFutures(ids);
+    for(const id of ids)getHistory(id,true).past.push(entry);
+    for(const id of ids){const h=getHistory(id);while(h.past.length>HISTORY_LIMIT)trimThrough(h.past[0]);}
+    if(notifyChange)notify();
+    return true;
+}
+function recordGroup(changes) {
+    const prepared=changes.map(c=>createChange(c.schema,c.before,c.after)).filter(Boolean);
+    if(!prepared.length)return;
+    if(transactionDepth)throw new Error("Групповая операция недоступна внутри независимой транзакции.");
+    if(new Set(prepared.map(c=>c.schema.id)).size!==prepared.length)throw new Error("Повтор вкладки в группе истории.");
+    pushEntry(prepared.length===1?prepared[0]:{changes:prepared});
+}
+
 function pushChange(change, notifyChange = true) {
     if (!change || valuesEqual(change.before, change.after)) {
         return false;
     }
 
-    const history = getHistory(change.schema.id, true);
-    history.past.push(change);
-
-    if (history.past.length > HISTORY_LIMIT) {
-        history.past.splice(
-            0,
-            history.past.length - HISTORY_LIMIT,
-        );
-    }
-
-    history.future.length = 0;
-
-    if (notifyChange) {
-        notify();
-    }
-
-    return true;
+    return pushEntry(change,notifyChange);
 }
 
 function record(schema, before, after) {
@@ -122,44 +140,41 @@ function endTransaction() {
 
 function canUndo(schemaId) {
     historyRevision();
-    return (getHistory(schemaId)?.past.length ?? 0) > 0;
+    return canTake(schemaId,"past");
 }
 
 function canRedo(schemaId) {
     historyRevision();
-    return (getHistory(schemaId)?.future.length ?? 0) > 0;
+    return canTake(schemaId,"future");
+}
+
+function canTake(schemaId,stack) {
+    const entry=getHistory(schemaId)?.[stack].at(-1);
+    return !!entry && parts(entry).every(c=>getHistory(c.schema.id)?.[stack].at(-1)===entry);
+}
+function take(schemaId,from,to,value) {
+    if(!canTake(schemaId,from))return null;
+    const entry=getHistory(schemaId)[from].at(-1);
+    for(const c of parts(entry)){const h=getHistory(c.schema.id);h[from].pop();h[to].push(entry);}
+    notify();
+    const values=parts(entry).map(c=>({schema:c.schema,value:cloneValue(c[value])}));
+    return entry.changes?{changes:values}:values[0];
 }
 
 function takeUndo(schemaId) {
-    const history = getHistory(schemaId);
-    const change = history?.past.pop();
-    if (!change) return null;
-
-    history.future.push(change);
-    notify();
-
-    return {
-        schema: change.schema,
-        value: cloneValue(change.before),
-    };
+    return take(schemaId,"past","future","before");
 }
 
 function takeRedo(schemaId) {
-    const history = getHistory(schemaId);
-    const change = history?.future.pop();
-    if (!change) return null;
-
-    history.past.push(change);
-    notify();
-
-    return {
-        schema: change.schema,
-        value: cloneValue(change.after),
-    };
+    return take(schemaId,"future","past","after");
 }
 
 function clear(schemaId = null) {
     if (schemaId) {
+        const related=new Set([schemaId]);
+        for(const id of related)for(const entry of [...(getHistory(id)?.past??[]),...(getHistory(id)?.future??[])])
+            if(entry.changes)for(const c of entry.changes)related.add(c.schema.id);
+        for(const id of related)if(id!==schemaId){histories.delete(id);transactionChanges.delete(id);}
         const historyChanged = histories.delete(schemaId);
         const transactionChanged = transactionChanges.delete(schemaId);
         const changed = historyChanged || transactionChanged;
@@ -175,6 +190,7 @@ function clear(schemaId = null) {
 
 export const modelHistoryService = {
     record,
+    recordGroup,
     beginTransaction,
     endTransaction,
     canUndo,

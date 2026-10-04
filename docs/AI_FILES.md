@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-03 23:30 UTC+3.
+Обновлено: 2026-10-04 16:46 UTC+3.
 
 ## Назначение
 
@@ -12,7 +12,7 @@
 [`AI_CLARK_INTEGRATION.md`](AI_CLARK_INTEGRATION.md).
 
 Карта проверена по `main` на коммите `105d7789c63ef9e012dbb4328b812de7535c72d3`.
-Раздел выбора задания дополнен файлами реализации 4.41.0 в рабочей ветке.
+Карта дополнена изменениями 4.42.0 в рабочей ветке.
 
 ## 1. Точки входа и конфигурация
 
@@ -26,7 +26,7 @@
 | `test/horizontalDragScroll.test.js` | Проверки событий, выбора области прокрутки и освобождения обработчиков адаптера. |
 | `src/TaskInfoBar.jsx`, `src/TaskInfoBar.css` | Верхняя строка сведений о выбранном задании и состоянии данных. |
 | `package.json` | Версия приложения, зависимости и канонические npm-команды. |
-| `vite.config.js` | Конфигурация Vite и подключение раздачи файлов примеров. |
+| `vite.config.js` | Конфигурация Vite, раздача примеров и включение third-party-notices в сборку. |
 | `docs/user-guide/index.html`, `guide.css`, `guide.js`, `images/`, `evidence/` | Каноническое пользовательское HTML-руководство на единой странице, включая математическую модель (раздел 16); не импортируется в SPA. |
 | `scripts/user-guide-assets.mjs` | Подготовка `.generated/user-guide` и побайтовая SHA-256-проверка `dist/user-guide`. |
 | `scripts/check-online-guide-browser.py`, `test/browser/guideMaterials.fixture.jsx` | Автономный браузерный стенд справки и реальных библиотечных компонентов с управляемыми файловыми дескрипторами; не включается в production. |
@@ -59,7 +59,7 @@
 | Фабрика схем | `src/services/schemaFactory.js` | Нормативная форма схемы и дескрипторов свойств. |
 | Реестр вкладок | `src/services/tabRegistry.js` | Единственный состав вкладок модели задания и связь вкладки со схемой. |
 | Предметные схемы | `src/services/schemas/*.schema.js` | Контракты `general`, `conrab`, `elements`, `regions`, `amps`, `moves`, `mhj`, библиотек ФММ и ВТСП. |
-| Состояние модели | `src/services/modelService.js` | Публикация BaseModel и ревизий; не владеет табличным представлением. |
+| Состояние модели | `src/services/modelService.js` | Публикация BaseModel и ревизий, атомарные группы `setModelParts`; не владеет табличным представлением. |
 | Сериализация | `src/services/model/modelSerializer.js` | Преобразование StorageModel ↔ BaseModel. |
 | Форма ARRAY | `src/services/model/arrayShape.js` | Размеры, ориентация и индексация плоских массивов. |
 | Вычисления | `src/services/model/modelCompute.js` | Единый граф `compute`/`computeStored`, нормализация и transient-патчи. |
@@ -151,7 +151,7 @@
 | Владелец | Путь | Ответственность |
 |---|---|---|
 | Окно/viewport | `src/components/geometry/GeometryViewerWindow.jsx`, `ThreeGeometryViewport.jsx` | Жизненный цикл окна и Three.js-сцены. |
-| Плавающий прямоугольник | `src/components/window/FloatingWindow.jsx`/`.css`; `test/floatingWindowDrag.test.js`, `test/floatingWindowContract.test.js` | Подстройка 3D при drag по текущему размеру до половины доступной оси, ручной resize за стороны/угол, ограничение viewport и сохранение UI-состояния; проверка реальных обработчиков. |
+| Плавающий прямоугольник | `src/components/window/FloatingWindow.jsx`/`.css`; `test/floatingWindowDrag.test.js`, `test/floatingWindowContract.test.js` | Подстройка 3D при drag по текущему размеру до половины ширины с пропорциональной viewport высотой, ручной resize за стороны/угол, ограничение viewport и сохранение UI-состояния; проверка реальных обработчиков. |
 | Сцена | `src/services/visualization/geometrySceneModel.js` | Чистая проекция `general`, `elements`, `regions`. |
 | Время | `src/services/visualization/geometryTimeModel.js` | Положение, углы и амплитуды в выбранный момент. |
 | Источники | `src/services/visualization/sourceVectorSceneModel.js` | Векторы `mhj`, AS/PS и симметричные образы. |
@@ -350,3 +350,14 @@ kvs.txt, выбор записей локальной XAP.lib и пакетна�
 — общая операция над переданными элементами; `MaterialLibraryTab.jsx` передаёт
 текущую BaseModel, `importUsedTaskMaterials` — свежие записи kvs.txt после
 импорта списка. Контракт: [AI_CLARK_INTEGRATION](AI_CLARK_INTEGRATION.md#task-import-used-fmm).
+
+## Добавления 4.42.0
+
+| Владелец | Файлы | Ответственность |
+|---|---|---|
+| Катушка | `src/services/generator/uniformFieldCoil.js` | Аналитика, проверка параметров, генерация Elements+MHJ. |
+| Окно катушки | `src/components/elements/UniformFieldCoilDialog.jsx`, `.css` | Ввод параметров и реактивная оценка; SidePanel/App координируют применение. |
+| Групповая история | `src/services/modelHistoryService.js` | Связанные снимки нескольких вкладок без изменения независимых историй. |
+| Проигрывание GIF | `src/components/tasks/TaskGifPlayer.jsx`, `src/services/taskGifPlayback.js` | Canvas, таймеры, пауза/продолжение, одиночный проход и цикл. |
+| Декодирование GIF | `src/services/taskGifDecoder.js`, `src/workers/taskGifDecode.worker.js` | Последовательная декомпрессия и композиция кадров вне UI-потока. |
+| Проверки | `test/uniformFieldCoil.test.js`, `test/modelHistoryService.test.js`, `test/taskGifDecoder.test.js`, `test/taskGifPlayback.test.js` | Численная сверка аналитики, схема, история, направления токов, GIF disposal и таймеры. |

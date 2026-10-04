@@ -10,6 +10,8 @@ import { SidePanel } from "./components/SidePanel";
 import { MaterialSelectionDialog } from "./components/materials/MaterialSelectionDialog.jsx";
 import { GeometryViewerWindow } from "./components/geometry/GeometryViewerWindow.jsx";
 import { MedAutofillDialog } from "./components/elements/MedAutofillDialog.jsx";
+import {UniformFieldCoilDialog} from "./components/elements/UniformFieldCoilDialog.jsx";
+import {applyUniformFieldCoil} from "./services/generator/uniformFieldCoil.js";
 import { createMedRequest, medRequestIsCurrent, medRequestCanNavigate, applyMedResult } from "./services/medAutofillService.js";
 import {
   TABS,
@@ -128,6 +130,27 @@ export default function App() {
   const [medNavigation, setMedNavigation] = createSignal(null);
   let medWorker = null;
   let medEditor = null;
+  const [coilTask,setCoilTask]=createSignal(null),[coilBusy,setCoilBusy]=createSignal(false);
+  const [coilError,setCoilError]=createSignal(""),[coilNotice,setCoilNotice]=createSignal("");
+  let coilRevision=0;
+  function closeCoil(){coilRevision++;setCoilTask(null);setCoilBusy(false);}
+  function openCoil(){setCoilError("");setCoilNotice("");setCoilTask(selectionService.loadedTaskHandle());setSidePanelOpen(false);}
+  createEffect(()=>{if(coilTask() && coilTask()!==selectionService.loadedTaskHandle())closeCoil();});
+  onCleanup(()=>{coilRevision++;});
+  async function addCoil(params) {
+    if(coilBusy()||!coilTask())return;
+    const task=coilTask(),revision=++coilRevision;setCoilBusy(true);setCoilError("");setCoilNotice("");
+    try {
+      await medEditor?.flush();
+      if(revision!==coilRevision||task!==selectionService.loadedTaskHandle()||task!==coilTask())return;
+      const elementSchema=tabRegistry.find(s=>s.id===TABS.ELEMENTS.id),mhjSchema=tabRegistry.find(s=>s.id===TABS.MHJ.id);
+      const result=applyUniformFieldCoil({modelService,params,elementSchema,mhjSchema,
+        createElement:()=>dataService.createDefaultRecord(elementSchema)});
+      setCoilNotice(`Добавлена катушка: элемент №${result.recordIndex+1}. Отмена — одной операцией Undo.`);
+      await performModelValidation({restart:true});
+    }catch(error){if(revision===coilRevision)setCoilError(error.message||String(error));}
+    finally{if(revision===coilRevision)setCoilBusy(false);}
+  }
   let medRevision = 0;
   let medAnalysisResolve = null;
   const medStale = () => Boolean(medRequest()) && !medRequestIsCurrent(
@@ -753,6 +776,7 @@ export default function App() {
         onChooseMaterial={handleMaterialSelectionOpen}
         medActionEnabled={Boolean(selectionService.loadedTaskHandle()) && Array.isArray(modelService.getModel().elements)}
         onAutofillMed={analyzeCurrentMed}
+        onCreateUniformFieldCoil={openCoil}
         onMakeNonmagnetic={handleMakeElementsNonmagnetic}
       />
       <div
@@ -844,6 +868,8 @@ export default function App() {
         onAnalyze={analyzeCurrentMed} onApply={applyCurrentMed} onClose={closeMed}
         onNavigate={navigateCurrentMed}
       />
+      <UniformFieldCoilDialog open={!!coilTask()} model={modelService.getModel()} busy={coilBusy()}
+        error={coilError()} notice={coilNotice()} onApply={addCoil} onClose={closeCoil}/>
     </div>
   );
 }

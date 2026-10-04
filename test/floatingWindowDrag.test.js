@@ -100,6 +100,18 @@ test("3D alone opts into fitting during drag; existing modeless dialogs retain t
   assert.deepEqual(h.rect(), beforeResize);
 });
 
+test("3D recovery follows current viewport proportions at the current width, while manual resize remains free",()=>{
+  const h=runtime({props:{fitViewportAspect:true}});
+  h.down();h.move(900,120);h.move(850,120);
+  assert.equal(h.rect().width,570);assert.ok(Math.abs(h.rect().height-570*884/1184)<1e-9);assertInside(h);
+  h.move(800,120);assert.equal(h.rect().width,592);assert.equal(h.rect().height,442);h.up();
+  h.manualResize(700,500);assert.equal(h.rect().height,500);
+  h.down();h.move(300,10000);h.move(300,9900);h.move(300,9800);
+  assert.ok(Math.abs(h.rect().height-700*884/1184)<1e-9);assertInside(h);h.up();
+  h.resize(1600,900);h.down();h.move(10000,120);h.move(9950,120);
+  assert.ok(Math.abs(h.rect().height-Math.max(360,h.rect().width*884/1584))<1e-9);assertInside(h);h.dispose();
+});
+
 test("drag shrinks independently at all four edges without restoring former dimensions", () => {
   for (const [dx, dy, expected] of [
     [400, 0, { x: 500, y: 100, width: 692, height: 600 }],
