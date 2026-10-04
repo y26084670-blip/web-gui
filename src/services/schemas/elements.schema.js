@@ -18,7 +18,7 @@ import {
     SYM_KIND,
 } from "./common/enums";
 import { createSchema } from "../schemaFactory";
-import { KV_GEO_LENGTH } from "../solver/geometryKv.js";
+import { resetKvGeo } from "../solver/geometryKv.js";
 import {
     eoCount,
     eoCountAll,
@@ -91,7 +91,7 @@ export default createSchema({
                 "Геометрия элемента в локальной СК. "
                 + "Для типа Шестигранник рёбра 1–2, 3–4, 5–6, 7–8 соединяют грани;"
                 + "обходы 1–5–7–3 и 2–4–8–6 задают внешние нормали граней",
-            default: new Array(KV_GEO_LENGTH).fill(0),
+            default: resetKvGeo(0),
             nColumns: 3,
             order: "row",
             columns: ["X", "Y", "Z"],
@@ -111,6 +111,14 @@ export default createSchema({
                 default: 0,
                 digits: 6,
             },
+        },
+
+        geoType: {
+            type: FIELD_TYPES.ENUM,
+            label: "Тип геометрии",
+            description: "Способ задания геометрии объёмного элемента",
+            default: 0,
+            enum: KV_GEO_TYPE,
         },
 
         dr: {
@@ -315,14 +323,6 @@ export default createSchema({
                 evaluate: ({ values }) =>
                     symYc(0, values.symKyp)[3],
             },
-        },
-
-        geoType: {
-            type: FIELD_TYPES.ENUM,
-            label: "Тип геометрии",
-            description: "Способ задания геометрии объёмного элемента",
-            default: 0,
-            enum: KV_GEO_TYPE,
         },
 
         dp: {

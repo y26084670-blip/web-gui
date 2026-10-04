@@ -224,6 +224,21 @@ export function packKvVertices(vertices) {
 
 // Смена варианта geo: состав позиций определяется geoType; переноса значений нет.
 // Источник: julia, src/core/03_kv.jl::unpack — читает geo[1:k] по типу, хвост не используется.
+// Примеры ниже выбраны для Editor, а не перенесены из solver. Все используемые
+// параметры ненулевые; неиспользуемый хвост буфера по-прежнему заполнен нулями.
 export function resetKvGeo(geoType) {
-    return new Array(KV_GEO_LENGTH).fill(0);
+    if (geoType === 0) {
+        // Куб 10 мм с координатами 1…11 мм, в порядке вершин solver.
+        const { vertices } = unpackKvVertices([10, 10, 10], 2);
+        return packKvVertices(vertices.map(vertex => vertex.map(value => value + 1)));
+    }
+
+    const examples = {
+        1: [1, 10, 21, 10, 21, 15, 1, 15, 30],
+        2: [10, 15, 20],
+        3: [20, 15, 10, 8, 6],
+        4: [10, 6, 2, 12, 15, 6, 5],
+    };
+    const values = Number.isInteger(geoType) ? examples[geoType] : null;
+    return Array.from({ length: KV_GEO_LENGTH }, (_, index) => values?.[index] ?? 0);
 }
