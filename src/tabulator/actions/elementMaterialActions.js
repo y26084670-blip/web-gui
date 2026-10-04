@@ -3,7 +3,7 @@ import { TABS } from "../../services/schemas/common/constants.js";
 
 function materialKindForModel(model) {
     return Number(model) === 2
-        ? MATERIAL_LIBRARY_KINDS.HTC
+        ? MATERIAL_LIBRARY_KINDS.HTS
         : MATERIAL_LIBRARY_KINDS.FMM;
 }
 

@@ -4,10 +4,10 @@ import test from "node:test";
 import {
     decodeFmmTable,
     toFmmLibraryModel,
-    toHtcLibraryModel,
+    toHtsLibraryModel,
 } from "../src/services/materials/materialLibraryModel.js";
-import { HTC_PARAMETER_NAMES } from "../src/services/materials/materialConstants.js";
-import { createHtcMaterialFile } from "../src/services/materialImport/htcConfigImporter.js";
+import { HTS_PARAMETER_NAMES } from "../src/services/materials/materialConstants.js";
+import { createHtsMaterialFile } from "../src/services/materialImport/htsConfigImporter.js";
 
 test("FMM default-library records become 12x2 RECORDS details", () => {
     const h = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -120,12 +120,12 @@ test("malformed FMM table is rejected before rendering", () => {
     );
 });
 
-test("HTC model keeps scalar JSON fields and transient filename name", () => {
-    const [material] = toHtcLibraryModel([{
-        kind: "HTC",
+test("HTS model keeps scalar JSON fields and transient filename name", () => {
+    const [material] = toHtsLibraryModel([{
+        kind: "HTS",
         name: "ВТСП",
         fileName: "ВТСП.txt",
-        relativePath: "xapLibHTC/ВТСП.txt",
+        relativePath: "xapLibHTS/ВТСП.txt",
         sha256: "b".repeat(64),
         data: {
             j_HC0: 2300,
@@ -135,10 +135,10 @@ test("HTC model keeps scalar JSON fields and transient filename name", () => {
     }]);
 
     assert.deepEqual(material._libraryRecord, {
-        kind: "HTC",
+        kind: "HTS",
         name: "ВТСП",
         fileName: "ВТСП.txt",
-        relativePath: "xapLibHTC/ВТСП.txt",
+        relativePath: "xapLibHTS/ВТСП.txt",
         sha256: "b".repeat(64),
         data: {
             j_HC0: 2300,
@@ -154,13 +154,13 @@ test("HTC model keeps scalar JSON fields and transient filename name", () => {
     assert.equal(material.comment, "Описание");
     assert.deepEqual(
         Object.keys(material).filter(key => !key.startsWith("_")),
-        ["name", ...HTC_PARAMETER_NAMES, "comment"],
+        ["name", ...HTS_PARAMETER_NAMES, "comment"],
     );
 });
 
-test("HTC model drops legacy fields and supplies solver defaults", () => {
-    const [material] = toHtcLibraryModel([{
-        kind: "HTC",
+test("HTS model drops legacy fields and supplies solver defaults", () => {
+    const [material] = toHtsLibraryModel([{
+        kind: "HTS",
         name: "Legacy",
         data: {
             j_HC0: 2300,
@@ -178,14 +178,14 @@ test("HTC model drops legacy fields and supplies solver defaults", () => {
     assert.equal(material.j_ani, true);
 });
 
-test("normalized legacy HTC material serializes as the current local format", () => {
+test("normalized legacy HTS material serializes as the current local format", () => {
     const legacyProperty = Object.fromEntries(
-        HTC_PARAMETER_NAMES
+        HTS_PARAMETER_NAMES
             .filter(name => !["j_ani", "KHabc", "Diag", "M3D"].includes(name))
             .map((name, index) => [name, index + 1]),
     );
-    const [material] = toHtcLibraryModel([{
-        kind: "HTC",
+    const [material] = toHtsLibraryModel([{
+        kind: "HTS",
         name: "Legacy",
         data: {
             ...legacyProperty,
@@ -196,10 +196,10 @@ test("normalized legacy HTC material serializes as the current local format", ()
         },
     }]);
 
-    const file = createHtcMaterialFile(material);
+    const file = createHtsMaterialFile(material);
     assert.deepEqual(
         Object.keys(file.data),
-        [...HTC_PARAMETER_NAMES, "comment"],
+        [...HTS_PARAMETER_NAMES, "comment"],
     );
     assert.equal(file.data.KHabc, 1);
     assert.equal(file.data.Diag, 0);
@@ -208,20 +208,20 @@ test("normalized legacy HTC material serializes as the current local format", ()
     assert.equal(file.text.includes("m2_dh"), false);
 });
 
-test("isotropic HTC choice survives model projection, save and reload", () => {
+test("isotropic HTS choice survives model projection, save and reload", () => {
     const legacyProperty = Object.fromEntries(
-        HTC_PARAMETER_NAMES
+        HTS_PARAMETER_NAMES
             .filter(name => !["j_ani", "KHabc", "Diag", "M3D"].includes(name))
             .map((name, index) => [name, index + 1]),
     );
-    const [material] = toHtcLibraryModel([{
+    const [material] = toHtsLibraryModel([{
         name: "Изотропная ВТСП",
         data: { ...legacyProperty, j_ani: false },
     }]);
     assert.equal(material.j_ani, false);
-    const file = createHtcMaterialFile(material);
+    const file = createHtsMaterialFile(material);
     const data = JSON.parse(file.text);
     assert.equal(data.j_ani, false);
-    const [reloaded] = toHtcLibraryModel([{ name: material.name, data }]);
+    const [reloaded] = toHtsLibraryModel([{ name: material.name, data }]);
     assert.equal(reloaded.j_ani, false);
 });

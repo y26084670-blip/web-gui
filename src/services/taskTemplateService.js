@@ -13,7 +13,7 @@ export async function initializeTaskDirectory(handle) {
       : schema.config.storage === "records" && !schema.config.recordCount
         ? [] : dataService.createDefaultData(schema);
     // Только новый черновик: настройки существующих заданий задаёт их файл.
-    const value = schema.id === "general" ? { ...defaults, useMED: true, htcMu: false, htcRo: false } : defaults;
+    const value = schema.id === "general" ? { ...defaults, useMED: true, htsMu: false, htsRo: false } : defaults;
     model[schema.id] = value;
     if (!await dataService.save(handle, schema, value)) throw new Error(`Не создан ${schema.config.file}`);
   }

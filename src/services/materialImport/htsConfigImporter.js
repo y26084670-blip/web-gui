@@ -1,17 +1,17 @@
-import { HTC_EFFECTIVE_DEFAULTS } from "../materials/materialConstants.js";
+import { HTS_EFFECTIVE_DEFAULTS } from "../materials/materialConstants.js";
 import {
     legacyMaterialFileName,
     validateLegacyMaterialName,
 } from "./legacyMaterialName.js";
 
-export const SUPPORTED_HTC_CONFIG_VERSIONS = Object.freeze([
+export const SUPPORTED_HTS_CONFIG_VERSIONS = Object.freeze([
     201,
     202,
     203,
     204,
 ]);
 
-export const HTC_PROPERTY_KEYS = Object.freeze([
+export const HTS_PROPERTY_KEYS = Object.freeze([
     "j_HC0",
     "JC0",
     "JCa",
@@ -178,11 +178,11 @@ function float32Integer(value, field) {
  * @param {string|ArrayBuffer|ArrayBufferView} source
  * @returns {{version:number, property:Object}}
  */
-export function parseHtcConfig(source) {
+export function parseHtsConfig(source) {
     const reader = new ConfigReader(source);
     const version = reader.readInt32("версия формата");
 
-    if (!SUPPORTED_HTC_CONFIG_VERSIONS.includes(version)) {
+    if (!SUPPORTED_HTS_CONFIG_VERSIONS.includes(version)) {
         throw new Error(
             `Неподдерживаемая версия config.txt: ${version}; `
             + "ожидалась версия 201, 202, 203 или 204.",
@@ -236,7 +236,7 @@ export function parseHtcConfig(source) {
             JC0,
             JCa,
             JCb,
-            j_ani: HTC_EFFECTIVE_DEFAULTS.j_ani,
+            j_ani: HTS_EFFECTIVE_DEFAULTS.j_ani,
             j_type,
             j_gmin,
             j1_delta,
@@ -275,9 +275,9 @@ function decodeCommentLine(source) {
 /**
  * Создаёт одну BaseModel-запись ВТСП из каталога legacy-характеристики.
  */
-export function parseHtcMaterial({ name, config, comment }) {
+export function parseHtsMaterial({ name, config, comment }) {
     const normalizedName = validateLegacyMaterialName(name);
-    const parsed = parseHtcConfig(config);
+    const parsed = parseHtsConfig(config);
 
     return {
         version: parsed.version,
@@ -291,7 +291,7 @@ export function parseHtcMaterial({ name, config, comment }) {
 
 function requirePropertyValue(record, key) {
     if (key === "j_ani" && !Object.hasOwn(record, key)) {
-        return HTC_EFFECTIVE_DEFAULTS.j_ani;
+        return HTS_EFFECTIVE_DEFAULTS.j_ani;
     }
     const value = record[key];
 
@@ -317,24 +317,24 @@ function requirePropertyValue(record, key) {
     return value;
 }
 
-export function htcMaterialStorageRecord(record) {
+export function htsMaterialStorageRecord(record) {
     if (!record || typeof record !== "object" || Array.isArray(record)) {
         throw new TypeError("Характеристика ВТСП должна быть объектом.");
     }
 
     return Object.fromEntries(
-        HTC_PROPERTY_KEYS.map(key => [key, requirePropertyValue(record, key)]),
+        HTS_PROPERTY_KEYS.map(key => [key, requirePropertyValue(record, key)]),
     );
 }
 
-export function serializeHtcMaterial(record) {
-    return `${JSON.stringify(htcMaterialStorageRecord(record))}\n`;
+export function serializeHtsMaterial(record) {
+    return `${JSON.stringify(htsMaterialStorageRecord(record))}\n`;
 }
 
-export function createHtcMaterialFile(record, { version } = {}) {
-    const data = htcMaterialStorageRecord(record);
+export function createHtsMaterialFile(record, { version } = {}) {
+    const data = htsMaterialStorageRecord(record);
     return {
-        kind: "HTC",
+        kind: "HTS",
         name: record.name,
         fileName: legacyMaterialFileName(record.name),
         record,

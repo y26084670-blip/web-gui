@@ -152,8 +152,8 @@ test("scene converts BaseModel arrays and preserves solver face topology", () =>
 test("scene carries element material categories from BaseModel properties", () => {
     const scene = buildGeometryScene({
         general: {
-            htcMu: false,
-            htcRo: true,
+            htsMu: false,
+            htsRo: true,
         },
         elements: [
             element({ targ: 3, model: 2, xapName: "ignored", rv: 10 }),

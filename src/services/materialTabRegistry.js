@@ -1,5 +1,5 @@
 import fmmLibrarySchema from "./schemas/fmmLibrary.schema";
-import htcLibrarySchema from "./schemas/htcLibrary.schema";
+import htsLibrarySchema from "./schemas/htsLibrary.schema";
 import {
     loadMaterialLibrary,
     MATERIAL_LIBRARY_KINDS,
@@ -21,16 +21,16 @@ export const materialTabRegistry = Object.freeze([
             loadMaterialLibrary(MATERIAL_LIBRARY_KINDS.FMM, options),
     }),
     Object.freeze({
-        id: htcLibrarySchema.id,
-        label: htcLibrarySchema.title,
-        schema: htcLibrarySchema,
-        kind: MATERIAL_LIBRARY_KINDS.HTC,
+        id: htsLibrarySchema.id,
+        label: htsLibrarySchema.title,
+        schema: htsLibrarySchema,
+        kind: MATERIAL_LIBRARY_KINDS.HTS,
         detail: Object.freeze({
             type: "record",
             defaultHeight: 540,
         }),
         graphRegion: false,
         loadRecords: options =>
-            loadMaterialLibrary(MATERIAL_LIBRARY_KINDS.HTC, options),
+            loadMaterialLibrary(MATERIAL_LIBRARY_KINDS.HTS, options),
     }),
 ]);

@@ -23,7 +23,7 @@ test("material tabs expose copy and FMM-only legacy import actions", async () =>
     );
     assert.match(source, /<Show when=\{isFmm\}>[\s\S]*?>\s*Импортировать\s*<[\s\S]*?<\/Show>/u);
     assert.doesNotMatch(source, /Импортировать legacy-библиотеку ВТСП/u);
-    assert.doesNotMatch(source, /pickHtcDirectory|importHtc/u);
+    assert.doesNotMatch(source, /pickHtsDirectory|importHts/u);
     assert.match(source, /importUsedFmmMaterials/u);
     assert.match(source, /taskMaterialLibraryService\.copyMaterials/u);
     assert.match(source, /Источник характеристик/u);
@@ -50,8 +50,8 @@ test("material tabs expose copy and FMM-only legacy import actions", async () =>
         source,
         /if \(source === "task"\).*revision\(definition\.kind\)/su,
     );
-    assert.match(source, /createHtcMaterialFile/u);
-    assert.match(source, /HtcMaterialDetailView/u);
+    assert.match(source, /createHtsMaterialFile/u);
+    assert.match(source, /HtsMaterialDetailView/u);
     assert.match(source, /materialLibraryHistoryService\.record/u);
     assert.match(source, /materialLibraryHistoryService\.attach/u);
     assert.match(source, /unsavedChangesService\.setExplicitDirty/u);

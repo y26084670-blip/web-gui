@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-04 21:46 UTC+3.
+Обновлено: 2026-10-04 23:59 UTC+3.
 
 ## Назначение
 
@@ -79,7 +79,7 @@
 | Смена типа в таблице | `src/components/editors/DataEditor.jsx` передаёт контекст `cellEdited` в вариантную реакцию; `test/dataEditorVariantChange.test.js` проверяет реальные обработчики, геометрию, историю и ограничения названия. [Контракт](AI_DATA_CONTRACTS.md#element-geometry-examples). |
 | Форматирование | `src/tabulator/formatters/formatterRegistry.js` и `universalFormatter.js`. |
 | Редактирование | `src/tabulator/editors/editorRegistry.js`, `editorFactory.js`, `universalEditor.js`; `test/inputEditorKeyboard.test.js` проверяет клавиши ввода и сохранение фокуса. |
-| Представления | `src/tabulator/views/viewRegistry.js`, `TableView.js`, `DetailRegion.js`, `HtcMaterialDetailView.js`, `registerDefaultViews.js`. |
+| Представления | `src/tabulator/views/viewRegistry.js`, `TableView.js`, `DetailRegion.js`, `HtsMaterialDetailView.js`, `registerDefaultViews.js`. |
 | Операции | `src/tabulator/actions/recordsActions.js` и `elementMaterialActions.js`. |
 
 ## 5. Валидация и диагностика

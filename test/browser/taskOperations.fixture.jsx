@@ -43,7 +43,7 @@ async function read(path) {
 }
 // Существующее задание с включёнными ВТСП-подсистемами должно сохранить выбор.
 const originalGeneral = JSON.parse(await read('Project/Original/input3XX/general.txt'));
-await put(original, 'input3XX/general.txt', JSON.stringify({ ...originalGeneral, htcMu: true, htcRo: true }));
+await put(original, 'input3XX/general.txt', JSON.stringify({ ...originalGeneral, htsMu: true, htsRo: true }));
 await put(original, 'output3XX/result.bin', new Uint8Array([0, 128, 255]));
 await put(original, 'input3XX/formulas-user.json', '{"formula":"sin(t)"}');
 await put(original, 'input3XX/FMM/custom.json', '{"unchanged":true}');

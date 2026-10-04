@@ -8,7 +8,7 @@ import { selectionService } from '../../src/services/selectionService.js';
 import { materialTabRegistry } from '../../src/services/materialTabRegistry.js';
 import { materialLibraryHistoryService } from '../../src/services/materialLibraryHistoryService.js';
 import { materialLibraryRevisionService } from '../../src/services/materialLibraryRevisionService.js';
-import { toFmmLibraryModel, toHtcLibraryModel } from '../../src/services/materials/materialLibraryModel.js';
+import { toFmmLibraryModel, toHtsLibraryModel } from '../../src/services/materials/materialLibraryModel.js';
 import { TabulatorFull } from 'tabulator-tables';
 import { createMaterialLibraryLoadQueue } from '../../src/services/materials/materialLibraryLoadQueue.js';
 
@@ -25,7 +25,7 @@ const delay = which => {
     else localDelay = new Promise(resolve => { releaseLocal = resolve; });
 };
 const fmm = { tabl: [...Array.from({ length: 12 }, (_, i) => i), ...Array.from({ length: 12 }, (_, i) => i * 2)], hip: 0, comment: 'Local test' };
-const htc = { j_HC0: 1, JC0: 2.5, JCa: 1, JCb: 1, j_ani: false, j_type: 2, j_gmin: 25000, j1_delta: .1, j2_n: 24, m_type: 3, m_HC0: 1, m1_delta: .1, m3_Mmax: 0, m3_a: 1, m3_b: 1, KHabc: 1, Diag: 0, M3D: false, comment: 'Local HTC test' };
+const hts = { j_HC0: 1, JC0: 2.5, JCa: 1, JCb: 1, j_ani: false, j_type: 2, j_gmin: 25000, j1_delta: .1, j2_n: 24, m_type: 3, m_HC0: 1, m1_delta: .1, m3_Mmax: 0, m3_a: 1, m3_b: 1, KHabc: 1, Diag: 0, M3D: false, comment: 'Local HTS test' };
 const notFound = () => new DOMException('Missing fixture entry', 'NotFoundError');
 const writes = [];
 function file(name, data) {
@@ -52,15 +52,15 @@ function directory(name, children = {}, options = {}) {
 }
 const makeTask = (name, options = {}) => directory(name, { input3XX: directory('input3XX', options.empty ? {} : {
     xapLibFMM: directory('xapLibFMM', { [`${name}_FMM.txt`]: file(`${name}_FMM.txt`, fmm) }),
-    xapLibHTC: directory('xapLibHTC', { [`${name}_HTC.txt`]: file(`${name}_HTC.txt`, htc) }),
+    xapLibHTS: directory('xapLibHTS', { [`${name}_HTS.txt`]: file(`${name}_HTS.txt`, hts) }),
 }) }, options);
 const tasks = { A: makeTask('TaskA'), B: makeTask('TaskB'), empty: makeTask('TaskEmpty', { empty: true }), denied: makeTask('TaskDenied', { denied: true }) };
 const definitions = materialTabRegistry.map(definition => ({ ...definition, async loadRecords() {
     baseCalls += 1;
     if (baseDelay) await baseDelay;
     baseCompleted += 1;
-    const record = { name: `BASE_${definition.kind}`, data: definition.kind === 'FMM' ? fmm : htc };
-    return definition.kind === 'FMM' ? toFmmLibraryModel([record]) : toHtcLibraryModel([record]);
+    const record = { name: `BASE_${definition.kind}`, data: definition.kind === 'FMM' ? fmm : hts };
+    return definition.kind === 'FMM' ? toFmmLibraryModel([record]) : toHtsLibraryModel([record]);
 } }));
 function Fixture() {
     return <>

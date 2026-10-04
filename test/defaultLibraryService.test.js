@@ -64,9 +64,9 @@ function fixture() {
                 title: "Характеристики ФММ",
                 records: [record],
             },
-            HTC: {
-                kind: "HTC",
-                directory: "xapLibHTC",
+            HTS: {
+                kind: "HTS",
+                directory: "xapLibHTS",
                 title: "Характеристики ВТСП",
                 records: [],
             },
@@ -78,10 +78,10 @@ function fixture() {
 test("default-library URLs preserve Vite base paths and encode path segments", () => {
     assert.equal(
         resolveDefaultLibraryAssetUrl(
-            "xapLibHTC/ВТСП — 1.txt",
+            "xapLibHTS/ВТСП — 1.txt",
             "/web-gui/",
         ),
-        "/web-gui/data/default/xapLibHTC/"
+        "/web-gui/data/default/xapLibHTS/"
         + "%D0%92%D0%A2%D0%A1%D0%9F%20%E2%80%94%201.txt",
     );
     assert.equal(

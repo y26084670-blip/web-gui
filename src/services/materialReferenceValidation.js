@@ -19,7 +19,7 @@ function emptyKindIndex() {
 export function createMaterialReferenceCatalog(recordsByKind = {}) {
     const catalog = {
         [MATERIAL_LIBRARY_KINDS.FMM]: emptyKindIndex(),
-        [MATERIAL_LIBRARY_KINDS.HTC]: emptyKindIndex(),
+        [MATERIAL_LIBRARY_KINDS.HTS]: emptyKindIndex(),
     };
 
     for (const kind of Object.values(MATERIAL_LIBRARY_KINDS)) {
@@ -60,7 +60,7 @@ export async function loadMaterialReferenceCatalog(
     );
     const recordsByKind = {
         [MATERIAL_LIBRARY_KINDS.FMM]: [],
-        [MATERIAL_LIBRARY_KINDS.HTC]: [],
+        [MATERIAL_LIBRARY_KINDS.HTS]: [],
     };
     const errors = [];
 
@@ -86,14 +86,14 @@ export async function loadMaterialReferenceCatalog(
 
 function materialKindForModel(model) {
     return Number(model) === 2
-        ? MATERIAL_LIBRARY_KINDS.HTC
+        ? MATERIAL_LIBRARY_KINDS.HTS
         : MATERIAL_LIBRARY_KINDS.FMM;
 }
 
 function oppositeKind(kind) {
-    return kind === MATERIAL_LIBRARY_KINDS.HTC
+    return kind === MATERIAL_LIBRARY_KINDS.HTS
         ? MATERIAL_LIBRARY_KINDS.FMM
-        : MATERIAL_LIBRARY_KINDS.HTC;
+        : MATERIAL_LIBRARY_KINDS.HTS;
 }
 
 export function validateElementMaterialReferences(

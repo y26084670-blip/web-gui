@@ -20,7 +20,7 @@ import {
 
 async function createFixture(root) {
     await mkdir(path.join(root, "xapLibFMM"), { recursive: true });
-    await mkdir(path.join(root, "xapLibHTC"), { recursive: true });
+    await mkdir(path.join(root, "xapLibHTS"), { recursive: true });
     await writeFile(
         path.join(root, "xapLibFMM", "Сталь 3.txt"),
         Buffer.from(
@@ -29,7 +29,7 @@ async function createFixture(root) {
         ),
     );
     await writeFile(
-        path.join(root, "xapLibHTC", "ВТСП — 1.txt"),
+        path.join(root, "xapLibHTS", "ВТСП — 1.txt"),
         Buffer.from(
             '{"j_type":1,"m_type":3,"comment":"ВТСП"}\n',
             "utf8",
@@ -63,7 +63,7 @@ test("default-library assets preserve source bytes and build a deterministic ind
         assert.equal(first.index.schemaVersion, 1);
         assert.equal(first.index.source.fileCount, 3);
         assert.equal(first.index.libraries.FMM.records.length, 1);
-        assert.equal(first.index.libraries.HTC.records.length, 1);
+        assert.equal(first.index.libraries.HTS.records.length, 1);
 
         const fmm = first.index.libraries.FMM.records[0];
         assert.equal(fmm.name, "Сталь 3");
@@ -75,7 +75,7 @@ test("default-library assets preserve source bytes and build a deterministic ind
 
         for (const relativePath of [
             "xapLibFMM/Сталь 3.txt",
-            "xapLibHTC/ВТСП — 1.txt",
+            "xapLibHTS/ВТСП — 1.txt",
             "инфо.txt",
         ]) {
             assert.deepEqual(
@@ -130,8 +130,8 @@ test("default-library verification rejects a modified copied material", async ()
 
 test("canonical web-gui default library contains the transferred solver snapshot", async () => {
     const root = path.resolve("data", "default");
-    const htcRoot = path.join(root, "xapLibHTC");
-    const expectedHtcFiles = [
+    const htsRoot = path.join(root, "xapLibHTS");
+    const expectedHtsFiles = [
         "ВТСП Jc(H) базовая.txt",
         "ВТСП пресет 2.txt",
         "ВТСП пресет 3.txt",
@@ -139,20 +139,20 @@ test("canonical web-gui default library contains the transferred solver snapshot
     const fmm = JSON.parse(
         await readFile(path.join(root, "xapLibFMM", "STAL3.txt"), "utf8"),
     );
-    const htcFiles = (await readdir(htcRoot))
+    const htsFiles = (await readdir(htsRoot))
         .filter(fileName => path.extname(fileName).toLowerCase() === ".txt")
         .sort();
-    const htcMaterials = await Promise.all(
-        expectedHtcFiles.map(async fileName => JSON.parse(
-            await readFile(path.join(htcRoot, fileName), "utf8"),
+    const htsMaterials = await Promise.all(
+        expectedHtsFiles.map(async fileName => JSON.parse(
+            await readFile(path.join(htsRoot, fileName), "utf8"),
         )),
     );
 
     assert.equal(Array.isArray(fmm.tabl), true);
     assert.equal(fmm.tabl.length, 24);
-    assert.deepEqual(htcFiles, expectedHtcFiles);
+    assert.deepEqual(htsFiles, expectedHtsFiles);
     assert.equal(
-        htcMaterials.every(material => typeof material.comment === "string"),
+        htsMaterials.every(material => typeof material.comment === "string"),
         true,
     );
 });

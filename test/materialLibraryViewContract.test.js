@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { HTC_PARAMETER_NAMES } from
+import { HTS_PARAMETER_NAMES } from
     "../src/services/materials/materialConstants.js";
 import {
-    createHtcMaterialDetailSchema,
+    createHtsMaterialDetailSchema,
     decodeFmmTable,
 } from "../src/services/materials/materialLibraryModel.js";
 
@@ -21,23 +21,23 @@ test("FMM detail projection has twelve H-M rows", () => {
     assert.deepEqual(rows[4], [4, 104]);
 });
 
-test("HTC detail contract lists eighteen current scalar parameters", () => {
-    assert.equal(HTC_PARAMETER_NAMES.length, 18);
+test("HTS detail contract lists eighteen current scalar parameters", () => {
+    assert.equal(HTS_PARAMETER_NAMES.length, 18);
     assert.deepEqual(
-        HTC_PARAMETER_NAMES.slice(3, 6),
+        HTS_PARAMETER_NAMES.slice(3, 6),
         ["JCb", "j_ani", "j_type"],
     );
     assert.deepEqual(
-        HTC_PARAMETER_NAMES.slice(-3),
+        HTS_PARAMETER_NAMES.slice(-3),
         ["KHabc", "Diag", "M3D"],
     );
 
-    const detailSchema = createHtcMaterialDetailSchema({
-        id: "htcLibrary",
+    const detailSchema = createHtsMaterialDetailSchema({
+        id: "htsLibrary",
         config: {},
         views: {},
         properties: Object.fromEntries(
-            HTC_PARAMETER_NAMES.map(name => [name, {
+            HTS_PARAMETER_NAMES.map(name => [name, {
                 type: "float",
                 label: name,
                 readonly: true,
@@ -46,7 +46,7 @@ test("HTC detail contract lists eighteen current scalar parameters", () => {
     });
     assert.deepEqual(
         Object.keys(detailSchema.properties),
-        HTC_PARAMETER_NAMES,
+        HTS_PARAMETER_NAMES,
     );
     assert.ok(
         Object.values(detailSchema.properties)
@@ -58,7 +58,7 @@ test("HTC detail contract lists eighteen current scalar parameters", () => {
     );
 });
 
-test("material details have content-sized defaults and HTC comments", () => {
+test("material details have content-sized defaults and HTS comments", () => {
     const registry = readFileSync(
         new URL("../src/services/materialTabRegistry.js", import.meta.url),
         "utf8",
@@ -68,11 +68,11 @@ test("material details have content-sized defaults and HTC comments", () => {
         "utf8",
     );
     const schema = readFileSync(
-        new URL("../src/services/schemas/htcLibrary.schema.js", import.meta.url),
+        new URL("../src/services/schemas/htsLibrary.schema.js", import.meta.url),
         "utf8",
     );
     const detailView = readFileSync(
-        new URL("../src/tabulator/views/HtcMaterialDetailView.js", import.meta.url),
+        new URL("../src/tabulator/views/HtsMaterialDetailView.js", import.meta.url),
         "utf8",
     );
 

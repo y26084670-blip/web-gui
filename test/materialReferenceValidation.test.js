@@ -14,7 +14,7 @@ import {
 test("material references respect model kind and report missing files", () => {
     const catalog = createMaterialReferenceCatalog({
         FMM: [{ name: "Сталь" }],
-        HTC: [{ name: "ВТСП" }],
+        HTS: [{ name: "ВТСП" }],
     });
     const diagnostics = [];
     validateElementMaterialReferences([
@@ -34,7 +34,7 @@ test("material references respect model kind and report missing files", () => {
     assert.match(diagnostics[1].message, /не найдена в локальной библиотеке/u);
     assert.match(
         diagnostics[2].message,
-        /найдена только в локальной библиотеке HTC.*model = 0 требует FMM/u,
+        /найдена только в локальной библиотеке HTS.*model = 0 требует FMM/u,
     );
     assert.deepEqual(diagnostics.map(item => item.row), [2, 3, 6]);
 });
@@ -42,7 +42,7 @@ test("material references respect model kind and report missing files", () => {
 test("the same material name in both libraries is valid for each model", () => {
     const catalog = createMaterialReferenceCatalog({
         FMM: [{ name: "Материал" }],
-        HTC: [{ name: "Материал" }],
+        HTS: [{ name: "Материал" }],
     });
     const diagnostics = [];
     validateElementMaterialReferences(
@@ -56,10 +56,10 @@ test("the same material name in both libraries is valid for each model", () => {
 test("a mixed material assignment is subsequently validated against each row's model", async () => {
     const catalog = createMaterialReferenceCatalog({
         FMM: [{ name: "Сталь" }],
-        HTC: [{ name: "ВТСП" }],
+        HTS: [{ name: "ВТСП" }],
     });
     for (const [models, name, expectedKind] of [
-        [[0, 2], "Сталь", "HTC"],
+        [[0, 2], "Сталь", "HTS"],
         [[2, 0], "ВТСП", "FMM"],
     ]) {
         const records = models.map(model => ({ model }));
@@ -118,7 +118,7 @@ test("catalog loader reads only task-local libraries", async () => {
         { model: 0, xapName: "Только базовая" },
     ], result.catalog, diagnostics);
 
-    assert.deepEqual(calls.map(call => call.kind).sort(), ["FMM", "HTC"]);
+    assert.deepEqual(calls.map(call => call.kind).sort(), ["FMM", "HTS"]);
     assert.equal(calls.every(call => call.taskHandle === taskHandle), true);
     assert.deepEqual(result.errors, []);
     assert.equal(diagnostics.length, 1);

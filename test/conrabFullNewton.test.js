@@ -65,7 +65,7 @@ test("fullJNewton is the last model parameter with names, states and complete he
         /3×3/, /Шура/, /GMRES/,
         /ВТСП/, /смешанной задаче/,
         /всегда используется полный метод независимо/,
-        /htcRo/, /Float32/, /Float64/,
+        /htsRo/, /Float32/, /Float64/,
         /умолчанию false/, /отсутствии поля в conrab\.txt/,
     ]) {
         assert.match(property.description, wording);

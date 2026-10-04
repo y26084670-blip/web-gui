@@ -50,7 +50,7 @@ test("one FMM name is assigned to every selected element in one model call", asy
 test("mixed selections use the first selected row and assign every row without changing models", async () => {
     for (const [models, kind] of [
         [[0, 2], "FMM"],
-        [[2, 0], "HTC"],
+        [[2, 0], "HTS"],
         [[1, 2], "FMM"],
     ]) {
         const records = models.map((model, index) => ({

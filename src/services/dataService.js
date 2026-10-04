@@ -6,6 +6,7 @@ import {
     getStorageValue,
     hasStorageValue,
     propertyStoragePath,
+    propertyStorageReadPaths,
     serialize,
 } from "./model/modelSerializer";
 import {
@@ -148,7 +149,7 @@ export const dataService = {
         const declared = Object.entries(schema.properties)
             .filter(([, property]) => isStoredProperty(property))
             .map(([key, property]) =>
-                propertyStoragePath(key, property)
+                propertyStorageReadPaths(key, property)
             );
         if (Object.keys(schema.properties).length === 0) return;
 
@@ -164,13 +165,13 @@ export const dataService = {
 
             findUnknownStoragePaths(
                 item,
-                declared,
+                declared.flat(),
                 schema.config.obsoleteStoragePaths,
             )
                 .forEach(path => unknown.add(path));
 
-            for (const path of declared) {
-                if (!hasStorageValue(item, path)) missing.add(path);
+            for (const paths of declared) {
+                if (!paths.some(path => hasStorageValue(item, path))) missing.add(paths[0]);
             }
         }
 
