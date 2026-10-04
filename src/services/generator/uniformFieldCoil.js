@@ -22,14 +22,15 @@ export function coilAxialFactor(z,r1,r2,length) {
 export function uniformFieldCoilParameters(params,model) {
   if([model?.general?.mirrorSymmetryX,model?.general?.mirrorSymmetryY].some(value=>value===0||value===1))fail(COIL_MIRROR_ERROR);
   if(jweakLocalLocksStructure(model?.jweakLocal))fail(JWEAK_STRUCTURE_NOTICE);
-  const H0=Number(params.H0),radius=Number(params.radius),direction=params.direction?.map(Number);
+  const H0=Number(params.H0),radius=Number(params.radius),length=Number(params.length),direction=params.direction?.map(Number);
   if(!Number.isFinite(H0)||H0<0)fail("H0 должен быть конечным неотрицательным числом.");
   if(!Number.isFinite(radius)||radius<=0)fail("Радиус R должен быть конечным положительным числом.");
+  if(!Number.isFinite(length)||length<=0)fail("Длина L должна быть конечным положительным числом.");
   if(direction?.length!==3||!direction.every(Number.isFinite)||!direction.some(v=>v!==0))fail("Задайте три конечные компоненты ненулевого вектора направления.");
   const scale=Math.max(...direction.map(Math.abs)),scaled=direction.map(v=>v/scale),norm=Math.hypot(...scaled);
   const axis=scaled.map(v=>v/norm);
-  const r1=1.1*radius,thickness=10,r2=r1+thickness,length=20*r2;
-  if(!Number.isFinite(length)||!(r2>r1))fail("Размеры катушки выходят за допустимую точность чисел.");
+  const r1=1.1*radius,thickness=10,r2=r1+thickness;
+  if(!Number.isFinite(r2)||!(r2>r1))fail("Размеры катушки выходят за допустимую точность чисел.");
   const factor0=coilAxialFactor(0,r1,r2,length),factorR=coilAxialFactor(radius,r1,r2,length),j0=H0/factor0;
   if(!Number.isFinite(j0)||!(factor0>0)||!Number.isFinite(factorR))fail("Не удалось вычислить плотность тока катушки.");
   const amplitude=Number(params.amplitude??0),move=Number(params.move??0);

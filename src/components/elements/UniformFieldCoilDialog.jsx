@@ -4,7 +4,7 @@ import {uniformFieldCoilParameters} from "../../services/generator/uniformFieldC
 import "./UniformFieldCoilDialog.css";
 
 export function UniformFieldCoilDialog(props) {
-  const [params,setParams]=createSignal({name:"Катушка однородного поля",H0:1,radius:10,direction:[1,0,0],amplitude:0,move:0});
+  const [params,setParams]=createSignal({name:"Катушка однородного поля",H0:1,radius:10,length:420,direction:[1,0,0],amplitude:0,move:0});
   const change=(key,value)=>setParams(old=>({...old,[key]:value}));
   const analysis=createMemo(()=>{
     try{return {values:uniformFieldCoilParameters(params(),props.model)};}
@@ -18,6 +18,7 @@ export function UniformFieldCoilDialog(props) {
       <div class="coil-input-row">
         <label>H0, кА/м <input type="number" min="0" step="any" value={params().H0} onInput={e=>change("H0",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
         <label>R, мм <input type="number" min="0" step="any" value={params().radius} onInput={e=>change("radius",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
+        <label>L, мм <input type="number" min="0" step="any" value={params().length} onInput={e=>change("length",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
       </div>
       <fieldset disabled={props.busy}><legend>Направление поля — ненулевой вектор</legend><div class="coil-input-row">
         <For each={["X","Y","Z"]}>{(name,index)=><label>{name}<input type="number" step="any" value={params().direction[index()]}
