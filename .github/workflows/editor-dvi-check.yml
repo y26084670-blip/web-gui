@@ -1,0 +1,103 @@
+name: Verify coil dvi correction
+on:
+  push:
+    branches: [fix/coil-dvi-4451-20261006]
+    paths: [.github/editor-dvi-update.py, .github/workflows/editor-dvi-check.yml]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CHECK_OUTPUT: /tmp/editor-dvi-verification
+      DVI_PR_NUMBER: '66'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Baseline full tests
+        shell: bash
+        run: |
+          mkdir -p "$CHECK_OUTPUT"
+          set +e
+          node --test --test-reporter=tap > "$CHECK_OUTPUT/baseline-tests.log" 2>&1
+          code=$?
+          set -e
+          echo "Baseline test exit: $code"
+          test "$code" -le 1
+          tail -12 "$CHECK_OUTPUT/baseline-tests.log"
+      - name: Apply reviewed correction
+        run: python3 .github/editor-dvi-update.py apply
+      - name: Focused tests
+        shell: bash
+        run: |
+          node --test --test-reporter=tap test/uniformFieldCoil.test.js test/geometryCameraView.test.js test/constantMuFmm.test.js test/modelSaveShortcut.test.js test/fmmTableInput.test.js 2>&1 | tee "$CHECK_OUTPUT/focused-tests.log"
+      - name: Corrected full tests
+        shell: bash
+        run: |
+          set +e
+          node --test --test-reporter=tap > "$CHECK_OUTPUT/full-tests.log" 2>&1
+          code=$?
+          set -e
+          echo "Corrected test exit: $code"
+          test "$code" -le 1
+          tail -12 "$CHECK_OUTPUT/full-tests.log"
+      - name: Release, Pages and resource checks
+        shell: bash
+        run: |
+          npm run build:release 2>&1 | tee "$CHECK_OUTPUT/build-release.log"
+          npm run build:pages 2>&1 | tee "$CHECK_OUTPUT/build-pages.log"
+          npm run assets:verify 2>&1 | tee "$CHECK_OUTPUT/assets-verify.log"
+      - name: Install isolated browser tools
+        run: |
+          npm install --prefix /tmp/editor-playwright --no-save --package-lock=false playwright
+          /tmp/editor-playwright/node_modules/.bin/playwright install chromium
+      - name: Browser regression and dvi scenarios
+        env:
+          PLAYWRIGHT_MODULE: /tmp/editor-playwright/node_modules/playwright/index.mjs
+        run: node scripts/check-editor-features-browser.mjs
+      - name: Record evidence and validate scope
+        shell: bash
+        run: |
+          python3 .github/editor-dvi-update.py record
+          python3 - <<'PY'
+          import json, pathlib, subprocess
+          base='55fe8efdb35e7ebc05c74a7712c10ea5045ef1f0'
+          def original(path):
+              return subprocess.check_output(['git','show',base+':'+path]).decode()
+          before=original('docs/resume.md').split('## Неформальные замечания',1)[1]
+          after=pathlib.Path('docs/resume.md').read_text().split('## Неформальные замечания',1)[1]
+          assert before==after, 'Owner notes changed'
+          for name in ['package.json','package-lock.json']:
+              old=json.loads(original(name));new=json.loads(pathlib.Path(name).read_text())
+              assert new['version']=='4.45.1'
+              new['version']=old['version']
+              if name=='package-lock.json':
+                  assert new['packages']['']['version']=='4.45.1'
+                  new['packages']['']['version']=old['packages']['']['version']
+              assert old==new, 'Dependency change: '+name
+          PY
+          git diff --check
+          git diff --stat
+          git diff -- src/services/generator/uniformFieldCoil.js src/components/elements/UniformFieldCoilDialog.jsx > "$CHECK_OUTPUT/code.diff"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md package.json package-lock.json src/services/generator/uniformFieldCoil.js src/components/elements/UniformFieldCoilDialog.jsx test/uniformFieldCoil.test.js scripts/check-editor-features-browser.mjs docs/AI_FILES.md docs/AI_GEOMETRY_GENERATION.md docs/AI_UI_CONTRACTS.md docs/AI_VERIFICATION.md docs/AI_HISTORY.md docs/resume.md docs/user-guide/index.html docs/verification/editor-4451-browser.json
+          git add -u .github/editor-dvi-update.py .github/workflows/editor-dvi-check.yml
+          git diff --cached --check
+          git commit -m 'fix: interpret coil opening as base-sector dvi in editor 4.45.1'
+          git push origin HEAD:fix/coil-dvi-4451-20261006
+          git rev-parse HEAD > "$CHECK_OUTPUT/final-commit.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: editor-4451-dvi-verification
+          path: /tmp/editor-dvi-verification
+          retention-days: 3
