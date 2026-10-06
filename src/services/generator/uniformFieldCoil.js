@@ -2,9 +2,9 @@ import {mhjLayout,isTargOrdered} from "../solver/mhjLayout.js";
 import {jweakLocalLocksStructure,JWEAK_STRUCTURE_NOTICE} from "../solver/jweakLocalValidation.js";
 import {fromStorage} from "../model/arrayShape.js";
 
-export const COIL_SEGMENTS=72;
+export const COIL_DEFAULT_DVI=20;
 export function createUniformFieldCoilDefaults() {
-  return {name:"Катушка однородного поля",H0:1,radius:10,length:100,opening:360,direction:[1,0,0],amplitude:0,move:0};
+  return {name:"Катушка однородного поля",H0:1,radius:10,length:100,opening:COIL_DEFAULT_DVI,direction:[1,0,0],amplitude:0,move:0};
 }
 
 // These are symVi rotation angles, not acos direction angles to the axes.
@@ -39,12 +39,17 @@ export function uniformFieldCoilParameters(params,model) {
   if([model?.general?.mirrorSymmetryX,model?.general?.mirrorSymmetryY].some(value=>value===0||value===1))fail(COIL_MIRROR_ERROR);
   if(jweakLocalLocksStructure(model?.jweakLocal))fail(JWEAK_STRUCTURE_NOTICE);
   const H0=Number(params.H0),radius=Number(params.radius),length=Number(params.length);
-  const opening=Number(params.opening===undefined?360:params.opening);
+  const opening=Number(params.opening===undefined?COIL_DEFAULT_DVI:params.opening);
   if(!Number.isFinite(H0)||H0<0)fail("H0 должен быть конечным неотрицательным числом.");
   if(!Number.isFinite(radius)||radius<=0)fail("Радиус R должен быть конечным положительным числом.");
   if(!Number.isFinite(length)||length<=0)fail("Длина L должна быть конечным положительным числом.");
   if(!Number.isFinite(opening)||opening<=0||opening>360)fail("Раскрытие должно быть больше 0 и не больше 360 градусов.");
-  const segments=Math.ceil(opening/(360/COIL_SEGMENTS)),sectorAngle=opening/segments;
+  // opening is dvi of ONE base sector, not the total winding aperture.
+  // Preserve the entered angle exactly in geo.dvi and sym.yl; never refit it.
+  const segments=Math.floor(360/opening),sectorAngle=opening;
+  if(!Number.isSafeInteger(segments)||segments<1||segments>2147483647)
+    fail("Раскрытие задаёт недопустимое число локальных образов (целое Int32).");
+  const coveredAngle=segments*sectorAngle;
   const {axis,angles}=uniformFieldCoilOrientation(params.direction);
   const r1=1.1*radius,thickness=10,r2=r1+thickness;
   if(!Number.isFinite(r2)||!(r2>r1))fail("Размеры катушки выходят за допустимую точность чисел.");
@@ -54,7 +59,7 @@ export function uniformFieldCoilParameters(params,model) {
   for(const [value,records,label] of [[amplitude,model?.amps,"амплитуды"],[move,model?.moves,"траектории"]])
     if(!Number.isSafeInteger(value)||value<0||value>(records?.length??0))fail(`Недопустимый номер ${label}: 0 или номер существующей записи.`);
   const relativeDeviation=H0===0?null:(factorR/factor0-1)*100;
-  return {H0,radius,r1,r2,thickness,length,opening,segments,sectorAngle,j0,axis,angles,amplitude,move,
+  return {H0,radius,r1,r2,thickness,length,opening,segments,sectorAngle,coveredAngle,j0,axis,angles,amplitude,move,
     field0:j0*factor0,fieldR:j0*factorR,relativeDeviation,
     nonuniformity:relativeDeviation===null?null:Math.abs(relativeDeviation)};
 }
@@ -80,7 +85,14 @@ export function prepareUniformFieldCoil(model,params,createElement) {
   // All prescribed-source elements precede virtual elements, so new MHJ rows
   // append without reindexing existing currents or conductor MED references.
   const nextElements=[...elements.slice(0,insertAt),record,...elements.slice(insertAt)];
-  const v=[...previous,...Array.from({length:segments},()=>[0,-j0,0])];
+  const layout=mhjLayout(nextElements);
+  const coilRows=layout.items.find(item=>item.kvIndex===insertAt);
+  // The new coil is the final prescribed-source element. Derive its actual
+  // range from the common discretization/symmetry layout, not a fixed row count.
+  if(!coilRows||coilRows.start!==previous.length||coilRows.count!==segments
+    ||layout.rows!==previous.length+coilRows.count)
+    fail("Не удалось согласовать диапазон заданных источников катушки с её дискретизацией.");
+  const v=[...previous,...Array.from({length:coilRows.count},()=>[0,-j0,0])];
   return {values,recordIndex:insertAt,elements:nextElements,mhj:[{...records[0],v}]};
 }
 

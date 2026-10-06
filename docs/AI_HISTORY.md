@@ -1,6 +1,6 @@
 # История решений web-gui
 
-Обновлено: 2026-10-05 00:11 UTC+3.
+Обновлено: 2026-10-06 17:43 UTC+3.
 
 ## Назначение
 
@@ -9,10 +9,19 @@
 проблемы — [`AI_ARCHITECTURE_AUDIT.md`](AI_ARCHITECTURE_AUDIT.md), порядок
 будущих работ — [`AI_ROADMAP.md`](AI_ROADMAP.md).
 
-Последнее функциональное изменение: приложение 4.44.3, [PR 64](https://github.com/y26084670-blip/web-gui/pull/64),
-merge commit `e4e51b4b467f9aa013c3d1548fe3577f6c0a56b8`.
+Последнее исправление: приложение 4.45.1, [PR 66](https://github.com/y26084670-blip/web-gui/pull/66).
 
 ## Основные этапы
+
+### 2026-10-06 17:43 UTC+3 — dvi базового сектора катушки, 4.45.1
+
+[PR 66](https://github.com/y26084670-blip/web-gui/pull/66) исправляет трактовку «Раскрытия» после PR 65:
+dvi=20°, symYl=dvi, symLs=floor(360/dvi); источники заполняются по mhjLayout.
+Профильные тесты 47/47, браузер 38/38;
+release/Pages/assets успешны. Полный набор 752/774,
+22 прежних сбоев, новых нет. Windows file picker и установленный
+Clark не проверены. [Контракт](AI_GEOMETRY_GENERATION.md#uniform-field-coil),
+[свидетельства](AI_VERIFICATION.md#verification-coil-dvi-4451).
 
 ### 2026-10-05 00:11 UTC+3 — HTC → HTS, 4.44.3
 
