@@ -41,6 +41,8 @@ try{
   check('orientation indicators are readonly and follow vector projections',await coil.locator('.coil-orientation-angles input').evaluateAll(v=>v.every(e=>e.readOnly))&&Math.abs(displayed[1]+47.96888623)<1e-8&&Math.abs(displayed[2]-56.30993247)<1e-8);
   await coil.getByLabel('Раскрытие, град',{exact:true}).fill('90');
   check('sector warning distinguishes full-coil analytic field',await coil.locator('.coil-sector-notice').isVisible());
+  await page.waitForTimeout(400);
+  check('coil analytic table has readable text on its dark panel',await coil.locator('td').first().evaluate(e=>getComputedStyle(e).color==='rgb(237, 242, 247)'));
   await page.screenshot({path:path.join(out,'coil-sector.png')});
   await coil.getByRole('button',{name:'Добавить катушку',exact:true}).click();
   await page.waitForFunction(()=>editorFixture.model().elements.length===1);
@@ -61,6 +63,8 @@ try{
   await dialog.getByLabel('μ',{exact:true}).fill('1234');await dialog.getByLabel('Hmax, кА/м',{exact:true}).fill('22');
   await dialog.getByRole('button',{name:'Создать',exact:true}).click();
   check('Create holds 12 points in memory without a file',await dialog.locator('tbody tr').count()===12&&!await page.evaluate(()=>editorFixture.exists('input3XX/xapLibFMM/1234.00.txt')));
+  await page.waitForTimeout(400);
+  check('FMM preview has readable text on its dark panel',await dialog.locator('td').first().evaluate(e=>getComputedStyle(e).color==='rgb(237, 242, 247)'));
   await page.screenshot({path:path.join(out,'constant-mu.png')});
   await dialog.getByRole('button',{name:'Сохранить',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.constant-mu-dialog [role=status]')?.textContent.startsWith('Сохранено:'));

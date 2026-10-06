@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-05, UTC+3.
+Обновлено: 2026-10-06 16:35 UTC+3.
 
 ## Назначение
 
@@ -363,3 +363,21 @@ kvs.txt, выбор записей локальной XAP.lib и пакетна�
 | Проигрывание GIF | `src/components/tasks/TaskGifPlayer.jsx`, `src/services/taskGifPlayback.js` | Canvas, таймеры, пауза/продолжение, одиночный проход и цикл. |
 | Декодирование GIF | `src/services/taskGifDecoder.js`, `src/workers/taskGifDecode.worker.js` | Последовательная декомпрессия и композиция кадров вне UI-потока. |
 | Проверки | `test/uniformFieldCoil.test.js`, `test/modelHistoryService.test.js`, `test/taskGifDecoder.test.js`, `test/taskGifPlayback.test.js` | Численная сверка аналитики, схема, история, направления токов, GIF disposal и таймеры. |
+
+## Расширения Editor 4.45.0
+
+| Владелец | Ответственность |
+|---|---|
+| `src/services/generator/uniformFieldCoil.js` | Начальные значения, единое вычисление углов `symVi`, раскрытие и согласованные геометрия/MHJ. |
+| `src/components/elements/UniformFieldCoilDialog.jsx`, `.css` | Поле раскрытия, индикаторы углов и граница аналитики сектора. |
+| `src/services/modelSaveShortcut.js` | Capture-обработчик Ctrl+S, подавление повторов и освобождение обработчика. |
+| `src/App.jsx`, `src/components/editors/DataEditor.jsx` | Flush активного редактора, защита контекста задания и обычное сохранение. |
+| `src/services/visualization/geometryCameraView.js`, `src/components/geometry/ThreeGeometryViewport.jsx` | Общий начальный ракурс и команда Ctrl+A. |
+| `src/services/materials/constantMuFmm.js` | Чистая генерация 12 точек и запись через существующий сервис библиотеки. |
+| `src/components/materials/ConstantMuFmmDialog.jsx`, `.css` | Нативное модальное окно и предпросмотр в памяти. |
+| `src/components/SidePanel.jsx`, `src/tabs/MaterialLibraryTab.jsx` | Вызов из шторки, применение локальной характеристики без потери других dirty-строк. |
+| `test/constantMuFmm.test.js`, `test/modelSaveShortcut.test.js` | Предметные и событийные проверки новых сервисов. |
+| `scripts/check-editor-features-browser.mjs`, `test/browser/editorFeatures.fixture.jsx` | Приёмка actual App/Tabulator/WebGL и файловой записи в Chromium OPFS. |
+
+[UI-контракты](AI_UI_CONTRACTS.md#model-save-shortcut) ·
+[Методика](AI_VERIFICATION.md#verification-editor-445).

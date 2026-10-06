@@ -5,7 +5,7 @@
 .coil-input-row { display: flex; gap: 12px; margin: 10px 0; }
 .uniform-field-coil fieldset { border: 1px solid #8b969e; margin: 10px 0; }
 .uniform-field-coil p { margin: 10px 0; }
-.uniform-field-coil table { border-collapse: collapse; width: 100%; }
+.uniform-field-coil table { color: #edf2f7; border-collapse: collapse; width: 100%; }
 .uniform-field-coil caption { text-align: left; font-weight: bold; margin-bottom: 5px; }
 .uniform-field-coil th,.uniform-field-coil td { border: 1px solid #8b969e; padding: 5px; text-align: right; }
 .uniform-field-coil th:first-child,.uniform-field-coil td:first-child { text-align: left; }
@@ -15,3 +15,5 @@
 .coil-angle-title { font-size: 13px; }
 .coil-orientation-angles input { background: #edf1f4; color: #17212b; cursor: text; }
 .coil-sector-notice { border-left: 3px solid #be8527; padding-left: 8px; }
+
+.uniform-field-coil caption, .uniform-field-coil th, .uniform-field-coil td { color: #edf2f7; }
