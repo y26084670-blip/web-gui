@@ -84,14 +84,14 @@ test("current corrects the finite coil field at 0; relative error is H(R) versus
   assert.equal(zero.field0,0);assert.equal(zero.fieldR,0);assert.equal(zero.nonuniformity,null);
 });
 
-test("full coil has 72 contiguous valid sectors and the prescribed current circulates around the requested axis",()=>{
+test("default coil has 18 contiguous valid sectors and the prescribed current circulates around the requested axis",()=>{
   for(const direction of [[1,0,0],[-1,0,0],[0,0,1],[2,3,4]]) {
     const r=prepareUniformFieldCoil(empty(),{...params,direction},createElement),e=r.elements[0];
     assert.equal(e.geo.length,8);assert.ok(e.geo.every(row=>row.length===3));
     const geometry=unpackKvVertices(e.geo.flat(),e.geoType);
     assert.equal(geometry.err,0);assert.equal(validateKvVertices(geometry.vertices),true);
-    const instances=expandElementSymmetry(e,general);assert.equal(instances.length,72);
-    assert.equal(e.auto,true);assert.equal(mhjLayout(r.elements).rows,72);
+    const instances=expandElementSymmetry(e,general);assert.equal(instances.length,18);
+    assert.equal(e.auto,true);assert.equal(mhjLayout(r.elements).rows,18);
     const radius=(r.values.r1+r.values.r2)/2,axis=r.values.axis;
     for(const instance of instances) {
       const point=applyMatrix4ToPoint(instance.matrix,[0,0,radius]);
@@ -110,7 +110,7 @@ test("native schema round trip preserves winding geometry, amplitude, motion and
   const model=empty();model.amps=[{}];model.moves=[{}];
   const r=prepareUniformFieldCoil(model,{...params,amplitude:1,move:1},createElement);
   const stored=JSON.parse(JSON.stringify(serialize(r.elements,elementSchema)));
-  assert.equal(stored[0].geo.length,24);assert.equal(stored[0].sym.ls,72);
+  assert.equal(stored[0].geo.length,24);assert.equal(stored[0].sym.ls,18);
   assert.equal(stored[0].indAmp,1);assert.equal(stored[0].indMove,1);assert.ok(!("indMov" in stored[0]));
   assert.deepEqual(recomputeModel(elementSchema,deserialize(stored,elementSchema)).model,recomputeModel(elementSchema,r.elements).model);
   assert.deepEqual(deserialize(JSON.parse(JSON.stringify(serialize(r.mhj,mhjSchema))),mhjSchema),r.mhj);
@@ -125,7 +125,7 @@ test("coil inserts before virtual elements without altering earlier sources or r
   const model={...empty(),elements:[source,virtual],mhj:[{v:[[3,4,5]]}]},before=structuredClone(model);
   const r=prepareUniformFieldCoil(model,params,createElement);
   assert.equal(r.recordIndex,1);assert.equal(r.elements[0],source);assert.equal(r.elements[2],virtual);
-  assert.deepEqual(r.mhj[0].v[0],[3,4,5]);assert.equal(r.mhj[0].v.length,73);
+  assert.deepEqual(r.mhj[0].v[0],[3,4,5]);assert.equal(r.mhj[0].v.length,19);
   assert.deepEqual(model,before);
 });
 
@@ -164,9 +164,9 @@ test("failure preparing another model part leaves all data and history untouched
 });
 
 
-test("new coil defaults use L=100, full opening and a Russian name without shared arrays",()=>{
+test("new coil defaults use L=100, dvi=20 and a Russian name without shared arrays",()=>{
   const p=createUniformFieldCoilDefaults(),second=createUniformFieldCoilDefaults();
-  assert.equal(p.length,100);assert.equal(p.opening,360);assert.equal(p.name,"Катушка однородного поля");
+  assert.equal(p.length,100);assert.equal(p.opening,20);assert.equal(p.name,"Катушка однородного поля");
   p.direction[0]=3;assert.deepEqual(second.direction,[1,0,0]);
   const result=prepareUniformFieldCoil(empty(),second,createElement);
   assert.equal(result.elements[0].name,"Катушка однородного поля");
@@ -188,10 +188,12 @@ test("displayed symVi angles reproduce arbitrary axis directions, including pole
 });
 
 test("sector opening determines contiguous local copies, valid geometry and matching source rows",()=>{
-  for(const opening of [360,180,90,17,5,2.5]) {
-    const result=prepareUniformFieldCoil(empty(),{...params,opening},createElement),record=result.elements[0],n=Math.ceil(opening/5);
-    assert.equal(record.symLs,n);close(record.symLs*record.symYl,opening);
-    assert.ok(record.symYl>0&&record.symYl<=5);
+  for(const opening of [20,10,30,17,5,2.5,11.3,90,120]) {
+    const result=prepareUniformFieldCoil(empty(),{...params,opening},createElement),record=result.elements[0],n=Math.floor(360/opening);
+    assert.equal(record.symLs,n);assert.equal(record.symYl,opening);
+    assert.equal(result.values.coveredAngle,n*opening);
+    assert.ok(result.values.coveredAngle<=360);
+    assert.ok(360-result.values.coveredAngle<opening+1e-10);
     assert.equal(record.geo.flat()[8],record.symYl);
     const {vertices,err}=unpackKvVertices(record.geo.flat(),1);
     assert.equal(err,0);assert.equal(validateKvVertices(vertices),true);
@@ -205,10 +207,54 @@ test("sector opening determines contiguous local copies, valid geometry and matc
 });
 
 test("invalid openings are rejected atomically without altering model, sources or undo history",()=>{
-  for(const opening of [null,"",0,-1,360.01,361,NaN,Infinity,-Infinity]) {
+  for(const opening of [null,"",0,-1,360.01,361,NaN,Infinity,-Infinity,1e-200,360/2147483648]) {
     const args=setup(),before=modelService.getModel();
     assert.throws(()=>applyUniformFieldCoil({...args,params:{...params,opening}}),/Раскрытие/);
     assert.equal(modelService.getModel(),before);assert.equal(modelService.canUndo("elements"),false);
     assert.equal(modelService.canUndo("mhj"),false);assert.equal(unsavedChangesService.hasDirty(),false);
   }
+});
+
+
+test("dvi is the unchanged base-sector and local-symmetry angle with truncated image count",()=>{
+  for(const [opening,n] of [[20,18],[10,36],[30,12],[17,21],[11.3,31]]) {
+    const r=prepareUniformFieldCoil(empty(),{...params,opening},createElement),e=r.elements[0];
+    assert.equal(e.geo.flat()[8],opening);assert.equal(e.symYl,opening);assert.equal(e.symLs,n);
+    assert.equal(r.mhj[0].v.length,n);assert.equal(r.values.coveredAngle,n*opening);
+    const stored=serialize(r.elements,elementSchema)[0];
+    assert.equal(stored.geo[8],opening);assert.equal(stored.sym.yl,opening);assert.equal(stored.sym.ls,n);
+  }
+  const r=prepareUniformFieldCoil(empty(),{...params,opening:17},createElement);
+  assert.equal(r.values.coveredAngle,357);assert.equal(360-r.values.coveredAngle,3);
+});
+
+test("new coil fills precisely its MHJ range after discretized existing sources",()=>{
+  const magnet={...createElement(),name:"magnet",targ:1,dp:[[2],[3],[1]],symLs:2};
+  const oldCoil={...createElement(),name:"existing coil",targ:2,dp:[[1],[2],[1]],symLs:3};
+  const virtual={...createElement(),name:"virtual",targ:3};
+  const elements=[magnet,oldCoil,virtual],count=mhjLayout(elements).rows;
+  assert.equal(count,18);
+  const previous=Array.from({length:count},(_,i)=>[i+1,100+i,-i]);
+  const model={...empty(),elements,mhj:[{v:previous}]},snapshot=structuredClone(model);
+  for(const [opening,n] of [[20,18],[10,36],[30,12],[17,21]]) {
+    const r=prepareUniformFieldCoil(model,{...params,opening},createElement);
+    const layout=mhjLayout(r.elements),range=layout.items.find(item=>item.kvIndex===r.recordIndex);
+    assert.equal(r.recordIndex,2);assert.equal(r.elements[3],virtual);
+    assert.equal(range.start,count);assert.equal(range.count,n);assert.equal(layout.rows,count+n);
+    assert.deepEqual(r.mhj[0].v.slice(0,count),previous);
+    assert.ok(r.mhj[0].v.slice(count).every(v=>v[0]===0&&v[1]===-r.values.j0&&v[2]===0));
+    assert.deepEqual(model,snapshot);
+  }
+});
+
+test("changing dvi between additions preserves old coil rows and grouped Undo/Redo",()=>{
+  const args=setup();applyUniformFieldCoil({...args,params:{...params,opening:20}});
+  const first=structuredClone(modelService.getModel());assert.equal(first.mhj[0].v.length,18);
+  const second=applyUniformFieldCoil({...args,params:{...params,H0:3,opening:10}});
+  const both=structuredClone(modelService.getModel());
+  assert.equal(both.elements[1].symLs,36);assert.equal(both.mhj[0].v.length,54);
+  assert.deepEqual(both.mhj[0].v.slice(0,18),first.mhj[0].v);
+  assert.ok(both.mhj[0].v.slice(18).every(v=>v[0]===0&&v[1]===-second.values.j0&&v[2]===0));
+  assert.equal(modelService.undo("mhj"),true);assert.deepEqual(modelService.getModel(),first);
+  assert.equal(modelService.redo("elements"),true);assert.deepEqual(modelService.getModel(),both);
 });

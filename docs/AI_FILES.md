@@ -1,6 +1,6 @@
 # Карта файлов и компонентов web-gui
 
-Обновлено: 2026-10-06 16:35 UTC+3.
+Обновлено: 2026-10-06 17:43 UTC+3.
 
 ## Назначение
 
@@ -368,8 +368,8 @@ kvs.txt, выбор записей локальной XAP.lib и пакетна�
 
 | Владелец | Ответственность |
 |---|---|
-| `src/services/generator/uniformFieldCoil.js` | Начальные значения, единое вычисление углов `symVi`, раскрытие и согласованные геометрия/MHJ. |
-| `src/components/elements/UniformFieldCoilDialog.jsx`, `.css` | Поле раскрытия, индикаторы углов и граница аналитики сектора. |
+| `src/services/generator/uniformFieldCoil.js` | Начальные значения, углы `symVi`, dvi=20°, floor(360/dvi) и диапазон геометрии/MHJ через mhjLayout. |
+| `src/components/elements/UniformFieldCoilDialog.jsx`, `.css` | Поле dvi, индикаторы углов, число образов и предупреждение об угловом остатке. |
 | `src/services/modelSaveShortcut.js` | Capture-обработчик Ctrl+S, подавление повторов и освобождение обработчика. |
 | `src/App.jsx`, `src/components/editors/DataEditor.jsx` | Flush активного редактора, защита контекста задания и обычное сохранение. |
 | `src/services/visualization/geometryCameraView.js`, `src/components/geometry/ThreeGeometryViewport.jsx` | Общий начальный ракурс и команда Ctrl+A. |

@@ -24,7 +24,7 @@ export function UniformFieldCoilDialog(props) {
         <label>H0, кА/м <input type="number" min="0" step="any" value={params().H0} onInput={e=>change("H0",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
         <label>R, мм <input type="number" min="0" step="any" value={params().radius} onInput={e=>change("radius",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
         <label>L, мм <input type="number" min="0" step="any" value={params().length} onInput={e=>change("length",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
-        <label>Раскрытие, град <input type="number" min="0" max="360" step="any" value={params().opening} onInput={e=>change("opening",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
+        <label>Раскрытие, град <input title="dvi базового сектора; также угол локальной симметрии" type="number" min="0" max="360" step="any" value={params().opening} onInput={e=>change("opening",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
       </div>
       <fieldset disabled={props.busy}><legend>Направление поля — ненулевой вектор</legend><div class="coil-input-row">
         <For each={["X","Y","Z"]}>{(name,index)=><label>{name}<input type="number" step="any" value={params().direction[index()]}
@@ -45,8 +45,8 @@ export function UniformFieldCoilDialog(props) {
       </div>
       <p>Центр — (0, 0, 0). Номер 0: постоянная амплитуда / без движения.</p>
       <Show when={analysis().values}>{values=><>
-        <p>R1 = {number(values().r1)} мм · T = 10 мм · L = {number(values().length)} мм<br/>j0 = {number(values().j0)} А/мм² · локальных образов: {values().segments} · раскрытие {number(values().opening)}°</p>
-        <Show when={values().opening<360}><p class="coil-sector-notice" role="note">Создаётся сектор. Ток и оценка ниже относятся к полной катушке 360° с теми же размерами, а не к фактическому полю отдельного сектора.</p></Show>
+        <p>R1 = {number(values().r1)} мм · T = 10 мм · L = {number(values().length)} мм<br/>j0 = {number(values().j0)} А/мм² · локальных образов: {values().segments} · dvi = {number(values().opening)}° · охват {number(values().coveredAngle)}°</p>
+        <Show when={values().coveredAngle<360-1e-9}><p class="coil-sector-notice" role="note">Число образов = floor(360 / dvi). Остаток {number(360-values().coveredAngle)}° не заполняется; введённый dvi не изменяется. Ток и аналитическая оценка относятся к полной катушке 360°.</p></Show>
         <table><caption>Аналитическая оценка на оси, при единичном множителе амплитуды</caption>
           <thead><tr><th>Положение</th><th>H, кА/м</th><th>Отклонение от H(0), %</th></tr></thead>
           <tbody><tr><td>0</td><td>{number(values().field0)}</td><td>0</td></tr>

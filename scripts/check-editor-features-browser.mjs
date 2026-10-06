@@ -34,21 +34,37 @@ try{
   await button('Элементы модели').click();
   await openDrawer();await page.locator('.side-panel').getByRole('button',{name:'Катушка однородного поля',exact:true}).click();
   const coil=page.locator('.uniform-field-coil');await coil.waitFor();
-  check('coil default L=100, opening=360, Russian name',await coil.getByLabel('L, мм',{exact:true}).inputValue()==='100'&&await coil.getByLabel('Раскрытие, град',{exact:true}).inputValue()==='360'&&(await coil.locator('input').first().inputValue())==='Катушка однородного поля');
+  check('coil default L=100, dvi=20, Russian name',await coil.getByLabel('L, мм',{exact:true}).inputValue()==='100'&&await coil.getByLabel('Раскрытие, град',{exact:true}).inputValue()==='20'&&(await coil.locator('input').first().inputValue())==='Катушка однородного поля');
   const direction=coil.locator('fieldset .coil-input-row').first().locator('input');
   await direction.nth(0).fill('2');await direction.nth(1).fill('3');await direction.nth(2).fill('4');
   const displayed=await coil.locator('.coil-orientation-angles input').evaluateAll(v=>v.map(e=>Number(e.value)));
   check('orientation indicators are readonly and follow vector projections',await coil.locator('.coil-orientation-angles input').evaluateAll(v=>v.every(e=>e.readOnly))&&Math.abs(displayed[1]+47.96888623)<1e-8&&Math.abs(displayed[2]-56.30993247)<1e-8);
-  await coil.getByLabel('Раскрытие, град',{exact:true}).fill('90');
-  check('sector warning distinguishes full-coil analytic field',await coil.locator('.coil-sector-notice').isVisible());
+  check('default dvi=20 does not warn about an incomplete winding',!await coil.locator('.coil-sector-notice').isVisible());
+  for(const [dvi,n] of [[10,36],[30,12],[17,21]]) {
+    await coil.getByLabel('Раскрытие, град',{exact:true}).fill(String(dvi));
+    check(`dvi=${dvi} previews ${n} local images without modifying the model`,(await coil.innerText()).includes(`локальных образов: ${n}`)&&(await current()).elements.length===0);
+  }
+  check('dvi=17 warns about the unfilled 3-degree remainder',await coil.locator('.coil-sector-notice').isVisible()&&(await coil.locator('.coil-sector-notice').innerText()).includes('Остаток 3°'));
+  await coil.getByLabel('Раскрытие, град',{exact:true}).fill('20');
+  check('dvi=20 restores full coverage without a sector warning',!await coil.locator('.coil-sector-notice').isVisible());
   await page.waitForTimeout(400);
   check('coil analytic table has readable text on its dark panel',await coil.locator('td').first().evaluate(e=>getComputedStyle(e).color==='rgb(237, 242, 247)'));
-  await page.screenshot({path:path.join(out,'coil-sector.png')});
+  await page.screenshot({path:path.join(out,'coil-dvi.png')});
   await coil.getByRole('button',{name:'Добавить катушку',exact:true}).click();
   await page.waitForFunction(()=>editorFixture.model().elements.length===1);
   const model=await current();
-  check('coil sector creates 18 local copies and 18 current rows',model.elements[0].symLs===18&&model.elements[0].symYl===5&&model.mhj[0].v.length===18);
+  check('dvi=20 creates the unchanged 20-degree sector, 18 images and 18 Jy rows',model.elements[0].geo.flat()[8]===20&&model.elements[0].symLs===18&&model.elements[0].symYl===20&&model.mhj[0].v.length===18&&model.mhj[0].v.every(v=>v[0]===0&&v[1]<0&&v[2]===0));
   check('indicated angles equal generated local coordinate rotations',model.elements[0].symVi.flat().every((v,i)=>Math.abs(v-displayed[i])<6e-9));
+  // Changing the generator parameter must not rewrite previously added coils.
+  let previousRows=model.mhj[0].v,expectedElements=1;
+  for(const [dvi,n] of [[30,12],[10,36]]) {
+    await coil.getByLabel('Раскрытие, град',{exact:true}).fill(String(dvi));
+    await coil.getByRole('button',{name:'Добавить катушку',exact:true}).click();
+    expectedElements+=1;await page.waitForFunction(n=>editorFixture.model().elements.length===n,expectedElements);
+    const next=await current(),record=next.elements.at(-1),rows=next.mhj[0].v;
+    check(`dvi=${dvi} adds exactly ${n} current rows and preserves all earlier sources`,record.symLs===n&&record.symYl===dvi&&record.geo.flat()[8]===dvi&&rows.length===previousRows.length+n&&JSON.stringify(rows.slice(0,previousRows.length))===JSON.stringify(previousRows)&&rows.slice(previousRows.length).every(v=>v[0]===0&&v[1]<0&&v[2]===0));
+    previousRows=rows;
+  }
   await coil.getByRole('button',{name:'Закрыть',exact:true}).click();
   // Save while an actual Tabulator editor has an uncommitted value.
   await page.evaluate(()=>{const t=editorFixture.tables('.tabulator').find(t=>t.getData().some(r=>r.name==='Катушка однородного поля'));t.getRows()[0].getCell('name').edit();});
