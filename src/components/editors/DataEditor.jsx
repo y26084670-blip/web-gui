@@ -1026,6 +1026,8 @@ export function DataEditor(props) {
   //==========================================================================
   onMount(() => {
     createMainTable();
+    props.onEditorReady?.({ flush: flushMedEdits });
+    onCleanup(() => props.onEditorReady?.(null));
 
     if (hasDetailRegion) {
       detailRegion.attach({

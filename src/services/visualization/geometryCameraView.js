@@ -1,5 +1,6 @@
 export const GEOMETRY_CAMERA_COMMANDS = Object.freeze({
     FIT_ALL: "fit-all",
+    FIT_INITIAL: "fit-initial",
     VIEW_POSITIVE_X: "view-positive-x",
     VIEW_NEGATIVE_X: "view-negative-x",
     VIEW_POSITIVE_Y: "view-positive-y",
@@ -26,6 +27,10 @@ const KEYBOARD_COMMANDS = Object.freeze({
 });
 
 const CAMERA_FRAMES = Object.freeze({
+    [GEOMETRY_CAMERA_COMMANDS.FIT_INITIAL]: Object.freeze({
+        offset: Object.freeze([1, 1, 1]),
+        up: Object.freeze([0, 0, 1]),
+    }),
     [GEOMETRY_CAMERA_COMMANDS.VIEW_POSITIVE_X]: Object.freeze({
         offset: Object.freeze([-1, 0, 0]),
         up: Object.freeze([0, 0, 1]),
@@ -75,7 +80,7 @@ export function geometryCameraCommandFromKeyboardEvent(event) {
         || !isGeometryCameraShortcutTarget(event.target)) return null;
 
     if (event.code === "KeyA") {
-        return event.ctrlKey ? null : GEOMETRY_CAMERA_COMMANDS.FIT_ALL;
+        return event.ctrlKey ? GEOMETRY_CAMERA_COMMANDS.FIT_INITIAL : GEOMETRY_CAMERA_COMMANDS.FIT_ALL;
     }
 
     const commands = KEYBOARD_COMMANDS[event.code];

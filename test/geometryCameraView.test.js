@@ -21,6 +21,7 @@ const DIRECTIONAL_CASES = [
 test("camera command constants expose every supported action", () => {
     assert.deepEqual(GEOMETRY_CAMERA_COMMANDS, {
         FIT_ALL: "fit-all",
+        FIT_INITIAL: "fit-initial",
         VIEW_POSITIVE_X: "view-positive-x",
         VIEW_NEGATIVE_X: "view-negative-x",
         VIEW_POSITIVE_Y: "view-positive-y",
@@ -103,7 +104,7 @@ test("camera frames are independent mutable values for Three.js consumers", () =
 
 test("camera keyboard shortcuts map plain axes and Ctrl axes", () => {
     assert.equal(
-        geometryCameraCommandFromKeyboardEvent({ key: "A" }),
+        geometryCameraCommandFromKeyboardEvent({ code: "KeyA", key: "ф" }),
         GEOMETRY_CAMERA_COMMANDS.FIT_ALL,
     );
 
@@ -113,11 +114,11 @@ test("camera keyboard shortcuts map plain axes and Ctrl axes", () => {
         ["z", "VIEW_POSITIVE_Z", "VIEW_NEGATIVE_Z"],
     ]) {
         assert.equal(
-            geometryCameraCommandFromKeyboardEvent({ key }),
+            geometryCameraCommandFromKeyboardEvent({ code: `Key${key.toUpperCase()}`, key }),
             GEOMETRY_CAMERA_COMMANDS[positive],
         );
         assert.equal(
-            geometryCameraCommandFromKeyboardEvent({ key, ctrlKey: true }),
+            geometryCameraCommandFromKeyboardEvent({ code: `Key${key.toUpperCase()}`, key, ctrlKey: true }),
             GEOMETRY_CAMERA_COMMANDS[negative],
         );
     }
@@ -125,10 +126,10 @@ test("camera keyboard shortcuts map plain axes and Ctrl axes", () => {
 
 test("camera shortcuts ignore modifier conflicts and editable controls", () => {
     for (const event of [
-        { key: "a", ctrlKey: true },
-        { key: "x", altKey: true },
-        { key: "y", metaKey: true },
-        { key: "z", shiftKey: true },
+        { code: "KeyA", ctrlKey: true, shiftKey: true },
+        { code: "KeyX", altKey: true },
+        { code: "KeyY", metaKey: true },
+        { code: "KeyZ", shiftKey: true },
         { key: "q" },
         null,
     ]) {
@@ -143,4 +144,19 @@ test("camera shortcuts ignore modifier conflicts and editable controls", () => {
         false,
     );
     assert.equal(isGeometryCameraShortcutTarget({ tagName: "CANVAS" }), true);
+});
+
+
+test("Ctrl+A restores the same oblique orientation as a new 3D camera in either keyboard layout", () => {
+    for (const key of ["a", "A", "ф", "Ф"]) {
+        const command = geometryCameraCommandFromKeyboardEvent({ code: "KeyA", key, ctrlKey: true, target: { tagName: "CANVAS" } });
+        assert.equal(command, GEOMETRY_CAMERA_COMMANDS.FIT_INITIAL);
+        assert.deepEqual(geometryCameraFrame(command), { offset: [1,1,1], up: [0,0,1] });
+    }
+    for (const target of [{ tagName:"INPUT" }, { tagName:"TEXTAREA" }, { isContentEditable:true }]) {
+        assert.equal(geometryCameraCommandFromKeyboardEvent({ code:"KeyA", ctrlKey:true, target }), null);
+    }
+    for (const state of [{ isComposing:true }, { defaultPrevented:true }, { altKey:true }, { shiftKey:true }, { metaKey:true }]) {
+        assert.equal(geometryCameraCommandFromKeyboardEvent({ code:"KeyA", ctrlKey:true, ...state }), null);
+    }
 });

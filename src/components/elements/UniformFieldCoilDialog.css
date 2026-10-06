@@ -11,3 +11,7 @@
 .uniform-field-coil th:first-child,.uniform-field-coil td:first-child { text-align: left; }
 .uniform-field-coil .coil-error { color: #b00020; background: #ffeded; border: 1px solid #b00020; padding: 8px; }
 .coil-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+.coil-angle-title { font-size: 13px; }
+.coil-orientation-angles input { background: #edf1f4; color: #17212b; cursor: text; }
+.coil-sector-notice { border-left: 3px solid #be8527; padding-left: 8px; }

@@ -1,7 +1,7 @@
 import test,{after} from "node:test";
 import assert from "node:assert/strict";
 import {createServer} from "vite";
-import {coilAxialFactor,uniformFieldCoilParameters,prepareUniformFieldCoil,applyUniformFieldCoil} from "../src/services/generator/uniformFieldCoil.js";
+import {createUniformFieldCoilDefaults,uniformFieldCoilOrientation,coilAxialFactor,uniformFieldCoilParameters,prepareUniformFieldCoil,applyUniformFieldCoil} from "../src/services/generator/uniformFieldCoil.js";
 import {unpackKvVertices,validateKvVertices} from "../src/services/solver/geometryKv.js";
 import {expandElementSymmetry} from "../src/services/solver/symmetryExpansion.js";
 import {applyMatrix4ToPoint} from "../src/services/solver/rotation3d.js";
@@ -161,4 +161,54 @@ test("failure preparing another model part leaves all data and history untouched
   setup();const before=modelService.getModel();
   assert.throws(()=>modelService.setModelParts([{schema:elementSchema,data:[]},{schema:{...elementSchema,id:"broken"},data:{}}],{recordHistory:true}));
   assert.equal(modelService.getModel(),before);assert.equal(modelService.canUndo("elements"),false);
+});
+
+
+test("new coil defaults use L=100, full opening and a Russian name without shared arrays",()=>{
+  const p=createUniformFieldCoilDefaults(),second=createUniformFieldCoilDefaults();
+  assert.equal(p.length,100);assert.equal(p.opening,360);assert.equal(p.name,"Катушка однородного поля");
+  p.direction[0]=3;assert.deepEqual(second.direction,[1,0,0]);
+  const result=prepareUniformFieldCoil(empty(),second,createElement);
+  assert.equal(result.elements[0].name,"Катушка однородного поля");
+});
+
+test("displayed symVi angles reproduce arbitrary axis directions, including poles and large magnitudes",()=>{
+  for(const direction of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1],[2,3,4],[-2,-3,4],[1e308,1e308,1e308],[1e-300,-2e-300,3e-300]]) {
+    const orientation=uniformFieldCoilOrientation(direction);
+    const result=prepareUniformFieldCoil(empty(),{...params,direction},createElement),record=result.elements[0];
+    assert.deepEqual(record.symVi.flat(),orientation.angles);
+    const [,b,c]=orientation.angles.map(v=>v*Math.PI/180);
+    const rotated=[Math.cos(b)*Math.cos(c),Math.cos(b)*Math.sin(c),-Math.sin(b)];
+    rotated.forEach((v,i)=>close(v,orientation.axis[i]));
+    assert.ok(orientation.angles.every(v=>Number.isFinite(v)&&!Object.is(v,-0)));
+  }
+  assert.deepEqual(uniformFieldCoilOrientation([0,0,1]).angles,[0,-90,0]);
+  assert.deepEqual(uniformFieldCoilOrientation([0,0,-1]).angles,[0,90,0]);
+  for(const direction of [[0,0,0],[1,NaN,0],[1,Infinity,0],[1,2],[],null])assert.throws(()=>uniformFieldCoilOrientation(direction));
+});
+
+test("sector opening determines contiguous local copies, valid geometry and matching source rows",()=>{
+  for(const opening of [360,180,90,17,5,2.5]) {
+    const result=prepareUniformFieldCoil(empty(),{...params,opening},createElement),record=result.elements[0],n=Math.ceil(opening/5);
+    assert.equal(record.symLs,n);close(record.symLs*record.symYl,opening);
+    assert.ok(record.symYl>0&&record.symYl<=5);
+    assert.equal(record.geo.flat()[8],record.symYl);
+    const {vertices,err}=unpackKvVertices(record.geo.flat(),1);
+    assert.equal(err,0);assert.equal(validateKvVertices(vertices),true);
+    assert.equal(mhjLayout(result.elements).rows,n);assert.equal(result.mhj[0].v.length,n);
+    assert.ok(result.mhj[0].v.every(v=>v[0]===0&&v[1]===-result.values.j0&&v[2]===0));
+    const roundtrip=deserialize(serialize(result.elements,elementSchema),elementSchema)[0];
+    assert.equal(roundtrip.symLs,n);assert.deepEqual(roundtrip.symVi,record.symVi);
+    assert.deepEqual(roundtrip.geo,record.geo);
+    close(result.values.j0,uniformFieldCoilParameters(params,empty()).j0);
+  }
+});
+
+test("invalid openings are rejected atomically without altering model, sources or undo history",()=>{
+  for(const opening of [null,"",0,-1,360.01,361,NaN,Infinity,-Infinity]) {
+    const args=setup(),before=modelService.getModel();
+    assert.throws(()=>applyUniformFieldCoil({...args,params:{...params,opening}}),/Раскрытие/);
+    assert.equal(modelService.getModel(),before);assert.equal(modelService.canUndo("elements"),false);
+    assert.equal(modelService.canUndo("mhj"),false);assert.equal(unsavedChangesService.hasDirty(),false);
+  }
 });

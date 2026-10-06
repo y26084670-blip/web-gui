@@ -37,6 +37,7 @@ import {
 import { loadMaterialReferenceCatalog } from "./services/materialReferenceValidation.js";
 import { createError } from "./tabulator/validators/common/createDiagnostic.js";
 import { assertJweakLocalUnchanged, createJweakLocalLoader } from "./services/jweakLocalService.js";
+import { installModelSaveShortcut } from "./services/modelSaveShortcut.js";
 import { installHorizontalDragScroll } from "./services/horizontalDragScroll.js";
 
 import "./App.css";
@@ -46,6 +47,8 @@ export default function App() {
   const [taskActions, setTaskActions] = createSignal(null);
   const [taskSummaryBounds, setTaskSummaryBounds] = createSignal(null);
   const tabButtons = new Map();
+  const editorControllers = new Map();
+  let openConstantMuGenerator;
   let tabsViewport;
   let tabsHeader;
   let tasksContent;
@@ -90,6 +93,22 @@ export default function App() {
 
   onMount(() => {
     onCleanup(installHorizontalDragScroll(tabsViewport));
+    onCleanup(installModelSaveShortcut({
+      target: window,
+      isEnabled: () => activeTab() !== TABS.TASKS.id,
+      onSave: async () => {
+        const task = selectionService.loadedTaskHandle();
+        const version = selectionService.taskDataVersion();
+        const editor = editorControllers.get(activeTab());
+        if (!task || selectionService.loadedTaskIsDemo() || savePending()) return;
+        document.activeElement?.blur();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await editor?.flush();
+        if (task === selectionService.loadedTaskHandle() && version === selectionService.taskDataVersion()) {
+          await handleSave();
+        }
+      },
+    }));
     const observer = new ResizeObserver(scheduleTaskPanelMeasurement);
     observer.observe(tabsHeader);
     observer.observe(tasksContent);
@@ -426,6 +445,10 @@ export default function App() {
           schema={schema}
           active={props.active}
           computedColumnsMode={props.computedColumnsMode}
+          onEditorReady={controller => {
+            if (controller) editorControllers.set(schema.id, controller);
+            else editorControllers.delete(schema.id);
+          }}
           onRecordSelectionChange={handleGeometryRecordSelectionChange}
           medNavigation={schema.id===TABS.ELEMENTS.id ? medNavigation() : null}
           onMedEditorReady={schema.id===TABS.ELEMENTS.id ? (editor)=>{medEditor=editor;} : undefined}
@@ -441,6 +464,7 @@ export default function App() {
         <MaterialLibraryTab
           definition={definition}
           active={props.active}
+          onConstantMuGeneratorReady={definition.kind === "FMM" ? open => { openConstantMuGenerator = open; } : undefined}
         />
       ),
     })),
@@ -777,6 +801,7 @@ export default function App() {
         medActionEnabled={Boolean(selectionService.loadedTaskHandle()) && Array.isArray(modelService.getModel().elements)}
         onAutofillMed={analyzeCurrentMed}
         onCreateUniformFieldCoil={openCoil}
+        onCreateConstantMu={() => { setSidePanelOpen(false); openConstantMuGenerator?.(); }}
         onMakeNonmagnetic={handleMakeElementsNonmagnetic}
       />
       <div

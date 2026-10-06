@@ -168,6 +168,17 @@ export function SidePanel(props) {
 
         <hr class="side-panel-separator" />
 
+        <section class="side-panel-section">
+          <details class="side-panel-submenu">
+            <summary class="side-panel-section-title">Характеристики ФММ</summary>
+            <div class="side-panel-options">
+              <button class="side-panel-option" disabled={!props.open}
+                onClick={props.onCreateConstantMu}>Создать таблицу μ = const</button>
+            </div>
+          </details>
+        </section>
+        <hr class="side-panel-separator" />
+
         <section class="side-panel-section side-panel-history">
           <div class="side-panel-section-title">
             История текущей вкладки
