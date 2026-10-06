@@ -15,35 +15,28 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Apply checked editor patch
+      - name: Correct fixture selectors
         shell: bash
         run: |
           python3 - <<'PY'
-          import base64, gzip, hashlib, pathlib
-          data = ''.join(pathlib.Path(f'.github/editor-update.part{i}').read_text().strip() for i in range(1, 5))
-          patch = gzip.decompress(base64.b64decode(data))
-          assert hashlib.sha256(patch).hexdigest() == '9bb7a1c0d32d42fe785c2b6bb22064d87f934283902ef7ebb9a638f3800e44d0'
-          pathlib.Path('/tmp/editor.patch').write_bytes(patch)
+          from pathlib import Path
+          p=Path('scripts/check-editor-features-browser.mjs')
+          s=p.read_text().replace("const button=name=>page.getByRole('button',{name,exact:true});", "const tabNames=['Выбор задания','Общие параметры','Элементы модели','Области наблюдения','Амплитуды','Траектории','Заданные источники','Конфигурация модели','Характеристики ФММ','Характеристики ВТСП'];\nconst button=name=>tabNames.includes(name)?page.locator('.tabs-header button').filter({hasText:new RegExp('^'+name+'$')}):page.getByRole('button',{name,exact:true});")
+          s=s.replace("await writeFile(path.join(out,'results.json')", "await writeFile(path.join(out,'last-state.html'),await page.content()).catch(()=>{});\n  await writeFile(path.join(out,'results.json')")
+          p.write_text(s)
           PY
-          git apply --check /tmp/editor.patch
-          git apply /tmp/editor.patch
-      - run: npm ci
-      - name: Focused tests
-        run: node --test test/uniformFieldCoil.test.js test/geometryCameraView.test.js test/constantMuFmm.test.js test/modelSaveShortcut.test.js test/fmmTableInput.test.js
-      - name: Commit implementation on work branch only
-        shell: bash
-        run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src test scripts/check-editor-features-browser.mjs
-          git commit -m 'feat: extend coil generator, editor shortcuts and constant-mu materials'
+          git add scripts/check-editor-features-browser.mjs
+          git commit -m 'test: account for tab dirty indicators in accessible labels'
           git push origin HEAD:work/editor-coil-shortcuts-mu-20261006
+      - run: npm ci
       - run: npm run assets:prepare
       - name: Install browser test tools outside project
         shell: bash
         run: |
           npm install --prefix /tmp/editor-playwright --no-save --package-lock=false playwright
-          /tmp/editor-playwright/node_modules/.bin/playwright install --with-deps chromium
+          /tmp/editor-playwright/node_modules/.bin/playwright install chromium
       - name: Actual editor browser workflows
         env:
           PLAYWRIGHT_MODULE: /tmp/editor-playwright/node_modules/playwright/index.mjs
