@@ -16,7 +16,8 @@ const browser=await chromium.launch({executablePath:process.env.CHROMIUM_EXECUTA
 const page=await browser.newPage({viewport:{width:1500,height:1050}});page.setDefaultTimeout(12000);
 const checks=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
 const check=(name,ok)=>{assert.ok(ok,name);checks.push(name);console.log('PASS',name);};
-const button=name=>page.getByRole('button',{name,exact:true});
+const tabNames=['Выбор задания','Общие параметры','Элементы модели','Области наблюдения','Амплитуды','Траектории','Заданные источники','Конфигурация модели','Характеристики ФММ','Характеристики ВТСП'];
+const button=name=>tabNames.includes(name)?page.locator('.tabs-header button').filter({hasText:new RegExp('^'+name+'$')}):page.getByRole('button',{name,exact:true});
 const read=file=>page.evaluate(path=>editorFixture.read(path),file);
 const current=()=>page.evaluate(()=>editorFixture.model());
 const openDrawer=async()=>{await button('Открыть дополнительные функции').click();};
@@ -112,6 +113,7 @@ try{
   check('no uncaught browser errors',errors.length===0);
 }finally{
   await page.screenshot({path:path.join(out,'last-state.png')}).catch(()=>{});
+  await writeFile(path.join(out,'last-state.html'),await page.content()).catch(()=>{});
   await writeFile(path.join(out,'results.json'),JSON.stringify({passed:checks.length,checks,errors,scope:'Actual App, Tabulator, Chromium OPFS; controlled directory picker',notTested:['Windows chooser/permissions','installed Clark']},null,2));
   console.log('Browser errors:',JSON.stringify(errors));await browser.close();await server.close();
 }
