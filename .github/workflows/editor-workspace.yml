@@ -15,20 +15,18 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Correct fixture selectors
+      - name: Correct 3D fixture selector
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('scripts/check-editor-features-browser.mjs')
-          s=p.read_text().replace("const button=name=>page.getByRole('button',{name,exact:true});", "const tabNames=['Выбор задания','Общие параметры','Элементы модели','Области наблюдения','Амплитуды','Траектории','Заданные источники','Конфигурация модели','Характеристики ФММ','Характеристики ВТСП'];\nconst button=name=>tabNames.includes(name)?page.locator('.tabs-header button').filter({hasText:new RegExp('^'+name+'$')}):page.getByRole('button',{name,exact:true});")
-          s=s.replace("await writeFile(path.join(out,'results.json')", "await writeFile(path.join(out,'last-state.html'),await page.content()).catch(()=>{});\n  await writeFile(path.join(out,'results.json')")
-          p.write_text(s)
+          p.write_text(p.read_text().replace("page.locator('.geometry-button').click()", "page.locator('button.geometry-button').click()"))
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add scripts/check-editor-features-browser.mjs
-          git commit -m 'test: account for tab dirty indicators in accessible labels'
+          git commit -m 'test: select the 3D action rather than its help illustration'
           git push origin HEAD:work/editor-coil-shortcuts-mu-20261006
       - run: npm ci
       - run: npm run assets:prepare
