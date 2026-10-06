@@ -98,7 +98,7 @@ try{
   await dialog.locator('[role=alert]').filter({hasText:'несохранённые правки'}).waitFor();
   check('generator protects unsaved edits to the same source characteristic',JSON.parse(await read('input3XX/xapLibFMM/2.00.txt')).tabl[11]===22);
   await dialog.getByRole('button',{name:'Закрыть',exact:true}).click();
-  await button('Элементы модели').click();await page.locator('.geometry-button').click();
+  await button('Элементы модели').click();await page.locator('button.geometry-button').click();
   const viewer=page.locator('.geometry-viewer-window');await viewer.waitFor();
   const canvas=viewer.locator('canvas');await canvas.waitFor();await page.waitForTimeout(1500);
   await viewer.focus();await page.keyboard.press('Control+a');await page.waitForTimeout(450);
