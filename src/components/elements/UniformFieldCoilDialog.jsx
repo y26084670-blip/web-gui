@@ -1,11 +1,15 @@
 import {createMemo,createSignal,For,Show} from "solid-js";
 import {FloatingWindow} from "../window/FloatingWindow.jsx";
-import {uniformFieldCoilParameters} from "../../services/generator/uniformFieldCoil.js";
+import {createUniformFieldCoilDefaults,uniformFieldCoilOrientation,uniformFieldCoilParameters} from "../../services/generator/uniformFieldCoil.js";
 import "./UniformFieldCoilDialog.css";
 
 export function UniformFieldCoilDialog(props) {
-  const [params,setParams]=createSignal({name:"Катушка однородного поля",H0:1,radius:10,length:420,direction:[1,0,0],amplitude:0,move:0});
+  const [params,setParams]=createSignal(createUniformFieldCoilDefaults());
   const change=(key,value)=>setParams(old=>({...old,[key]:value}));
+  const orientation=createMemo(()=>{
+    try{return uniformFieldCoilOrientation(params().direction).angles;}
+    catch{return [null,null,null];}
+  });
   const analysis=createMemo(()=>{
     try{return {values:uniformFieldCoilParameters(params(),props.model)};}
     catch(error){return {error:error.message};}
@@ -20,18 +24,29 @@ export function UniformFieldCoilDialog(props) {
         <label>H0, кА/м <input type="number" min="0" step="any" value={params().H0} onInput={e=>change("H0",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
         <label>R, мм <input type="number" min="0" step="any" value={params().radius} onInput={e=>change("radius",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
         <label>L, мм <input type="number" min="0" step="any" value={params().length} onInput={e=>change("length",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
+        <label>Раскрытие, град <input type="number" min="0" max="360" step="any" value={params().opening} onInput={e=>change("opening",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
       </div>
       <fieldset disabled={props.busy}><legend>Направление поля — ненулевой вектор</legend><div class="coil-input-row">
         <For each={["X","Y","Z"]}>{(name,index)=><label>{name}<input type="number" step="any" value={params().direction[index()]}
           onInput={e=>change("direction",params().direction.map((v,i)=>i===index()?e.currentTarget.valueAsNumber:v))}/></label>}</For>
-      </div></fieldset>
+      </div>
+        <div class="coil-angle-title">Углы локальной СК, град (для существующей катушки)</div>
+        <div class="coil-input-row coil-orientation-angles">
+          <For each={["X","Y","Z"]}>{(name,index)=><label>Угол {name}
+            <input readOnly aria-label={`Угол локальной СК ${name}, град`}
+              title="Угол поворота локальной СК (symVi); значение можно скопировать"
+              value={Number.isFinite(orientation()[index()])?String(Number(orientation()[index()].toFixed(8))):"—"}/>
+          </label>}</For>
+        </div>
+      </fieldset>
       <div class="coil-input-row">
         <label>Номер амплитуды <input type="number" min="0" step="1" value={params().amplitude} onInput={e=>change("amplitude",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
         <label>Номер траектории <input type="number" min="0" step="1" value={params().move} onInput={e=>change("move",e.currentTarget.valueAsNumber)} disabled={props.busy}/></label>
       </div>
       <p>Центр — (0, 0, 0). Номер 0: постоянная амплитуда / без движения.</p>
       <Show when={analysis().values}>{values=><>
-        <p>R1 = {number(values().r1)} мм · T = 10 мм · L = {number(values().length)} мм<br/>j0 = {number(values().j0)} А/мм² · 72 локальных образа</p>
+        <p>R1 = {number(values().r1)} мм · T = 10 мм · L = {number(values().length)} мм<br/>j0 = {number(values().j0)} А/мм² · локальных образов: {values().segments} · раскрытие {number(values().opening)}°</p>
+        <Show when={values().opening<360}><p class="coil-sector-notice" role="note">Создаётся сектор. Ток и оценка ниже относятся к полной катушке 360° с теми же размерами, а не к фактическому полю отдельного сектора.</p></Show>
         <table><caption>Аналитическая оценка на оси, при единичном множителе амплитуды</caption>
           <thead><tr><th>Положение</th><th>H, кА/м</th><th>Отклонение от H(0), %</th></tr></thead>
           <tbody><tr><td>0</td><td>{number(values().field0)}</td><td>0</td></tr>

@@ -1135,8 +1135,9 @@ function createCamera(THREE, projection, aspect) {
       1_000_000,
     );
 
-  camera.position.set(1, 1, 1);
-  camera.up.set(0, 0, 1);
+  const initialFrame = geometryCameraFrame(GEOMETRY_CAMERA_COMMANDS.FIT_INITIAL);
+  camera.position.fromArray(initialFrame.offset);
+  camera.up.fromArray(initialFrame.up);
   return camera;
 }
 
@@ -2050,7 +2051,8 @@ export function ThreeGeometryViewport(props) {
     camera.up.fromArray(frame.up);
     camera.position.fromArray(frame.offset).add(controls.target);
     rebuildOrbitControls();
-    fitCameraToVisibleObjects(THREE, camera, controls, [geometryRoot]);
+    fitCameraToVisibleObjects(THREE, camera, controls, [geometryRoot],
+      command === GEOMETRY_CAMERA_COMMANDS.FIT_INITIAL ? { padding: props.fitAllPadding } : {});
     clearHoverTooltip();
     requestRender();
   };

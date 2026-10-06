@@ -11,6 +11,8 @@ import { TabulatorFull as Tabulator } from "tabulator-tables";
 
 import { FmmGraphRegion } from "../components/materials/FmmGraphRegion.jsx";
 import { MaterialDeleteConfirmationDialog } from "../components/materials/MaterialDeleteConfirmationDialog.jsx";
+import { ConstantMuFmmDialog } from "../components/materials/ConstantMuFmmDialog.jsx";
+import { matchesConstantMuRecord, saveConstantMuFmm } from "../services/materials/constantMuFmm.js";
 import { FmmClipboardDialog } from "../components/materials/FmmClipboardDialog.jsx";
 import { modelToRows } from "../tabulator/converters/modelConverter";
 import { TableBuilder } from "../tabulator/builders/TableBuilder";
@@ -146,6 +148,7 @@ export function MaterialLibraryTab(props) {
   const [deleteRequest, setDeleteRequest] = createSignal(null);
   const [currentFmmRecord, setCurrentFmmRecord] = createSignal(null);
   const [clipboardRequest, setClipboardRequest] = createSignal(null);
+  const [constantMuOpen, setConstantMuOpen] = createSignal(false);
   const [legacyFmmStatus, setLegacyFmmStatus] = createSignal("missing");
   const [tableReady, setTableReady] = createSignal(false);
   const [lowerHeight, setLowerHeight] = createSignal(
@@ -545,6 +548,46 @@ export function MaterialLibraryTab(props) {
     } finally {
       if (isCurrent()) setLoading(false);
     }
+  }
+
+  async function saveGeneratedConstantMu(record) {
+    const destination = taskHandle(), session = librarySession();
+    if (!isFmm || !destination || selectionService.loadedTaskIsDemo()) {
+      throw new Error("Для сохранения требуется локальное задание (не демо).");
+    }
+    if (!recordsReady() || actionBusy() || clipboardRequest()) {
+      throw new Error("Библиотека занята или ещё не загружена. Повторите сохранение после завершения операции.");
+    }
+    if (dirtyRecords().some(item => matchesConstantMuRecord(item, record.name))) {
+      throw new Error(`Характеристика «${record.name}» имеет несохранённые правки. Сначала сохраните или отмените их во вкладке ФММ.`);
+    }
+    beginAction();
+    let saved;
+    try {
+      saved = await saveConstantMuFmm({ taskHandle: destination, record, service: taskMaterialLibraryService });
+      if (disposed || librarySession() !== session) return saved;
+      if (isTaskSource()) {
+        // Update only the generated record. Other dirty rows must not be reloaded.
+        let row = table.getRows().find(item => matchesConstantMuRecord(item.getData(), record.name));
+        if (row) {
+          const old = row.getData(), entry = recordDetailViews.get(old);
+          if (entry) { detailRegion.showHint(); entry.view.destroy(); recordDetailViews.delete(old); }
+          await row.update(saved);
+        } else {
+          [row] = await table.addData(modelToRows(tableSchema, [saved]));
+        }
+        if (disposed || librarySession() !== session) return saved;
+        clearNameFilter(); table.deselectRow(); row.select(); showPropertyDetail(row);
+        setEmptyLibrary(false); clearLibraryHistory(); notifyAppliedLibraryChange();
+      } else {
+        diagnosticService.invalidateDiagnostics();
+        materialLibraryRevisionService.notifyChanged(definition.kind);
+      }
+      return saved;
+    } catch (cause) {
+      if (saved) throw new Error(`Файл ${saved._taskLibraryRecord.relativePath} записан, но обновление таблицы не завершено: ${cause.message}`);
+      throw cause;
+    } finally { endAction(); }
   }
 
   async function createFmmMaterial() {
@@ -989,6 +1032,10 @@ export function MaterialLibraryTab(props) {
   }
 
   onMount(() => {
+    if (isFmm) {
+      props.onConstantMuGeneratorReady?.(() => setConstantMuOpen(true));
+      onCleanup(() => props.onConstantMuGeneratorReady?.(null));
+    }
     detailRegion.attach({
       title: detailTitleHost,
       toolbar: detailToolbarHost,
@@ -1083,6 +1130,9 @@ export function MaterialLibraryTab(props) {
 
   return (
     <div class="material-library-tab">
+      <Show when={isFmm}><ConstantMuFmmDialog open={constantMuOpen()} onClose={() => setConstantMuOpen(false)}
+        taskHandle={taskHandle()} canSave={Boolean(taskHandle()) && !selectionService.loadedTaskIsDemo()}
+        onSave={saveGeneratedConstantMu}/></Show>
       <div class="material-library-actions">
         <label class="material-library-source">
           <span>Источник характеристик</span>

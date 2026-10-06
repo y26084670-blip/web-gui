@@ -596,7 +596,7 @@ export function GeometryViewerWindow(props) {
               <button
                 type="button"
                 class="geometry-viewer-view-command"
-                title="или нажмите A"
+                title="A — показать все; Ctrl+A — показать все в начальном виде под углом"
                 onClick={() => requestView(
                   GEOMETRY_CAMERA_COMMANDS.FIT_ALL,
                   true,

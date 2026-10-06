@@ -3,6 +3,22 @@ import {jweakLocalLocksStructure,JWEAK_STRUCTURE_NOTICE} from "../solver/jweakLo
 import {fromStorage} from "../model/arrayShape.js";
 
 export const COIL_SEGMENTS=72;
+export function createUniformFieldCoilDefaults() {
+  return {name:"Катушка однородного поля",H0:1,radius:10,length:100,opening:360,direction:[1,0,0],amplitude:0,move:0};
+}
+
+// These are symVi rotation angles, not acos direction angles to the axes.
+// Rotation order and signs match solver/rotation3d and existing coil records.
+export function uniformFieldCoilOrientation(direction) {
+  const vector=direction?.map(Number);
+  if(vector?.length!==3||!vector.every(Number.isFinite)||!vector.some(v=>v!==0))
+    fail("Задайте три конечные компоненты ненулевого вектора направления.");
+  const scale=Math.max(...vector.map(Math.abs)),scaled=vector.map(v=>v/scale),norm=Math.hypot(...scaled);
+  const axis=scaled.map(v=>v/norm),degrees=180/Math.PI;
+  const angles=[0,-Math.atan2(axis[2],Math.hypot(axis[0],axis[1]))*degrees,
+    Math.hypot(axis[0],axis[1])===0?0:Math.atan2(axis[1],axis[0])*degrees].map(v=>v===0?0:v);
+  return {axis,angles};
+}
 export const COIL_MIRROR_ERROR="ERROR: полная геометрия катушки несовместима с зеркальной симметрией. Отключите зеркальные симметрии X и Y в общих параметрах.";
 const fail=message=>{throw Object.assign(new Error(message),{level:"ERROR"});};
 
@@ -22,13 +38,14 @@ export function coilAxialFactor(z,r1,r2,length) {
 export function uniformFieldCoilParameters(params,model) {
   if([model?.general?.mirrorSymmetryX,model?.general?.mirrorSymmetryY].some(value=>value===0||value===1))fail(COIL_MIRROR_ERROR);
   if(jweakLocalLocksStructure(model?.jweakLocal))fail(JWEAK_STRUCTURE_NOTICE);
-  const H0=Number(params.H0),radius=Number(params.radius),length=Number(params.length),direction=params.direction?.map(Number);
+  const H0=Number(params.H0),radius=Number(params.radius),length=Number(params.length);
+  const opening=Number(params.opening===undefined?360:params.opening);
   if(!Number.isFinite(H0)||H0<0)fail("H0 должен быть конечным неотрицательным числом.");
   if(!Number.isFinite(radius)||radius<=0)fail("Радиус R должен быть конечным положительным числом.");
   if(!Number.isFinite(length)||length<=0)fail("Длина L должна быть конечным положительным числом.");
-  if(direction?.length!==3||!direction.every(Number.isFinite)||!direction.some(v=>v!==0))fail("Задайте три конечные компоненты ненулевого вектора направления.");
-  const scale=Math.max(...direction.map(Math.abs)),scaled=direction.map(v=>v/scale),norm=Math.hypot(...scaled);
-  const axis=scaled.map(v=>v/norm);
+  if(!Number.isFinite(opening)||opening<=0||opening>360)fail("Раскрытие должно быть больше 0 и не больше 360 градусов.");
+  const segments=Math.ceil(opening/(360/COIL_SEGMENTS)),sectorAngle=opening/segments;
+  const {axis,angles}=uniformFieldCoilOrientation(params.direction);
   const r1=1.1*radius,thickness=10,r2=r1+thickness;
   if(!Number.isFinite(r2)||!(r2>r1))fail("Размеры катушки выходят за допустимую точность чисел.");
   const factor0=coilAxialFactor(0,r1,r2,length),factorR=coilAxialFactor(radius,r1,r2,length),j0=H0/factor0;
@@ -37,7 +54,7 @@ export function uniformFieldCoilParameters(params,model) {
   for(const [value,records,label] of [[amplitude,model?.amps,"амплитуды"],[move,model?.moves,"траектории"]])
     if(!Number.isSafeInteger(value)||value<0||value>(records?.length??0))fail(`Недопустимый номер ${label}: 0 или номер существующей записи.`);
   const relativeDeviation=H0===0?null:(factorR/factor0-1)*100;
-  return {H0,radius,r1,r2,thickness,length,j0,axis,amplitude,move,
+  return {H0,radius,r1,r2,thickness,length,opening,segments,sectorAngle,j0,axis,angles,amplitude,move,
     field0:j0*factor0,fieldR:j0*factorR,relativeDeviation,
     nonuniformity:relativeDeviation===null?null:Math.abs(relativeDeviation)};
 }
@@ -52,19 +69,18 @@ export function prepareUniformFieldCoil(model,params,createElement) {
   if(!Array.isArray(previous)||previous.length!==existingRows
     || previous.some(row=>!Array.isArray(row)||row.length!==3||!row.every(Number.isFinite)))
     fail("Число или значения заданных источников не соответствуют существующим элементам. Сначала исправьте MHJ.");
-  const {axis,r1,r2,length,j0}=values,half=length/2;
-  const radians=180/Math.PI;
+  const {angles,r1,r2,length,j0,segments,sectorAngle}=values,half=length/2;
   const record={...createElement(),name:String(params.name??"Катушка однородного поля").trim()||"Катушка однородного поля",
-    geoType:1,geo:fromStorage([-half,r1,half,r1,half,r2,-half,r2,360/COIL_SEGMENTS,...Array(15).fill(0)],{nColumns:3,order:"row"}),
-    dr:[[0],[0],[0]],symR0:[[0],[0],[0]],symVi:[[0],[-Math.atan2(axis[2],Math.hypot(axis[0],axis[1]))*radians],[Math.atan2(axis[1],axis[0])*radians]],
-    symLs:COIL_SEGMENTS,symYl:360/COIL_SEGMENTS,symAs:1,symPs:1,symYa:0,symTx:0,symKya:0,symKyp:0,
+    geoType:1,geo:fromStorage([-half,r1,half,r1,half,r2,-half,r2,sectorAngle,...Array(15).fill(0)],{nColumns:3,order:"row"}),
+    dr:[[0],[0],[0]],symR0:[[0],[0],[0]],symVi:angles.map(angle=>[angle]),
+    symLs:segments,symYl:sectorAngle,symAs:1,symPs:1,symYa:0,symTx:0,symKya:0,symKyp:0,
     dp:[[1],[1],[1]],targ:2,auto:true,take:true,rv:0,xapName:"",med:Array.from({length:6},()=>[-1]),
     indAmp:values.amplitude,indMove:values.move};
   const index=elements.findIndex(e=>e.targ===3),insertAt=index<0?elements.length:index;
   // All prescribed-source elements precede virtual elements, so new MHJ rows
   // append without reindexing existing currents or conductor MED references.
   const nextElements=[...elements.slice(0,insertAt),record,...elements.slice(insertAt)];
-  const v=[...previous,...Array.from({length:COIL_SEGMENTS},()=>[0,-j0,0])];
+  const v=[...previous,...Array.from({length:segments},()=>[0,-j0,0])];
   return {values,recordIndex:insertAt,elements:nextElements,mhj:[{...records[0],v}]};
 }
 

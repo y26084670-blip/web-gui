@@ -1,0 +1,8 @@
+.constant-mu-dialog { margin: auto; overflow: auto; }
+.constant-mu-dialog::backdrop { background: rgba(0, 0, 0, .62); }
+.constant-mu-inputs { display: flex; gap: 16px; margin: 12px 0; }
+.constant-mu-inputs label { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
+.constant-mu-inputs input { box-sizing: border-box; width: 100%; padding: 6px; color: #edf2f7; background: #151a1f; border: 1px solid #596674; }
+.constant-mu-preview { color: #edf2f7; width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+.constant-mu-preview th, .constant-mu-preview td { color: #edf2f7; padding: 3px 8px; border: 1px solid #596674; text-align: right; }
+.constant-mu-dialog .material-dialog-actions button { min-width: 95px; }
